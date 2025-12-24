@@ -1,6 +1,8 @@
-module github.com/jcmturner/gokrb5/v8
+module github.com/go-krb5/krb5/v8
 
-go 1.16
+go 1.24.0
+
+toolchain go1.25.1
 
 require (
 	github.com/gorilla/sessions v1.2.1

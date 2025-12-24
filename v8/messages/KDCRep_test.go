@@ -6,14 +6,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jcmturner/gokrb5/v8/credentials"
-	"github.com/jcmturner/gokrb5/v8/iana"
-	"github.com/jcmturner/gokrb5/v8/iana/etypeID"
-	"github.com/jcmturner/gokrb5/v8/iana/msgtype"
-	"github.com/jcmturner/gokrb5/v8/iana/nametype"
-	"github.com/jcmturner/gokrb5/v8/iana/patype"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/credentials"
+	"github.com/go-krb5/krb5/v8/iana"
+	"github.com/go-krb5/krb5/v8/iana/etypeID"
+	"github.com/go-krb5/krb5/v8/iana/msgtype"
+	"github.com/go-krb5/krb5/v8/iana/nametype"
+	"github.com/go-krb5/krb5/v8/iana/patype"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -13,8 +13,8 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/jcmturner/gokrb5/v8/crypto"
-	"github.com/jcmturner/gokrb5/v8/types"
+	"github.com/go-krb5/krb5/v8/crypto"
+	"github.com/go-krb5/krb5/v8/types"
 )
 
 const (

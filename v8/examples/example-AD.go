@@ -13,15 +13,15 @@ import (
 	"net/http/httptest"
 	"os"
 
+	"github.com/go-krb5/krb5/v8/client"
+	"github.com/go-krb5/krb5/v8/config"
+	"github.com/go-krb5/krb5/v8/credentials"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/service"
+	"github.com/go-krb5/krb5/v8/spnego"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 	"github.com/gorilla/sessions"
 	"github.com/jcmturner/goidentity/v6"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/credentials"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/service"
-	"github.com/jcmturner/gokrb5/v8/spnego"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
 )
 
 func main() {
@@ -53,7 +53,7 @@ func httpRequest(url string, cl *client.Client) {
 		l.Fatalf("Error on AS_REQ: %v\n", err)
 	}
 
-	spnegoCl := spnego.NewClient(cl, nil, "HTTP/host.res.gokrb5")
+	spnegoCl := spnego.NewClient(cl, nil, "HTTP/host.res.krb5")
 
 	// Make the request for the first time with no session
 	r, _ := http.NewRequest("GET", url, nil)
@@ -81,7 +81,7 @@ func httpServer() *httptest.Server {
 	kt := keytab.New()
 	kt.Unmarshal(b)
 	th := http.HandlerFunc(testAppHandler)
-	s := httptest.NewServer(spnego.SPNEGOKRB5Authenticate(th, kt, service.Logger(l), service.KeytabPrincipal("sysHTTP"), service.SessionManager(NewSessionMgr("gokrb5"))))
+	s := httptest.NewServer(spnego.SPNEGOKRB5Authenticate(th, kt, service.Logger(l), service.KeytabPrincipal("sysHTTP"), service.SessionManager(NewSessionMgr("krb5"))))
 	return s
 }
 

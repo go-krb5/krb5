@@ -1,6 +1,6 @@
-# Contribution Guide to gokrb5
+# Contribution Guide to krb5
 
-If you're reading this then I guess you are interested in contributing to gokrb5 which is brilliant!
+If you're reading this then I guess you are interested in contributing to krb5 which is brilliant!
 Thank you for your interest and taking the time to read this guide.
 
 The information below should help you successfully contribute and by following these guidelines you are expressing the 
@@ -46,7 +46,7 @@ This would require a minor (v\_.X.\_) version update.
 * Ensure godoc comments are created or updated as required for any new or updated code.
 * Ensure your contributions are formatted correctly with gofmt. The travis build will test this.
 * Do not use external package dependencies.  
-As gokrb5 is designed to be a core library used in other applications it is best to avoid dependencies the project has 
+As krb5 is designed to be a core library used in other applications it is best to avoid dependencies the project has 
 no control over, other than the Go standard library, as issues with any dependency could have large knock on effects.
 * Provide useful commit messages.
 * Pull requests must address one issue only and keep to the scope of the issue. This makes it easier to review and merge, so your contribution will get
@@ -72,14 +72,14 @@ A good rule of thumb: The easier you make it for the reader of an issue to help 
 
 #### Bugs
 When raising bugs please include the following items in your issue:
-* The version of gokrb5 being used (vX.Y.Z or master or branch name).
+* The version of krb5 being used (vX.Y.Z or master or branch name).
 * The version of Go being used (output of the ```go version``` command is handy).
 * Details of the environment in which you are seeing the issue. For example, what is being used as the KDC,
 what the krb5.conf contains, etc.
 * Details on how to re-create the issue.
 * Details on what you are experiencing that indicates the issue.
 * What you expected to see.
-* In which gokrb5 package(s) you think the issue arises from.
+* In which krb5 package(s) you think the issue arises from.
 * If the bug relates to compliance with an RFC please specify the RFC number and section you are referring to.
 
 #### Enhancements 
@@ -98,4 +98,4 @@ It is recommended to run tests with the ```-race``` argument.
 There are integration tests that run against various other network services such as KDCs, HTTP web servers, DNS servers,
 etc. To run these pass ```-tags=integration``` as an argument to the go test command.
 There are vagrant and docker resources available to spin up these network services. See the
-[readme](https://github.com/jcmturner/gokrb5/blob/master/testenv/README.md) in the testenv directory for instructions.
+[readme](https://github.com/go-krb5/krb5/blob/master/testenv/README.md) in the testenv directory for instructions.

@@ -6,16 +6,16 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/jcmturner/gokrb5.v7/client"
-	"gopkg.in/jcmturner/gokrb5.v7/config"
-	"gopkg.in/jcmturner/gokrb5.v7/credentials"
-	"gopkg.in/jcmturner/gokrb5.v7/iana/errorcode"
-	"gopkg.in/jcmturner/gokrb5.v7/iana/flags"
-	"gopkg.in/jcmturner/gokrb5.v7/iana/nametype"
-	"gopkg.in/jcmturner/gokrb5.v7/keytab"
-	"gopkg.in/jcmturner/gokrb5.v7/messages"
-	"gopkg.in/jcmturner/gokrb5.v7/test/testdata"
-	"gopkg.in/jcmturner/gokrb5.v7/types"
+	"gopkg.in/jcmturner/krb5.v7/client"
+	"gopkg.in/jcmturner/krb5.v7/config"
+	"gopkg.in/jcmturner/krb5.v7/credentials"
+	"gopkg.in/jcmturner/krb5.v7/iana/errorcode"
+	"gopkg.in/jcmturner/krb5.v7/iana/flags"
+	"gopkg.in/jcmturner/krb5.v7/iana/nametype"
+	"gopkg.in/jcmturner/krb5.v7/keytab"
+	"gopkg.in/jcmturner/krb5.v7/messages"
+	"gopkg.in/jcmturner/krb5.v7/test/testdata"
+	"gopkg.in/jcmturner/krb5.v7/types"
 )
 
 func TestVerifyAPREQ(t *testing.T) {
@@ -23,7 +23,7 @@ func TestVerifyAPREQ(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
@@ -65,7 +65,7 @@ func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
@@ -116,7 +116,7 @@ func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
@@ -165,7 +165,7 @@ func TestVerifyAPREQ_Replay(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
@@ -214,7 +214,7 @@ func TestVerifyAPREQ_FutureTicket(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
@@ -262,7 +262,7 @@ func TestVerifyAPREQ_InvalidTicket(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
@@ -311,7 +311,7 @@ func TestVerifyAPREQ_ExpiredTicket(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()

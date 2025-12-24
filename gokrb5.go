@@ -1,5 +1,5 @@
 /*
-Package gokrb5 provides a Kerberos 5 implementation for Go.
+Package krb5 provides a Kerberos 5 implementation for Go.
 
 This is a pure Go implementation and does not have dependencies on native libraries.
 
@@ -25,4 +25,4 @@ Parsing Keytab files.
 
 Parsing krb5.conf files.
 */
-package gokrb5
+package krb5

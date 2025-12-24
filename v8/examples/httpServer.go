@@ -11,12 +11,12 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/service"
+	"github.com/go-krb5/krb5/v8/spnego"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 	"github.com/gorilla/sessions"
 	"github.com/jcmturner/goidentity/v6"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/service"
-	"github.com/jcmturner/gokrb5/v8/spnego"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
 )
 
 const (
@@ -38,7 +38,7 @@ func main() {
 
 	// Set up handler mappings wrapping in the SPNEGOKRB5Authenticate handler wrapper
 	mux := http.NewServeMux()
-	mux.Handle("/", spnego.SPNEGOKRB5Authenticate(th, kt, service.Logger(l), service.SessionManager(NewSessionMgr("gokrb5"))))
+	mux.Handle("/", spnego.SPNEGOKRB5Authenticate(th, kt, service.Logger(l), service.SessionManager(NewSessionMgr("krb5"))))
 
 	// Start up the web server
 	log.Fatal(http.ListenAndServe(port, mux))

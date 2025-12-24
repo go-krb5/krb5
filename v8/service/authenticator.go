@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-krb5/krb5/v8/client"
+	"github.com/go-krb5/krb5/v8/config"
+	"github.com/go-krb5/krb5/v8/credentials"
 	goidentity "github.com/jcmturner/goidentity/v6"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/credentials"
 )
 
 // NewKRB5BasicAuthenticator creates a new NewKRB5BasicAuthenticator
@@ -22,7 +22,7 @@ func NewKRB5BasicAuthenticator(headerVal string, krb5conf *config.Config, servic
 	}
 }
 
-// KRB5BasicAuthenticator implements gokrb5.com/jcmturner/goidentity.Authenticator interface.
+// KRB5BasicAuthenticator implements krb5.com/jcmturner/goidentity.Authenticator interface.
 // It takes username and password so can be used for basic authentication.
 type KRB5BasicAuthenticator struct {
 	BasicHeaderValue string

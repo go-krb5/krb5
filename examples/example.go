@@ -1,7 +1,7 @@
 //go:build examples
 // +build examples
 
-// Package examples provides simple examples of gokrb5 use.
+// Package examples provides simple examples of krb5 use.
 package main
 
 import (
@@ -14,12 +14,12 @@ import (
 	"os"
 
 	goidentity "gopkg.in/jcmturner/goidentity.v3"
-	"gopkg.in/jcmturner/gokrb5.v7/client"
-	"gopkg.in/jcmturner/gokrb5.v7/config"
-	"gopkg.in/jcmturner/gokrb5.v7/keytab"
-	"gopkg.in/jcmturner/gokrb5.v7/service"
-	"gopkg.in/jcmturner/gokrb5.v7/spnego"
-	"gopkg.in/jcmturner/gokrb5.v7/test/testdata"
+	"gopkg.in/jcmturner/krb5.v7/client"
+	"gopkg.in/jcmturner/krb5.v7/config"
+	"gopkg.in/jcmturner/krb5.v7/keytab"
+	"gopkg.in/jcmturner/krb5.v7/service"
+	"gopkg.in/jcmturner/krb5.v7/spnego"
+	"gopkg.in/jcmturner/krb5.v7/test/testdata"
 )
 
 func main() {
@@ -51,7 +51,7 @@ func httpRequest(url string, cl *client.Client) {
 		l.Printf("Error on AS_REQ: %v\n", err)
 	}
 	r, _ := http.NewRequest("GET", url, nil)
-	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
+	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.krb5")
 	if err != nil {
 		l.Printf("Error setting client SPNEGO header: %v", err)
 	}

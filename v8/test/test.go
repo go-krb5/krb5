@@ -1,4 +1,4 @@
-// Package test provides useful resources for the testing of gokrb5.
+// Package test provides useful resources for the testing of krb5.
 package test
 
 import (

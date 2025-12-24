@@ -29,7 +29,7 @@ const (
  forwardable = yes #comment to be ignored
  default_keytab_name = FILE:/etc/krb5.keytab
 
- default_client_keytab_name = FILE:/home/gokrb5/client.keytab
+ default_client_keytab_name = FILE:/home/krb5/client.keytab
  default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 # comment to be ignored
 
 
@@ -43,7 +43,7 @@ const (
   kdc = 10.1.2.3.4:88
 
   admin_server = 10.80.88.88:749 ; comment to be ignored
-  default_domain = test.gokrb5
+  default_domain = test.krb5
  }
  EXAMPLE.COM = {
         kdc = kerberos.example.com
@@ -58,9 +58,9 @@ const (
 
 
 [domain_realm]
- .test.gokrb5 = TEST.GOKRB5 #comment to be ignored
+ .test.krb5 = TEST.GOKRB5 #comment to be ignored
 
- test.gokrb5 = TEST.GOKRB5 ;comment to be ignored
+ test.krb5 = TEST.GOKRB5 ;comment to be ignored
  
   .example.com = EXAMPLE.COM # comment to be ignored
  hostname1.example.com = EXAMPLE.COM ; comment to be ignored
@@ -99,13 +99,13 @@ const (
  forwardable = yes
  default_keytab_name = FILE:/etc/krb5.keytab
 
- default_client_keytab_name = FILE:/home/gokrb5/client.keytab
+ default_client_keytab_name = FILE:/home/krb5/client.keytab
  default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
 
 [domain_realm]
- .test.gokrb5 = TEST.GOKRB5
+ .test.krb5 = TEST.GOKRB5
 
- test.gokrb5 = TEST.GOKRB5
+ test.krb5 = TEST.GOKRB5
 
 [appdefaults]
  pam = {
@@ -127,7 +127,7 @@ const (
   kdc = 10.1.2.3.4:88
 
   admin_server = 10.80.88.88:749
-  default_domain = test.gokrb5
+  default_domain = test.krb5
  }
  EXAMPLE.COM = {
         kdc = kerberos.example.com
@@ -151,7 +151,7 @@ const (
  ticket_lifetime = 10h
  forwardable = yes
  default_keytab_name = FILE:/etc/krb5.keytab
- default_client_keytab_name = FILE:/home/gokrb5/client.keytab
+ default_client_keytab_name = FILE:/home/krb5/client.keytab
  default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
 [realms]
  TEST.GOKRB5 = {
@@ -161,7 +161,7 @@ const (
   kdc = 10.80.88.88*
   kdc = 10.1.2.3.4:88
   admin_server = 10.80.88.88:749
-  default_domain = test.gokrb5
+  default_domain = test.krb5
  }
  EXAMPLE.COM = {
         kdc = kerberos.example.com
@@ -170,8 +170,8 @@ const (
         auth_to_local = RULE:[1:$1@$0](.*@EXAMPLE.COM)s/.*//
  }
 [domain_realm]
- .test.gokrb5 = TEST.GOKRB5
- test.gokrb5 = TEST.GOKRB5
+ .test.krb5 = TEST.GOKRB5
+ test.krb5 = TEST.GOKRB5
 `
 	krb5ConfTabs = `
 [logging]
@@ -192,7 +192,7 @@ const (
 	forwardable = yes
 	default_keytab_name = FILE:/etc/krb5.keytab
 
-	default_client_keytab_name = FILE:/home/gokrb5/client.keytab
+	default_client_keytab_name = FILE:/home/krb5/client.keytab
 	default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
 
 
@@ -206,7 +206,7 @@ const (
 		kdc = 10.1.2.3.4:88
 
 		admin_server = 10.80.88.88:749
-		default_domain = test.gokrb5
+		default_domain = test.krb5
 	}
 	EXAMPLE.COM = {
 		kdc = kerberos.example.com
@@ -217,9 +217,9 @@ const (
 
 
 [domain_realm]
-	.test.gokrb5 = TEST.GOKRB5
+	.test.krb5 = TEST.GOKRB5
 
-	test.gokrb5 = TEST.GOKRB5
+	test.krb5 = TEST.GOKRB5
  
 	.example.com = EXAMPLE.COM
 	hostname1.example.com = EXAMPLE.COM
@@ -256,7 +256,7 @@ const (
  forwardable = yes
  default_keytab_name = FILE:/etc/krb5.keytab
 
- default_client_keytab_name = FILE:/home/gokrb5/client.keytab
+ default_client_keytab_name = FILE:/home/krb5/client.keytab
  default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
 
 
@@ -270,7 +270,7 @@ const (
   kdc = 10.1.2.3.4:88
 
   admin_server = 10.80.88.88:749
-  default_domain = test.gokrb5
+  default_domain = test.krb5
     v4_name_convert = {
      host = {
         rcmd = host
@@ -286,9 +286,9 @@ const (
 
 
 [domain_realm]
- .test.gokrb5 = TEST.GOKRB5
+ .test.krb5 = TEST.GOKRB5
 
- test.gokrb5 = TEST.GOKRB5
+ test.krb5 = TEST.GOKRB5
  
   .example.com = EXAMPLE.COM
  hostname1.example.com = EXAMPLE.COM
@@ -310,7 +310,7 @@ const (
 
 func TestLoad(t *testing.T) {
 	t.Parallel()
-	cf, _ := ioutil.TempFile(os.TempDir(), "TEST-gokrb5-krb5.conf")
+	cf, _ := ioutil.TempFile(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
 	cf.WriteString(krb5Conf)
 
@@ -325,26 +325,26 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
 	assert.Equal(t, true, c.LibDefaults.Forwardable, "[libdefaults] forwardable not as expected")
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName, "[libdefaults] default_keytab_name not as expected")
-	assert.Equal(t, "FILE:/home/gokrb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
+	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes, "[libdefaults] default_tkt_enctypes not as expected")
 
 	assert.Equal(t, 3, len(c.Realms), "Number of realms not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm, "[realm] realm name not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer, "[realm] Admin_server not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer, "[realm] Kpasswd_server not as expectd")
-	assert.Equal(t, "test.gokrb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
+	assert.Equal(t, "test.krb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:88", "assume.port.num:88", "some.other.port:1234", "10.80.88.88:88"}, c.Realms[0].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com:88", "kerberos-1.example.com:88"}, c.Realms[1].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com"}, c.Realms[1].AdminServer, "[realm] Admin_server not as expectd")
 
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.krb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.krb5"], "Domain to realm mapping not as expected")
 
 }
 
 func TestLoadWithV4Lines(t *testing.T) {
 	t.Parallel()
-	cf, _ := ioutil.TempFile(os.TempDir(), "TEST-gokrb5-krb5.conf")
+	cf, _ := ioutil.TempFile(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
 	cf.WriteString(krb5ConfV4Lines)
 
@@ -362,20 +362,20 @@ func TestLoadWithV4Lines(t *testing.T) {
 	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
 	assert.Equal(t, true, c.LibDefaults.Forwardable, "[libdefaults] forwardable not as expected")
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName, "[libdefaults] default_keytab_name not as expected")
-	assert.Equal(t, "FILE:/home/gokrb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
+	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes, "[libdefaults] default_tkt_enctypes not as expected")
 
 	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm, "[realm] realm name not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer, "[realm] Admin_server not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer, "[realm] Kpasswd_server not as expectd")
-	assert.Equal(t, "test.gokrb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
+	assert.Equal(t, "test.krb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:88", "assume.port.num:88", "some.other.port:1234", "10.80.88.88:88"}, c.Realms[0].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com:88", "kerberos-1.example.com:88"}, c.Realms[1].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com"}, c.Realms[1].AdminServer, "[realm] Admin_server not as expectd")
 
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.krb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.krb5"], "Domain to realm mapping not as expected")
 
 }
 
@@ -392,20 +392,20 @@ func TestLoad2(t *testing.T) {
 	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
 	assert.Equal(t, true, c.LibDefaults.Forwardable, "[libdefaults] forwardable not as expected")
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName, "[libdefaults] default_keytab_name not as expected")
-	assert.Equal(t, "FILE:/home/gokrb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
+	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes, "[libdefaults] default_tkt_enctypes not as expected")
 
 	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm, "[realm] realm name not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer, "[realm] Admin_server not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer, "[realm] Kpasswd_server not as expectd")
-	assert.Equal(t, "test.gokrb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
+	assert.Equal(t, "test.krb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:88", "assume.port.num:88", "some.other.port:1234", "10.80.88.88:88"}, c.Realms[0].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com:88", "kerberos-1.example.com:88"}, c.Realms[1].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com"}, c.Realms[1].AdminServer, "[realm] Admin_server not as expectd")
 
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.krb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.krb5"], "Domain to realm mapping not as expected")
 	assert.True(t, c.LibDefaults.NoAddresses, "No address not set as true")
 }
 
@@ -422,26 +422,26 @@ func TestLoadNoBlankLines(t *testing.T) {
 	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
 	assert.Equal(t, true, c.LibDefaults.Forwardable, "[libdefaults] forwardable not as expected")
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName, "[libdefaults] default_keytab_name not as expected")
-	assert.Equal(t, "FILE:/home/gokrb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
+	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes, "[libdefaults] default_tkt_enctypes not as expected")
 
 	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm, "[realm] realm name not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer, "[realm] Admin_server not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer, "[realm] Kpasswd_server not as expectd")
-	assert.Equal(t, "test.gokrb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
+	assert.Equal(t, "test.krb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:88", "assume.port.num:88", "some.other.port:1234", "10.80.88.88:88"}, c.Realms[0].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com:88", "kerberos-1.example.com:88"}, c.Realms[1].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com"}, c.Realms[1].AdminServer, "[realm] Admin_server not as expectd")
 
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.krb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.krb5"], "Domain to realm mapping not as expected")
 
 }
 
 func TestLoadTabs(t *testing.T) {
 	t.Parallel()
-	cf, _ := ioutil.TempFile(os.TempDir(), "TEST-gokrb5-krb5.conf")
+	cf, _ := ioutil.TempFile(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
 	cf.WriteString(krb5ConfTabs)
 
@@ -456,20 +456,20 @@ func TestLoadTabs(t *testing.T) {
 	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
 	assert.Equal(t, true, c.LibDefaults.Forwardable, "[libdefaults] forwardable not as expected")
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName, "[libdefaults] default_keytab_name not as expected")
-	assert.Equal(t, "FILE:/home/gokrb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
+	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName, "[libdefaults] default_client_keytab_name not as expected")
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes, "[libdefaults] default_tkt_enctypes not as expected")
 
 	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm, "[realm] realm name not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer, "[realm] Admin_server not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer, "[realm] Kpasswd_server not as expectd")
-	assert.Equal(t, "test.gokrb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
+	assert.Equal(t, "test.krb5", c.Realms[0].DefaultDomain, "[realm] Default_domain not as expectd")
 	assert.Equal(t, []string{"10.80.88.88:88", "assume.port.num:88", "some.other.port:1234", "10.80.88.88:88"}, c.Realms[0].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com:88", "kerberos-1.example.com:88"}, c.Realms[1].KDC, "[realm] Kdc not as expectd")
 	assert.Equal(t, []string{"kerberos.example.com"}, c.Realms[1].AdminServer, "[realm] Admin_server not as expectd")
 
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
-	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.krb5"], "Domain to realm mapping not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.krb5"], "Domain to realm mapping not as expected")
 
 }
 
@@ -517,7 +517,7 @@ func TestResolveRealm(t *testing.T) {
 		{"hostname1.example.com", "EXAMPLE.COM"},
 		{"hostname2.example.com", "TEST.GOKRB5"},
 		{"one.two.three.example.com", "EXAMPLE.COM"},
-		{".test.gokrb5", "TEST.GOKRB5"},
+		{".test.krb5", "TEST.GOKRB5"},
 		{"foo.testlowercase.org", "lowercase.org"},
 	}
 	for _, tt := range tests {

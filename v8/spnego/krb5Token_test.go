@@ -5,15 +5,15 @@ import (
 	"math"
 	"testing"
 
+	"github.com/go-krb5/krb5/v8/client"
+	"github.com/go-krb5/krb5/v8/credentials"
+	"github.com/go-krb5/krb5/v8/gssapi"
+	"github.com/go-krb5/krb5/v8/iana/msgtype"
+	"github.com/go-krb5/krb5/v8/iana/nametype"
+	"github.com/go-krb5/krb5/v8/messages"
+	"github.com/go-krb5/krb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/types"
 	"github.com/jcmturner/gofork/encoding/asn1"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/credentials"
-	"github.com/jcmturner/gokrb5/v8/gssapi"
-	"github.com/jcmturner/gokrb5/v8/iana/msgtype"
-	"github.com/jcmturner/gokrb5/v8/iana/nametype"
-	"github.com/jcmturner/gokrb5/v8/messages"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
-	"github.com/jcmturner/gokrb5/v8/types"
 	"github.com/stretchr/testify/assert"
 )
 

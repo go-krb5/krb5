@@ -11,10 +11,10 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/jcmturner/gokrb5/v8/iana/nametype"
-	"github.com/jcmturner/gokrb5/v8/test"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
-	"github.com/jcmturner/gokrb5/v8/types"
+	"github.com/go-krb5/krb5/v8/iana/nametype"
+	"github.com/go-krb5/krb5/v8/test"
+	"github.com/go-krb5/krb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,7 +22,7 @@ const (
 	kinitCmd = "kinit"
 	kvnoCmd  = "kvno"
 	klistCmd = "klist"
-	spn      = "HTTP/host.test.gokrb5"
+	spn      = "HTTP/host.test.krb5"
 )
 
 type output struct {

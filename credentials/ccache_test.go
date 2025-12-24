@@ -5,9 +5,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/jcmturner/gokrb5.v7/iana/nametype"
-	"gopkg.in/jcmturner/gokrb5.v7/test/testdata"
-	"gopkg.in/jcmturner/gokrb5.v7/types"
+	"gopkg.in/jcmturner/krb5.v7/iana/nametype"
+	"gopkg.in/jcmturner/krb5.v7/test/testdata"
+	"gopkg.in/jcmturner/krb5.v7/types"
 )
 
 func TestParse(t *testing.T) {
@@ -35,7 +35,7 @@ func TestParse(t *testing.T) {
 	assert.True(t, c.Contains(tgtpn), "Cache does not contain TGT credential")
 	httppn := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	assert.True(t, c.Contains(httppn), "Cache does not contain HTTP SPN credential")
 }
@@ -106,7 +106,7 @@ func TestCCache_GetEntry(t *testing.T) {
 	}
 	httppn := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.krb5"},
 	}
 	cred, ok := c.GetEntry(httppn)
 	if !ok {

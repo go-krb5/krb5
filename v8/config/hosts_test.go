@@ -1,10 +1,10 @@
 package config
 
 import (
-	"github.com/jcmturner/gokrb5/v8/test"
+	"github.com/go-krb5/krb5/v8/test"
 	"testing"
 
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -12,14 +12,14 @@ func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {
 	t.Parallel()
 
 	// This test is meant to cover the fix for
-	// https://github.com/jcmturner/gokrb5/issues/332
+	// https://github.com/go-krb5/krb5/issues/332
 	krb5ConfWithKDCAndDNSLookupKDC := `
 [libdefaults]
  dns_lookup_kdc = true
 
 [realms]
  TEST.GOKRB5 = {
-  kdc = kdc2b.test.gokrb5:88
+  kdc = kdc2b.test.krb5:88
  }
 `
 
@@ -35,8 +35,8 @@ func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {
 	if count != 1 {
 		t.Fatalf("expected 1 but received %d", count)
 	}
-	if kdcs[1] != "kdc2b.test.gokrb5:88" {
-		t.Fatalf("expected kdc2b.test.gokrb5:88 but received %s", kdcs[1])
+	if kdcs[1] != "kdc2b.test.krb5:88" {
+		t.Fatalf("expected kdc2b.test.krb5:88 but received %s", kdcs[1])
 	}
 }
 
@@ -58,11 +58,11 @@ func TestResolveKDC(t *testing.T) {
 	assert.Equal(t, 5, count, "Number of SRV records not as expected: %v", res)
 	assert.Equal(t, count, len(res), "Map size does not match: %v", res)
 	expected := []string{
-		"kdc.test.gokrb5:88",
-		"kdc1a.test.gokrb5:88",
-		"kdc2a.test.gokrb5:88",
-		"kdc1b.test.gokrb5:88",
-		"kdc2b.test.gokrb5:88",
+		"kdc.test.krb5:88",
+		"kdc1a.test.krb5:88",
+		"kdc2a.test.krb5:88",
+		"kdc1b.test.krb5:88",
+		"kdc2b.test.krb5:88",
 	}
 	for _, s := range expected {
 		var found bool

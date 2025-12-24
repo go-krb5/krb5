@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/go-krb5/krb5/v8/crypto/etype"
 	"github.com/jcmturner/gofork/x/crypto/pbkdf2"
-	"github.com/jcmturner/gokrb5/v8/crypto/etype"
 )
 
 const (

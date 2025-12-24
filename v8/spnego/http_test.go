@@ -17,14 +17,14 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-krb5/krb5/v8/client"
+	"github.com/go-krb5/krb5/v8/config"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/service"
+	"github.com/go-krb5/krb5/v8/test"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 	"github.com/gorilla/sessions"
 	"github.com/jcmturner/goidentity/v6"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/service"
-	"github.com/jcmturner/gokrb5/v8/test"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,8 +47,8 @@ func TestClient_SetSPNEGOHeader(t *testing.T) {
 		t.Fatalf("error on AS_REQ: %v\n", err)
 	}
 	urls := []string{
-		"http://cname.test.gokrb5",
-		"http://host.test.gokrb5",
+		"http://cname.test.krb5",
+		"http://host.test.krb5",
 	}
 	paths := []string{
 		"/modkerb/index.html",
@@ -96,8 +96,8 @@ func TestSPNEGOHTTPClient(t *testing.T) {
 		t.Fatalf("error on AS_REQ: %v\n", err)
 	}
 	urls := []string{
-		"http://cname.test.gokrb5",
-		"http://host.test.gokrb5",
+		"http://cname.test.krb5",
+		"http://host.test.krb5",
 	}
 	// This path issues a redirect which the http client will automatically follow.
 	// It should cause a replay issue if the negInit token is sent in the first instance.
@@ -143,7 +143,7 @@ func TestService_SPNEGOKRB_ValidUser(t *testing.T) {
 	r, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	err := SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
+	err := SetSPNEGOHeader(cl, r, "HTTP/host.test.krb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -163,7 +163,7 @@ func TestService_SPNEGOKRB_ValidUser_RawKRB5Token(t *testing.T) {
 	r, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	sc := SPNEGOClient(cl, "HTTP/host.test.gokrb5")
+	sc := SPNEGOClient(cl, "HTTP/host.test.krb5")
 	err := sc.AcquireCred()
 	if err != nil {
 		t.Fatalf("could not acquire client credential: %v", err)
@@ -193,7 +193,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 	r1, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5")
+	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.krb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -215,7 +215,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 	// Form a 2nd ticket
 	r2, _ := http.NewRequest("GET", s.URL, nil)
 
-	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5")
+	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.krb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -250,7 +250,7 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 	r1, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5")
+	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.krb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 
 	r2, _ := http.NewRequest("GET", s.URL, nil)
 
-	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5")
+	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.krb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -316,7 +316,7 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	cookieJar, _ := cookiejar.New(nil)
 	httpCl := http.DefaultClient
 	httpCl.Jar = cookieJar
-	spnegoCl := NewClient(cl, httpCl, "HTTP/host.test.gokrb5")
+	spnegoCl := NewClient(cl, httpCl, "HTTP/host.test.krb5")
 	httpResp, err := spnegoCl.Do(r)
 	if err != nil {
 		t.Fatalf("Request error: %v\n", err)
@@ -350,7 +350,7 @@ func httpServer() *httptest.Server {
 	kt := keytab.New()
 	kt.Unmarshal(b)
 	th := http.HandlerFunc(testAppHandler)
-	s := httptest.NewServer(SPNEGOKRB5Authenticate(th, kt, service.Logger(l), service.SessionManager(NewSessionMgr("gokrb5"))))
+	s := httptest.NewServer(SPNEGOKRB5Authenticate(th, kt, service.Logger(l), service.SessionManager(NewSessionMgr("krb5"))))
 	return s
 }
 

@@ -6,13 +6,13 @@ import (
 	"log"
 	"testing"
 
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/iana/etypeID"
-	"github.com/jcmturner/gokrb5/v8/iana/nametype"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/test"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
-	"github.com/jcmturner/gokrb5/v8/types"
+	"github.com/go-krb5/krb5/v8/config"
+	"github.com/go-krb5/krb5/v8/iana/etypeID"
+	"github.com/go-krb5/krb5/v8/iana/nametype"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/test"
+	"github.com/go-krb5/krb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -59,7 +59,7 @@ func TestClient_GetServiceTicket_AD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error on login: %v\n", err)
 	}
-	spn := "HTTP/user2.user.gokrb5"
+	spn := "HTTP/user2.user.krb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("Error getting service ticket: %v\n", err)
@@ -104,7 +104,7 @@ func TestClient_GetServiceTicket_AD_TRUST_USER_DOMAIN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error on login: %v\n", err)
 	}
-	spn := "HTTP/host.res.gokrb5"
+	spn := "HTTP/host.res.krb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("Error getting service ticket: %v\n", err)
@@ -151,7 +151,7 @@ func TestClient_GetServiceTicket_AD_USER_DOMAIN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error on login: %v\n", err)
 	}
-	spn := "HTTP/user2.user.gokrb5"
+	spn := "HTTP/user2.user.krb5"
 	tkt, _, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("Error getting service ticket: %v\n", err)

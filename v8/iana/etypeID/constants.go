@@ -77,7 +77,7 @@ var ETypesByName = map[string]int32{
 }
 
 // EtypeSupported resolves the etype name string to the etype ID.
-// If zero is returned the etype is not supported by gokrb5.
+// If zero is returned the etype is not supported by krb5.
 func EtypeSupported(etype string) int32 {
 	// Slice of supported enctype IDs
 	s := []int32{

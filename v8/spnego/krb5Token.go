@@ -7,17 +7,17 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-krb5/krb5/v8/asn1tools"
+	"github.com/go-krb5/krb5/v8/client"
+	"github.com/go-krb5/krb5/v8/credentials"
+	"github.com/go-krb5/krb5/v8/gssapi"
+	"github.com/go-krb5/krb5/v8/iana/chksumtype"
+	"github.com/go-krb5/krb5/v8/iana/msgtype"
+	"github.com/go-krb5/krb5/v8/krberror"
+	"github.com/go-krb5/krb5/v8/messages"
+	"github.com/go-krb5/krb5/v8/service"
+	"github.com/go-krb5/krb5/v8/types"
 	"github.com/jcmturner/gofork/encoding/asn1"
-	"github.com/jcmturner/gokrb5/v8/asn1tools"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/credentials"
-	"github.com/jcmturner/gokrb5/v8/gssapi"
-	"github.com/jcmturner/gokrb5/v8/iana/chksumtype"
-	"github.com/jcmturner/gokrb5/v8/iana/msgtype"
-	"github.com/jcmturner/gokrb5/v8/krberror"
-	"github.com/jcmturner/gokrb5/v8/messages"
-	"github.com/jcmturner/gokrb5/v8/service"
-	"github.com/jcmturner/gokrb5/v8/types"
 )
 
 // GSSAPI KRB5 MechToken IDs.
@@ -52,9 +52,9 @@ func (m *KRB5Token) Marshal() ([]byte, error) {
 			return []byte{}, fmt.Errorf("error marshalling AP_REQ for MechToken: %v", err)
 		}
 	case TOK_ID_KRB_AP_REP:
-		return []byte{}, errors.New("marshal of AP_REP GSSAPI MechToken not supported by gokrb5")
+		return []byte{}, errors.New("marshal of AP_REP GSSAPI MechToken not supported by krb5")
 	case TOK_ID_KRB_ERROR:
-		return []byte{}, errors.New("marshal of KRB_ERROR GSSAPI MechToken not supported by gokrb5")
+		return []byte{}, errors.New("marshal of KRB_ERROR GSSAPI MechToken not supported by krb5")
 	}
 	if err != nil {
 		return []byte{}, fmt.Errorf("error mashalling kerberos message within mech token: %v", err)
@@ -121,7 +121,7 @@ func (m *KRB5Token) Verify() (bool, gssapi.Status) {
 	case TOK_ID_KRB_AP_REP:
 		// Client side
 		// TODO how to verify the AP_REP - not yet implemented
-		return false, gssapi.Status{Code: gssapi.StatusFailure, Message: "verifying an AP_REP is not currently supported by gokrb5"}
+		return false, gssapi.Status{Code: gssapi.StatusFailure, Message: "verifying an AP_REP is not currently supported by krb5"}
 	case TOK_ID_KRB_ERROR:
 		if m.KRBError.MsgType != msgtype.KRB_ERROR {
 			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "KRB5_Error token not valid"}

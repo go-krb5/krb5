@@ -14,14 +14,14 @@ import (
 	"time"
 
 	"fmt"
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/credentials"
-	"github.com/jcmturner/gokrb5/v8/iana/etypeID"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/spnego"
-	"github.com/jcmturner/gokrb5/v8/test"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/client"
+	"github.com/go-krb5/krb5/v8/config"
+	"github.com/go-krb5/krb5/v8/credentials"
+	"github.com/go-krb5/krb5/v8/iana/etypeID"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/spnego"
+	"github.com/go-krb5/krb5/v8/test"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 	"github.com/stretchr/testify/assert"
 	"strings"
 	"sync"
@@ -130,7 +130,7 @@ func TestClient_ASExchange_TGSExchange_EncTypes_Keytab(t *testing.T) {
 		if err != nil {
 			t.Errorf("error on login using enctype %s: %v\n", tst, err)
 		}
-		tkt, key, err := cl.GetServiceTicket("HTTP/host.test.gokrb5")
+		tkt, key, err := cl.GetServiceTicket("HTTP/host.test.krb5")
 		if err != nil {
 			t.Errorf("error in TGS exchange using enctype %s: %v", tst, err)
 		}
@@ -167,7 +167,7 @@ func TestClient_ASExchange_TGSExchange_EncTypes_Password(t *testing.T) {
 		if err != nil {
 			t.Errorf("error on login using enctype %s: %v\n", tst, err)
 		}
-		tkt, key, err := cl.GetServiceTicket("HTTP/host.test.gokrb5")
+		tkt, key, err := cl.GetServiceTicket("HTTP/host.test.krb5")
 		if err != nil {
 			t.Errorf("error in TGS exchange using enctype %s: %v", tst, err)
 		}
@@ -300,7 +300,7 @@ func TestClient_GetServiceTicket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-	spn := "HTTP/host.test.gokrb5"
+	spn := "HTTP/host.test.krb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v\n", err)
@@ -336,7 +336,7 @@ func TestClient_GetServiceTicket_CanonicalizeTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-	spn := "HTTP/host.test.gokrb5"
+	spn := "HTTP/host.test.krb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v\n", err)
@@ -371,7 +371,7 @@ func TestClient_GetServiceTicket_InvalidSPN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-	spn := "host.test.gokrb5"
+	spn := "host.test.krb5"
 	_, _, err = cl.GetServiceTicket(spn)
 	assert.NotNil(t, err, "Expected unknown principal error")
 	assert.True(t, strings.Contains(err.Error(), "KDC_ERR_S_PRINCIPAL_UNKNOWN"), "Error text not as expected")
@@ -395,7 +395,7 @@ func TestClient_GetServiceTicket_OlderKDC(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-	spn := "HTTP/host.test.gokrb5"
+	spn := "HTTP/host.test.krb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v\n", err)
@@ -458,7 +458,7 @@ func spnegoGet(cl *client.Client) error {
 	if httpResp.StatusCode != http.StatusUnauthorized {
 		return errors.New("did not get unauthorized code when no SPNEGO header set")
 	}
-	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
+	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.krb5")
 	if err != nil {
 		return fmt.Errorf("error setting client SPNEGO header: %v", err)
 	}
@@ -534,7 +534,7 @@ func TestClient_GetServiceTicket_Trusted_Resource_Domain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-	spn := "HTTP/host.resdom.gokrb5"
+	spn := "HTTP/host.resdom.krb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v\n", err)
@@ -554,7 +554,7 @@ func TestClient_GetServiceTicket_Trusted_Resource_Domain(t *testing.T) {
 const (
 	kinitCmd = "kinit"
 	kvnoCmd  = "kvno"
-	spn      = "HTTP/host.test.gokrb5"
+	spn      = "HTTP/host.test.krb5"
 )
 
 func login() error {
@@ -634,7 +634,7 @@ func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error generating client from ccache: %v", err)
 	}
-	spn := "HTTP/host.test.gokrb5"
+	spn := "HTTP/host.test.krb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v\n", err)
@@ -655,7 +655,7 @@ func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 		url = testdata.TEST_HTTP_URL
 	}
 	r, _ := http.NewRequest("GET", url+"/modgssapi/index.html", nil)
-	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
+	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.krb5")
 	if err != nil {
 		t.Fatalf("error setting client SPNEGO header: %v", err)
 	}
@@ -691,7 +691,7 @@ func TestGetServiceTicketFromCCacheWithoutKDC(t *testing.T) {
 		url = testdata.TEST_HTTP_URL
 	}
 	r, _ := http.NewRequest("GET", url+"/modgssapi/index.html", nil)
-	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
+	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.krb5")
 	if err != nil {
 		t.Fatalf("error setting client SPNEGO header: %v", err)
 	}
@@ -755,7 +755,7 @@ func TestClient_Destroy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-	spn := "HTTP/host.test.gokrb5"
+	spn := "HTTP/host.test.krb5"
 	_, _, err = cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v\n", err)

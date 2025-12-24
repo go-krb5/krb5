@@ -1,4 +1,4 @@
-// Package krberror provides error type and functions for gokrb5.
+// Package krberror provides error type and functions for krb5.
 package krberror
 
 import (
@@ -19,7 +19,7 @@ const (
 	KDCError        = "KDC_Error"
 )
 
-// Krberror is an error type for gokrb5
+// Krberror is an error type for krb5
 type Krberror struct {
 	RootCause string
 	EText     []string

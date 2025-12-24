@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jcmturner/gokrb5/v8/iana/etypeID"
-	"github.com/jcmturner/gokrb5/v8/iana/nametype"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
-	"github.com/jcmturner/gokrb5/v8/types"
+	"github.com/go-krb5/krb5/v8/iana/etypeID"
+	"github.com/go-krb5/krb5/v8/iana/nametype"
+	"github.com/go-krb5/krb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -162,7 +162,7 @@ func TestKeytabEntriesUser(t *testing.T) {
 		t.Fatalf("Could not load ktutil-generated keytab: %s", err)
 	}
 
-	// Generate the same keytab with gokrb5
+	// Generate the same keytab with krb5
 	var ts time.Time = ktutil.Entries[0].Timestamp
 	var encTypes []int32 = []int32{
 		etypeID.AES256_CTS_HMAC_SHA1_96,
@@ -200,7 +200,7 @@ func TestKeytabEntriesService(t *testing.T) {
 		t.Errorf("Could not load ktutil-generated keytab: %s", err)
 	}
 
-	// Generate the same keytab with gokrb5
+	// Generate the same keytab with krb5
 	var ts time.Time = ktutil.Entries[0].Timestamp
 	var encTypes []int32 = []int32{
 		etypeID.AES256_CTS_HMAC_SHA1_96,
@@ -225,7 +225,7 @@ func TestKeytabEntriesService(t *testing.T) {
 }
 
 func TestKeytab_GetEncryptionKey(t *testing.T) {
-	princ := "HTTP/princ.test.gokrb5"
+	princ := "HTTP/princ.test.krb5"
 	realm := "TEST.GOKRB5"
 
 	kt := New()
@@ -234,7 +234,7 @@ func TestKeytab_GetEncryptionKey(t *testing.T) {
 	kt.AddEntry(princ, realm, "abcdefg", time.Unix(300, 0), 3, 18)
 	kt.AddEntry(princ, realm, "abcdefg", time.Unix(400, 0), 4, 18)
 	kt.AddEntry(princ, realm, "abcdefg", time.Unix(350, 0), 5, 18)
-	kt.AddEntry("HTTP/other.test.gokrb5", realm, "abcdefg", time.Unix(500, 0), 5, 18)
+	kt.AddEntry("HTTP/other.test.krb5", realm, "abcdefg", time.Unix(500, 0), 5, 18)
 
 	pn := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, princ)
 

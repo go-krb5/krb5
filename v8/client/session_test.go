@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/iana/etypeID"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/test"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/config"
+	"github.com/go-krb5/krb5/v8/iana/etypeID"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/test"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -97,7 +97,7 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 		if time.Now().UTC().After(endTime) {
 			t.Fatalf("session auto update failed")
 		}
-		spn := "HTTP/host.test.gokrb5"
+		spn := "HTTP/host.test.krb5"
 		tkt, key, err := cl.GetServiceTicket(spn)
 		if err != nil {
 			t.Fatalf("error getting service ticket: %v\n", err)

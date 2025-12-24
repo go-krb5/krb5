@@ -151,19 +151,19 @@ const (
   kdc = 127.0.0.1:88
   kdc = 127.0.0.2:88
   admin_server = 127.0.0.1:749
-  default_domain = test.gokrb5
+  default_domain = test.krb5
  }
  RESDOM.GOKRB5 = {
   kdc = 10.80.88.88:188
   admin_server = 127.0.0.1:749
-  default_domain = resdom.gokrb5
+  default_domain = resdom.krb5
  }
 
 [domain_realm]
- .test.gokrb5 = TEST.GOKRB5
- test.gokrb5 = TEST.GOKRB5
- .resdom.gokrb5 = RESDOM.GOKRB5
- resdom.gokrb5 = RESDOM.GOKRB5
+ .test.krb5 = TEST.GOKRB5
+ test.krb5 = TEST.GOKRB5
+ .resdom.krb5 = RESDOM.GOKRB5
+ resdom.krb5 = RESDOM.GOKRB5
  `
 	KRB5_CONF_AD = `[libdefaults]
   default_realm = USER.GOKRB5
@@ -179,18 +179,18 @@ const (
   USER.GOKRB5 = {
   kdc = 192.168.88.100:88
   admin_server = 192.168.88.100:464
-  default_domain = user.gokrb5
+  default_domain = user.krb5
  }
   RES.GOKRB5 = {
   kdc = 192.168.88.101:88
   admin_server = 192.168.88.101:464
-  default_domain = res.gokrb5
+  default_domain = res.krb5
  }
 
 [domain_realm]
-  .user.gokrb5 = USER.GOKRB5
- user.gokrb5 = USER.GOKRB5
-  .res.gokrb5 = RES.GOKRB5
- res.gokrb5 = RES.GOKRB5
+  .user.krb5 = USER.GOKRB5
+ user.krb5 = USER.GOKRB5
+  .res.krb5 = RES.GOKRB5
+ res.krb5 = RES.GOKRB5
  `
 )

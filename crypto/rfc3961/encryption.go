@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	"gopkg.in/jcmturner/gokrb5.v7/crypto/common"
-	"gopkg.in/jcmturner/gokrb5.v7/crypto/etype"
+	"gopkg.in/jcmturner/krb5.v7/crypto/common"
+	"gopkg.in/jcmturner/krb5.v7/crypto/etype"
 )
 
 // DES3EncryptData encrypts the data provided using DES3 and methods specific to the etype provided.

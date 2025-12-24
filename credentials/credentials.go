@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-uuid"
-	"gopkg.in/jcmturner/gokrb5.v7/iana/nametype"
-	"gopkg.in/jcmturner/gokrb5.v7/keytab"
-	"gopkg.in/jcmturner/gokrb5.v7/types"
+	"gopkg.in/jcmturner/krb5.v7/iana/nametype"
+	"gopkg.in/jcmturner/krb5.v7/keytab"
+	"gopkg.in/jcmturner/krb5.v7/types"
 )
 
 const (
 	// AttributeKeyADCredentials assigned number for AD credentials.
-	AttributeKeyADCredentials = "gokrb5AttributeKeyADCredentials"
+	AttributeKeyADCredentials = "krb5AttributeKeyADCredentials"
 )
 
 // Credentials struct for a user.

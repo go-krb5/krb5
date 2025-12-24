@@ -7,15 +7,15 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/go-krb5/krb5/v8/iana/nametype"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/types"
 	"github.com/hashicorp/go-uuid"
-	"github.com/jcmturner/gokrb5/v8/iana/nametype"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/types"
 )
 
 const (
 	// AttributeKeyADCredentials assigned number for AD credentials.
-	AttributeKeyADCredentials = "gokrb5AttributeKeyADCredentials"
+	AttributeKeyADCredentials = "krb5AttributeKeyADCredentials"
 )
 
 // Credentials struct for a user.

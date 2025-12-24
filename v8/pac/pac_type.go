@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jcmturner/gokrb5/v8/crypto"
-	"github.com/jcmturner/gokrb5/v8/iana/keyusage"
-	"github.com/jcmturner/gokrb5/v8/types"
+	"github.com/go-krb5/krb5/v8/crypto"
+	"github.com/go-krb5/krb5/v8/iana/keyusage"
+	"github.com/go-krb5/krb5/v8/types"
 	"github.com/jcmturner/rpc/v2/mstypes"
 )
 
@@ -104,8 +104,8 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 			}
 			pac.KerbValidationInfo = &k
 		case infoTypeCredentials:
-			// Currently PAC parsing is only useful on the service side in gokrb5
-			// The CredentialsInfo are only useful when gokrb5 has implemented RFC4556 and only applied on the client side.
+			// Currently PAC parsing is only useful on the service side in krb5
+			// The CredentialsInfo are only useful when krb5 has implemented RFC4556 and only applied on the client side.
 			// Skipping CredentialsInfo - will be revisited under RFC4556 implementation.
 			continue
 			//if pac.CredentialsInfo != nil {

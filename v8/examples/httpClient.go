@@ -11,11 +11,11 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/jcmturner/gokrb5/v8/client"
-	"github.com/jcmturner/gokrb5/v8/config"
-	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/jcmturner/gokrb5/v8/spnego"
-	"github.com/jcmturner/gokrb5/v8/test/testdata"
+	"github.com/go-krb5/krb5/v8/client"
+	"github.com/go-krb5/krb5/v8/config"
+	"github.com/go-krb5/krb5/v8/keytab"
+	"github.com/go-krb5/krb5/v8/spnego"
+	"github.com/go-krb5/krb5/v8/test/testdata"
 )
 
 const (
@@ -33,12 +33,12 @@ const (
  TEST.GOKRB5 = {
   kdc = 127.0.0.1:88
   admin_server = 127.0.0.1:749
-  default_domain = test.gokrb5
+  default_domain = test.krb5
  }
 
 [domain_realm]
- .test.gokrb5 = TEST.GOKRB5
- test.gokrb5 = TEST.GOKRB5
+ .test.krb5 = TEST.GOKRB5
+ test.krb5 = TEST.GOKRB5
  `
 )
 
@@ -80,7 +80,7 @@ func main() {
 		l.Fatalf("could create request: %v", err)
 	}
 
-	spnegoCl := spnego.NewClient(cl, nil, "HTTP/host.test.gokrb5")
+	spnegoCl := spnego.NewClient(cl, nil, "HTTP/host.test.krb5")
 
 	// Make the request
 	resp, err := spnegoCl.Do(r)

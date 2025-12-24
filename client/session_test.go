@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/jcmturner/gokrb5.v7/config"
-	"gopkg.in/jcmturner/gokrb5.v7/iana/etypeID"
-	"gopkg.in/jcmturner/gokrb5.v7/keytab"
-	"gopkg.in/jcmturner/gokrb5.v7/test"
-	"gopkg.in/jcmturner/gokrb5.v7/test/testdata"
+	"gopkg.in/jcmturner/krb5.v7/config"
+	"gopkg.in/jcmturner/krb5.v7/iana/etypeID"
+	"gopkg.in/jcmturner/krb5.v7/keytab"
+	"gopkg.in/jcmturner/krb5.v7/test"
+	"gopkg.in/jcmturner/krb5.v7/test/testdata"
 )
 
 func TestMultiThreadedClientSession(t *testing.T) {
@@ -97,7 +97,7 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 		if time.Now().UTC().After(endTime) {
 			t.Fatalf("session auto update failed")
 		}
-		spn := "HTTP/host.test.gokrb5"
+		spn := "HTTP/host.test.krb5"
 		tkt, key, err := cl.GetServiceTicket(spn)
 		if err != nil {
 			t.Fatalf("error getting service ticket: %v\n", err)
