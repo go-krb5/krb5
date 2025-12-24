@@ -4,10 +4,11 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestChangePasswdData_Marshal(t *testing.T) {

@@ -5,6 +5,9 @@ import (
 	"math"
 	"testing"
 
+	"github.com/go-krb5/x/encoding/asn1"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/gssapi"
@@ -13,8 +16,6 @@ import (
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
-	"github.com/jcmturner/gofork/encoding/asn1"
-	"github.com/stretchr/testify/assert"
 )
 
 const (

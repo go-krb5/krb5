@@ -4,16 +4,20 @@ import (
 	"bytes"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
 	"runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
-	"fmt"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
@@ -22,9 +26,6 @@ import (
 	"github.com/go-krb5/krb5/spnego"
 	"github.com/go-krb5/krb5/test"
 	"github.com/go-krb5/krb5/test/testdata"
-	"github.com/stretchr/testify/assert"
-	"strings"
-	"sync"
 )
 
 func TestClient_SuccessfulLogin_Keytab(t *testing.T) {

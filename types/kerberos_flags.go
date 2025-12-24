@@ -4,7 +4,7 @@ package types
 // Section: 5.2.8
 
 import (
-	"github.com/jcmturner/gofork/encoding/asn1"
+	"github.com/go-krb5/x/encoding/asn1"
 )
 
 // NewKrbFlags returns an ASN1 BitString struct of the right size for KrbFlags.

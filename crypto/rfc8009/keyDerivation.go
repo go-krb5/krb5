@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"golang.org/x/crypto/pbkdf2"
+
 	"github.com/go-krb5/krb5/crypto/etype"
 	"github.com/go-krb5/krb5/iana/etypeID"
-	"golang.org/x/crypto/pbkdf2"
 )
 
 const (

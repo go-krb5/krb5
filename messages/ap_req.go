@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
@@ -14,7 +16,6 @@ import (
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/types"
-	"github.com/jcmturner/gofork/encoding/asn1"
 )
 
 type marshalAPReq struct {

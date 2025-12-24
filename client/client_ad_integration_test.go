@@ -6,6 +6,8 @@ import (
 	"log"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/iana/nametype"
@@ -13,7 +15,6 @@ import (
 	"github.com/go-krb5/krb5/test"
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestClient_SuccessfulLogin_AD(t *testing.T) {

@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/test"
 	"github.com/go-krb5/krb5/test/testdata"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestMultiThreadedClientSession(t *testing.T) {

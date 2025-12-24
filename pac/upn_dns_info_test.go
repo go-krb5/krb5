@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/go-krb5/krb5/test/testdata"
 )
 
 func TestUPN_DNSInfo_Unmarshal(t *testing.T) {

@@ -4,9 +4,10 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/crypto/common"
 	"github.com/go-krb5/krb5/crypto/rfc8009"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestAes128CtsHmacSha256128_StringToKey(t *testing.T) {

@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/types"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {

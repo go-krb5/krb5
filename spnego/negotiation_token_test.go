@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/jcmturner/gofork/encoding/asn1"
+	"github.com/go-krb5/x/encoding/asn1"
 	"github.com/stretchr/testify/assert"
 )
 

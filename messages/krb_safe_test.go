@@ -5,11 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/addrtype"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/test/testdata"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestUnmarshalKRBSafe(t *testing.T) {

@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/jcmturner/aescts/v2"
+
 	"github.com/go-krb5/krb5/crypto/common"
 	"github.com/go-krb5/krb5/crypto/etype"
-	"github.com/jcmturner/aescts/v2"
 )
 
 // EncryptData encrypts the data provided using methods specific to the etype provided as defined in RFC 3962.

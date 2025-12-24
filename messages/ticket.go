@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
@@ -17,7 +19,6 @@ import (
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/pac"
 	"github.com/go-krb5/krb5/types"
-	"github.com/jcmturner/gofork/encoding/asn1"
 )
 
 // Reference: https://www.ietf.org/rfc/rfc4120.txt

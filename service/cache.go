@@ -2,9 +2,10 @@
 package service
 
 import (
-	"github.com/go-krb5/krb5/types"
 	"sync"
 	"time"
+
+	"github.com/go-krb5/krb5/types"
 )
 
 // Replay cache is required as specified in RFC 4120 section 3.2.3
@@ -49,6 +50,7 @@ func (c *Cache) getClientEntry(cname types.PrincipalName, t time.Time) (replayCa
 
 // Instance of the ServiceCache. This needs to be a singleton.
 var replayCache Cache
+
 var once sync.Once
 
 // GetReplayCache returns a pointer to the Cache singleton.

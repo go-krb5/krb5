@@ -1,10 +1,12 @@
 package types
 
 import (
-	"github.com/go-krb5/krb5/iana/flags"
-	"github.com/jcmturner/gofork/encoding/asn1"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/go-krb5/x/encoding/asn1"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/go-krb5/krb5/iana/flags"
 )
 
 func TestKerberosFlags_SetFlag(t *testing.T) {

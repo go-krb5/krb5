@@ -12,6 +12,9 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-krb5/x/encoding/asn1"
+	"github.com/jcmturner/goidentity/v6"
+
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/gssapi"
@@ -20,8 +23,6 @@ import (
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/service"
 	"github.com/go-krb5/krb5/types"
-	"github.com/jcmturner/gofork/encoding/asn1"
-	"github.com/jcmturner/goidentity/v6"
 )
 
 // Client side functionality //

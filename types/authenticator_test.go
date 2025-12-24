@@ -6,11 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/adtype"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/test/testdata"
-	"github.com/stretchr/testify/assert"
 )
 
 func unmarshalAuthenticatorTest(t *testing.T, v string) Authenticator {
@@ -26,6 +27,7 @@ func unmarshalAuthenticatorTest(t *testing.T, v string) Authenticator {
 	}
 	return a
 }
+
 func TestUnmarshalAuthenticator(t *testing.T) {
 	t.Parallel()
 	a := unmarshalAuthenticatorTest(t, testdata.MarshaledKRB5authenticator)

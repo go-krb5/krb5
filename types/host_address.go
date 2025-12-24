@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/iana/addrtype"
-	"github.com/jcmturner/gofork/encoding/asn1"
 )
 
 // HostAddresses implements RFC 4120 type: https://tools.ietf.org/html/rfc4120#section-5.2.5

@@ -5,8 +5,9 @@ import (
 	"encoding/hex"
 	"errors"
 
+	"github.com/go-crypt/x/pbkdf2"
+
 	"github.com/go-krb5/krb5/crypto/etype"
-	"github.com/jcmturner/gofork/x/crypto/pbkdf2"
 )
 
 const (
@@ -24,7 +25,7 @@ func StringToKey(secret, salt, s2kparams string, e etype.EType) ([]byte, error) 
 
 // StringToPBKDF2 generates an encryption key from a pass phrase and salt string using the PBKDF2 function from PKCS #5 v2.0
 func StringToPBKDF2(secret, salt string, iterations int64, e etype.EType) []byte {
-	return pbkdf2.Key64([]byte(secret), []byte(salt), iterations, int64(e.GetKeyByteSize()), e.GetHashFunc())
+	return pbkdf2.KeyExtended([]byte(secret), []byte(salt), iterations, int64(e.GetKeyByteSize()), e.GetHashFunc())
 }
 
 // StringToKeyIter returns a key derived from the string provided according to the definition in RFC 3961.

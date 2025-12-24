@@ -7,10 +7,11 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/types"
-	"github.com/hashicorp/go-uuid"
 )
 
 const (
@@ -72,10 +73,6 @@ type ADCredentials struct {
 
 // New creates a new Credentials instance.
 func New(username string, realm string) *Credentials {
-	uid, err := uuid.GenerateUUID()
-	if err != nil {
-		uid = "00unique-sess-ions-uuid-unavailable0"
-	}
 	return &Credentials{
 		username:        username,
 		displayName:     username,
@@ -84,7 +81,7 @@ func New(username string, realm string) *Credentials {
 		keytab:          keytab.New(),
 		attributes:      make(map[string]interface{}),
 		groupMembership: make(map[string]bool),
-		sessionID:       uid,
+		sessionID:       uuid.Must(uuid.NewRandom()).String(),
 		human:           true,
 	}
 }

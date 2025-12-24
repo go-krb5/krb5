@@ -1,11 +1,12 @@
 package config
 
 import (
-	"github.com/go-krb5/krb5/test"
 	"testing"
 
-	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/go-krb5/krb5/test"
+	"github.com/go-krb5/krb5/test/testdata"
 )
 
 func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {

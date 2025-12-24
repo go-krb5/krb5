@@ -7,6 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/credentials"
@@ -17,7 +19,6 @@ import (
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/service"
 	"github.com/go-krb5/krb5/types"
-	"github.com/jcmturner/gofork/encoding/asn1"
 )
 
 // GSSAPI KRB5 MechToken IDs.

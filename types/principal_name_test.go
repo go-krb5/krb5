@@ -1,10 +1,11 @@
 package types
 
 import (
-	"github.com/go-krb5/krb5/iana/nametype"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 
-	"testing"
+	"github.com/go-krb5/krb5/iana/nametype"
 )
 
 func TestPrincipalName_GetSalt(t *testing.T) {

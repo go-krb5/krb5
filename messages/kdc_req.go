@@ -10,6 +10,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/crypto"
@@ -22,7 +24,6 @@ import (
 	"github.com/go-krb5/krb5/iana/patype"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/types"
-	"github.com/jcmturner/gofork/encoding/asn1"
 )
 
 type marshalKDCReq struct {

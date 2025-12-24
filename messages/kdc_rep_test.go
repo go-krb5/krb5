@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/etypeID"
@@ -14,7 +16,6 @@ import (
 	"github.com/go-krb5/krb5/iana/patype"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/test/testdata"
-	"github.com/stretchr/testify/assert"
 )
 
 const (

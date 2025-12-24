@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
@@ -16,7 +18,6 @@ import (
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestVerifyAPREQ(t *testing.T) {
