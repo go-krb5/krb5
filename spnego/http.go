@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/go-krb5/x/encoding/asn1"
-	"github.com/jcmturner/goidentity/v6"
+	"github.com/go-krb5/x/identity"
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/credentials"
@@ -265,7 +265,7 @@ func SPNEGOKRB5Authenticate(inner http.Handler, kt *keytab.Keytab, settings ...f
 		if err == nil && id.Authenticated() {
 			// There is an established session so bypass auth and serve
 			spnego.Log("%s - SPNEGO request served under session %s", r.RemoteAddr, id.SessionID())
-			inner.ServeHTTP(w, goidentity.AddToHTTPRequestContext(&id, r))
+			inner.ServeHTTP(w, identity.AddToHTTPRequestContext(&id, r))
 			return
 		}
 
@@ -296,7 +296,7 @@ func SPNEGOKRB5Authenticate(inner http.Handler, kt *keytab.Keytab, settings ...f
 			}
 			spnegoResponseAcceptCompleted(spnego, w, "%s %s@%s - SPNEGO authentication succeeded", r.RemoteAddr, id.UserName(), id.Domain())
 			// Add the identity to the context and serve the inner/wrapped handler
-			inner.ServeHTTP(w, goidentity.AddToHTTPRequestContext(id, r))
+			inner.ServeHTTP(w, identity.AddToHTTPRequestContext(id, r))
 			return
 		}
 		// If we get to here we have not authenticationed so just reject

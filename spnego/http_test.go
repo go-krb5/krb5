@@ -17,8 +17,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/go-krb5/x/identity"
 	"github.com/gorilla/sessions"
-	"github.com/jcmturner/goidentity/v6"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/go-krb5/krb5/client"
@@ -378,7 +378,7 @@ func testAppHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(http.StatusOK)
-	id := goidentity.FromHTTPRequestContext(r)
+	id := identity.FromHTTPRequestContext(r)
 	fmt.Fprintf(w, "<html>\nTEST.GOKRB5 Handler\nAuthenticed user: %s\nUser's realm: %s\n</html>",
 		id.UserName(),
 		id.Domain())

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	goidentity "github.com/jcmturner/goidentity/v6"
+	"github.com/go-krb5/x/identity"
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
@@ -36,7 +36,7 @@ type KRB5BasicAuthenticator struct {
 }
 
 // Authenticate and return the identity. The boolean indicates if the authentication was successful.
-func (a KRB5BasicAuthenticator) Authenticate() (i goidentity.Identity, ok bool, err error) {
+func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, err error) {
 	a.realm, a.username, a.password, err = parseBasicHeaderValue(a.BasicHeaderValue)
 	if err != nil {
 		err = fmt.Errorf("could not parse basic authentication header: %v", err)

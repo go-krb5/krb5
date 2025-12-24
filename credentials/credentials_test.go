@@ -3,14 +3,14 @@ package credentials
 import (
 	"testing"
 
-	"github.com/jcmturner/goidentity/v6"
+	"github.com/go-krb5/x/identity"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestImplementsInterface(t *testing.T) {
 	t.Parallel()
 	u := new(Credentials)
-	i := new(goidentity.Identity)
+	i := new(identity.Identity)
 	assert.Implements(t, i, u, "Credentials type does not implement the Identity interface")
 }
 

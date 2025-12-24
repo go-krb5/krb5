@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/jcmturner/rpc/v2/mstypes"
-	"github.com/jcmturner/rpc/v2/ndr"
+	"github.com/go-krb5/x/rpc/mstypes"
+	"github.com/go-krb5/x/rpc/ndr"
 )
 
 // Claims reference: https://msdn.microsoft.com/en-us/library/hh553895.aspx

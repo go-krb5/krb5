@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/jcmturner/rpc/v2/mstypes"
-	"github.com/jcmturner/rpc/v2/ndr"
+	"github.com/go-krb5/x/rpc/mstypes"
+	"github.com/go-krb5/x/rpc/ndr"
 )
 
 // S4UDelegationInfo implements https://msdn.microsoft.com/en-us/library/cc237944.aspx

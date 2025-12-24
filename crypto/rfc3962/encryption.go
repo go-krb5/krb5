@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jcmturner/aescts/v2"
+	"github.com/go-krb5/x/aescts"
 
 	"github.com/go-krb5/krb5/crypto/common"
 	"github.com/go-krb5/krb5/crypto/etype"

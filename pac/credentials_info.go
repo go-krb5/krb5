@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/jcmturner/rpc/v2/mstypes"
-	"github.com/jcmturner/rpc/v2/ndr"
+	"github.com/go-krb5/x/rpc/mstypes"
+	"github.com/go-krb5/x/rpc/ndr"
 
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana/keyusage"

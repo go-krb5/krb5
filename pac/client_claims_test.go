@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/jcmturner/rpc/v2/mstypes"
+	"github.com/go-krb5/x/rpc/mstypes"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/go-krb5/krb5/test/testdata"

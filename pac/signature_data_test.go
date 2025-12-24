@@ -38,7 +38,7 @@ func TestPAC_SignatureData_Unmarshal_KDC_Signature(t *testing.T) {
 	var k SignatureData
 	bz, err := k.Unmarshal(b)
 	if err != nil {
-		t.Fatalf("Error unmarshaling test data: %v", err)
+		t.Fatalf("Error unmarshalling test data: %v", err)
 	}
 	sig, _ := hex.DecodeString("340be28b48765d0519ee9346cf53d822")
 	zeroed, _ := hex.DecodeString("76ffffff00000000000000000000000000000000")
