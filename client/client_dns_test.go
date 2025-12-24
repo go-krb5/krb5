@@ -2,10 +2,10 @@ package client
 
 import (
 	"encoding/hex"
-	"gopkg.in/jcmturner/krb5.v7/config"
-	"gopkg.in/jcmturner/krb5.v7/keytab"
-	"gopkg.in/jcmturner/krb5.v7/test"
-	"gopkg.in/jcmturner/krb5.v7/test/testdata"
+	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/keytab"
+	"github.com/go-krb5/krb5/test"
+	"github.com/go-krb5/krb5/test/testdata"
 	"testing"
 )
 
@@ -16,16 +16,16 @@ func TestClient_Login_DNSKDCs(t *testing.T) {
 	//if ns == "" {
 	//	os.Setenv("DNSUTILS_OVERRIDE_NS", testdata.TEST_NS)
 	//}
-	c, _ := config.NewConfigFromString(testdata.TEST_KRB5CONF)
+	c, _ := config.NewFromString(testdata.KRB5_CONF)
 	// Set to lookup KDCs in DNS
 	c.LibDefaults.DNSLookupKDC = true
 	//Blank out the KDCs to ensure they are not being used
 	c.Realms = []config.Realm{}
 
-	b, _ := hex.DecodeString(testdata.TESTUSER1_KEYTAB)
+	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
 	kt.Unmarshal(b)
-	cl := NewClientWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
+	cl := NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
 	err := cl.Login()
 	if err != nil {

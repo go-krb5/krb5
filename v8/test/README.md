@@ -1,1 +1,0 @@
-Source for integration test dependencies can be found at https://github.com/go-krb5/krb5-test

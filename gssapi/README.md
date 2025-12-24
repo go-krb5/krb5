@@ -1,4 +1,5 @@
 # Notes on GSS-API Negotiation Mechanism
+
 https://tools.ietf.org/html/rfc4178
 
 Client sends an initial negotiation message to the server which specifies the list of mechanisms 
@@ -12,9 +13,9 @@ includes this in the message.
 
 The server side responds to this message with a one of four messages:
 
-| Message Type/State | Description |
-|--------------------|-------------|
-| accept-completed | indicates that the initiator-selected mechanism was acceptable to the target, and that the security mechanism token embedded in the first negotiation message was sufficient to complete the authentication |
-| accept-incomplete | At least one more message is needed from the client to establish security context. |
-| reject | Negotiation is being terminated. |
-| request-mic | (this state can only be present in the first reply message from the target) indicates that the MIC token exchange is REQUIRED if per-message integrity services are available |
+| Message Type/State | Description                                                                                                                                                                                                 |
+|--------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| accept-completed   | indicates that the initiator-selected mechanism was acceptable to the target, and that the security mechanism token embedded in the first negotiation message was sufficient to complete the authentication |
+| accept-incomplete  | At least one more message is needed from the client to establish security context.                                                                                                                          |
+| reject             | Negotiation is being terminated.                                                                                                                                                                            |
+| request-mic        | (this state can only be present in the first reply message from the target) indicates that the MIC token exchange is REQUIRED if per-message integrity services are available                               |

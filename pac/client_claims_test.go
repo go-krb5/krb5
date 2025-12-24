@@ -4,9 +4,9 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/go-krb5/krb5/test/testdata"
+	"github.com/jcmturner/rpc/v2/mstypes"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/jcmturner/krb5.v7/test/testdata"
-	"gopkg.in/jcmturner/rpc.v1/mstypes"
 )
 
 const (

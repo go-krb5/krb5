@@ -4,10 +4,10 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/go-krb5/krb5/iana"
+	"github.com/go-krb5/krb5/iana/msgtype"
+	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/jcmturner/krb5.v7/iana"
-	"gopkg.in/jcmturner/krb5.v7/iana/msgtype"
-	"gopkg.in/jcmturner/krb5.v7/test/testdata"
 )
 
 func TestUnmarshalReply(t *testing.T) {

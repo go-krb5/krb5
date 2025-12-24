@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	goidentity "gopkg.in/jcmturner/goidentity.v3"
-	"gopkg.in/jcmturner/krb5.v7/client"
-	"gopkg.in/jcmturner/krb5.v7/config"
-	"gopkg.in/jcmturner/krb5.v7/credentials"
+	"github.com/go-krb5/krb5/client"
+	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/credentials"
+	goidentity "github.com/jcmturner/goidentity/v6"
 )
 
 // NewKRB5BasicAuthenticator creates a new NewKRB5BasicAuthenticator
@@ -22,7 +22,7 @@ func NewKRB5BasicAuthenticator(headerVal string, krb5conf *config.Config, servic
 	}
 }
 
-// KRB5BasicAuthenticator implements gopkg.in/jcmturner/goidentity.v3.Authenticator interface.
+// KRB5BasicAuthenticator implements krb5.com/jcmturner/goidentity.Authenticator interface.
 // It takes username and password so can be used for basic authentication.
 type KRB5BasicAuthenticator struct {
 	BasicHeaderValue string
@@ -41,7 +41,7 @@ func (a KRB5BasicAuthenticator) Authenticate() (i goidentity.Identity, ok bool, 
 		err = fmt.Errorf("could not parse basic authentication header: %v", err)
 		return
 	}
-	cl := client.NewClientWithPassword(a.username, a.realm, a.password, a.clientConfig)
+	cl := client.NewWithPassword(a.username, a.realm, a.password, a.clientConfig)
 	err = cl.Login()
 	if err != nil {
 		// Username and/or password could be wrong

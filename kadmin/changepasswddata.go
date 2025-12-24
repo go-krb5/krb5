@@ -1,8 +1,8 @@
 package kadmin
 
 import (
+	"github.com/go-krb5/krb5/types"
 	"github.com/jcmturner/gofork/encoding/asn1"
-	"gopkg.in/jcmturner/krb5.v7/types"
 )
 
 // ChangePasswdData is the payload to a password change message.
