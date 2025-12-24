@@ -224,17 +224,16 @@ func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string) error {
 
 // Service side functionality //
 
+type ctxKey string
+
 const (
+	credentialsKey = "github.com/go-krb5/krb5/spnego/credentials"
 	// spnegoNegTokenRespKRBAcceptCompleted - The response on successful authentication always has this header. Capturing as const so we don't have marshaling and encoding overhead.
 	spnegoNegTokenRespKRBAcceptCompleted = "Negotiate oRQwEqADCgEAoQsGCSqGSIb3EgECAg=="
 	// spnegoNegTokenRespReject - The response on a failed authentication always has this rejection header. Capturing as const so we don't have marshaling and encoding overhead.
 	spnegoNegTokenRespReject = "Negotiate oQcwBaADCgEC"
 	// spnegoNegTokenRespIncompleteKRB5 - Response token specifying incomplete context and KRB5 as the supported mechtype.
 	spnegoNegTokenRespIncompleteKRB5 = "Negotiate oRQwEqADCgEBoQsGCSqGSIb3EgECAg=="
-	// sessionCredentials is the session value key holding the credentials jcmturner/goidentity/Identity object.
-	sessionCredentials = "github.com/go-krb5/krb5/sessionCredentials"
-	// ctxCredentials is the SPNEGO context key holding the credentials jcmturner/goidentity/Identity object.
-	ctxCredentials = "github.com/go-krb5/krb5/ctxCredentials"
 	// HTTPHeaderAuthRequest is the header that will hold authn/z information.
 	HTTPHeaderAuthRequest = "Authorization"
 	// HTTPHeaderAuthResponse is the header that will hold SPNEGO data from the server.
@@ -243,6 +242,8 @@ const (
 	HTTPHeaderAuthResponseValueKey = "Negotiate"
 	// UnauthorizedMsg is the message returned in the body when authentication fails.
 	UnauthorizedMsg = "Unauthorised.\n"
+
+	CTXKey ctxKey = credentialsKey
 )
 
 // SPNEGOKRB5Authenticate is a Kerberos SPNEGO authentication HTTP handler wrapper.
@@ -288,7 +289,7 @@ func SPNEGOKRB5Authenticate(inner http.Handler, kt *keytab.Keytab, settings ...f
 
 		if authed {
 			// Authentication successful; get user's credentials from the context
-			id := ctx.Value(ctxCredentials).(*credentials.Credentials)
+			id := ctx.Value(CTXKey).(*credentials.Credentials)
 			// Create a new session if a session manager has been configured
 			err = newSession(spnego, r, w, id)
 			if err != nil {
@@ -345,7 +346,7 @@ func getSessionCredentials(spnego *SPNEGO, r *http.Request) (credentials.Credent
 	var creds credentials.Credentials
 	// Check if there is a session manager and if there is an already established session for this client
 	if sm := spnego.serviceSettings.SessionManager(); sm != nil {
-		cb, err := sm.Get(r, sessionCredentials)
+		cb, err := sm.Get(r, credentialsKey)
 		if err != nil || cb == nil || len(cb) < 1 {
 			return creds, fmt.Errorf("%s - SPNEGO error getting session and credentials for request: %v", r.RemoteAddr, err)
 		}
@@ -366,7 +367,7 @@ func newSession(spnego *SPNEGO, r *http.Request, w http.ResponseWriter, id *cred
 			spnegoInternalServerError(spnego, w, "SPNEGO could not marshal credentials to add to the session: %v", err)
 			return err
 		}
-		err = sm.New(w, r, sessionCredentials, idb)
+		err = sm.New(w, r, credentialsKey, idb)
 		if err != nil {
 			spnegoInternalServerError(spnego, w, "SPNEGO could not create new session: %v", err)
 			return err

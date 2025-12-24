@@ -48,8 +48,8 @@ func TestClient_SetSPNEGOHeader(t *testing.T) {
 		t.Fatalf("error on AS_REQ: %v\n", err)
 	}
 	urls := []string{
-		"http://cname.test.krb5",
-		"http://host.test.krb5",
+		"http://cname.test.gokrb5",
+		"http://host.test.gokrb5",
 	}
 	paths := []string{
 		"/modkerb/index.html",
@@ -97,8 +97,8 @@ func TestSPNEGOHTTPClient(t *testing.T) {
 		t.Fatalf("error on AS_REQ: %v\n", err)
 	}
 	urls := []string{
-		"http://cname.test.krb5",
-		"http://host.test.krb5",
+		"http://cname.test.gokrb5",
+		"http://host.test.gokrb5",
 	}
 	// This path issues a redirect which the http client will automatically follow.
 	// It should cause a replay issue if the negInit token is sent in the first instance.
@@ -144,7 +144,7 @@ func TestService_SPNEGOKRB_ValidUser(t *testing.T) {
 	r, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	err := SetSPNEGOHeader(cl, r, "HTTP/host.test.krb5")
+	err := SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestService_SPNEGOKRB_ValidUser_RawKRB5Token(t *testing.T) {
 	r, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	sc := SPNEGOClient(cl, "HTTP/host.test.krb5")
+	sc := SPNEGOClient(cl, "HTTP/host.test.gokrb5")
 	err := sc.AcquireCred()
 	if err != nil {
 		t.Fatalf("could not acquire client credential: %v", err)
@@ -194,7 +194,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 	r1, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.krb5")
+	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -216,7 +216,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 	// Form a 2nd ticket
 	r2, _ := http.NewRequest("GET", s.URL, nil)
 
-	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.krb5")
+	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 	r1, _ := http.NewRequest("GET", s.URL, nil)
 
 	cl := getClient()
-	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.krb5")
+	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -259,7 +259,7 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 
 	r2, _ := http.NewRequest("GET", s.URL, nil)
 
-	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.krb5")
+	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5")
 	if err != nil {
 		t.Fatalf("error setting client's SPNEGO header: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	cookieJar, _ := cookiejar.New(nil)
 	httpCl := http.DefaultClient
 	httpCl.Jar = cookieJar
-	spnegoCl := NewClient(cl, httpCl, "HTTP/host.test.krb5")
+	spnegoCl := NewClient(cl, httpCl, "HTTP/host.test.gokrb5")
 	httpResp, err := spnegoCl.Do(r)
 	if err != nil {
 		t.Fatalf("Request error: %v\n", err)
@@ -416,7 +416,7 @@ func NewSessionMgr(cookieName string) SessionMgr {
 	}
 }
 
-func (smgr SessionMgr) Get(r *http.Request, k string) ([]byte, error) {
+func (smgr SessionMgr) Get(r *http.Request, k any) ([]byte, error) {
 	s, err := smgr.store.Get(r, smgr.cookieName)
 	if err != nil {
 		return nil, err
@@ -431,7 +431,7 @@ func (smgr SessionMgr) Get(r *http.Request, k string) ([]byte, error) {
 	return b, nil
 }
 
-func (smgr SessionMgr) New(w http.ResponseWriter, r *http.Request, k string, v []byte) error {
+func (smgr SessionMgr) New(w http.ResponseWriter, r *http.Request, k any, v []byte) error {
 	s, err := smgr.store.New(r, smgr.cookieName)
 	if err != nil {
 		return fmt.Errorf("could not get new session from session manager: %v", err)

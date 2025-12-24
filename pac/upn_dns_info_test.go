@@ -24,7 +24,7 @@ func TestUPN_DNSInfo_Unmarshal(t *testing.T) {
 	assert.Equal(t, uint16(16), k.UPNOffset, "UPN Offset not as expected")
 	assert.Equal(t, uint16(22), k.DNSDomainNameLength, "DNS Domain Length not as expected")
 	assert.Equal(t, uint16(64), k.DNSDomainNameOffset, "DNS Domain Offset not as expected")
-	assert.Equal(t, "testuser1@test.krb5", k.UPN, "UPN not as expected")
+	assert.Equal(t, "testuser1@test.gokrb5", k.UPN, "UPN not as expected")
 	assert.Equal(t, "TEST.GOKRB5", k.DNSDomain, "DNS Domain not as expected")
 	assert.Equal(t, uint32(0), k.Flags, "DNS Domain not as expected")
 }

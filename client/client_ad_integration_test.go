@@ -60,7 +60,7 @@ func TestClient_GetServiceTicket_AD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error on login: %v\n", err)
 	}
-	spn := "HTTP/user2.user.krb5"
+	spn := "HTTP/user2.user.gokrb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("Error getting service ticket: %v\n", err)
@@ -105,7 +105,7 @@ func TestClient_GetServiceTicket_AD_TRUST_USER_DOMAIN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error on login: %v\n", err)
 	}
-	spn := "HTTP/host.res.krb5"
+	spn := "HTTP/host.res.gokrb5"
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("Error getting service ticket: %v\n", err)
@@ -152,7 +152,7 @@ func TestClient_GetServiceTicket_AD_USER_DOMAIN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error on login: %v\n", err)
 	}
-	spn := "HTTP/user2.user.krb5"
+	spn := "HTTP/user2.user.gokrb5"
 	tkt, _, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("Error getting service ticket: %v\n", err)

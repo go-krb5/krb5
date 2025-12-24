@@ -98,7 +98,7 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 		if time.Now().UTC().After(endTime) {
 			t.Fatalf("session auto update failed")
 		}
-		spn := "HTTP/host.test.krb5"
+		spn := "HTTP/host.test.gokrb5"
 		tkt, key, err := cl.GetServiceTicket(spn)
 		if err != nil {
 			t.Fatalf("error getting service ticket: %v\n", err)

@@ -158,6 +158,6 @@ func (s *Settings) SessionManager() SessionMgr {
 // - Get an existing session returning the value in the session under the key provided.
 // Return nil bytes and/or error if there is no session.
 type SessionMgr interface {
-	New(w http.ResponseWriter, r *http.Request, k string, v []byte) error
-	Get(r *http.Request, k string) ([]byte, error)
+	New(w http.ResponseWriter, r *http.Request, k any, v []byte) error
+	Get(r *http.Request, k any) ([]byte, error)
 }

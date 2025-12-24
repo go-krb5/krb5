@@ -226,7 +226,7 @@ func TestKeytabEntriesService(t *testing.T) {
 }
 
 func TestKeytab_GetEncryptionKey(t *testing.T) {
-	princ := "HTTP/princ.test.krb5"
+	princ := "HTTP/princ.test.gokrb5"
 	realm := "TEST.GOKRB5"
 
 	kt := New()
@@ -235,7 +235,7 @@ func TestKeytab_GetEncryptionKey(t *testing.T) {
 	kt.AddEntry(princ, realm, "abcdefg", time.Unix(300, 0), 3, 18)
 	kt.AddEntry(princ, realm, "abcdefg", time.Unix(400, 0), 4, 18)
 	kt.AddEntry(princ, realm, "abcdefg", time.Unix(350, 0), 5, 18)
-	kt.AddEntry("HTTP/other.test.krb5", realm, "abcdefg", time.Unix(500, 0), 5, 18)
+	kt.AddEntry("HTTP/other.test.gokrb5", realm, "abcdefg", time.Unix(500, 0), 5, 18)
 
 	pn := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, princ)
 

@@ -36,7 +36,7 @@ func TestParse(t *testing.T) {
 	assert.True(t, c.Contains(tgtpn), "Cache does not contain TGT credential")
 	httppn := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.krb5"},
+		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	assert.True(t, c.Contains(httppn), "Cache does not contain HTTP SPN credential")
 }
@@ -107,7 +107,7 @@ func TestCCache_GetEntry(t *testing.T) {
 	}
 	httppn := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.krb5"},
+		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	cred, ok := c.GetEntry(httppn)
 	if !ok {

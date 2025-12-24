@@ -23,7 +23,7 @@ const (
 	kinitCmd = "kinit"
 	kvnoCmd  = "kvno"
 	klistCmd = "klist"
-	spn      = "HTTP/host.test.krb5"
+	spn      = "HTTP/host.test.gokrb5"
 )
 
 type output struct {

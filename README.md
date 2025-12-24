@@ -45,12 +45,10 @@ The following is working/tested:
 * Tested against users that have pre-authentication required using PA-ENC-TIMESTAMP.
 * Microsoft PAC Authorization Data is processed and exposed in the HTTP request context. Available if Microsoft Active Directory is used as the KDC.
 
-## Contributing
-If you are interested in contributing to krb5, great! Please read the [contribution guidelines](https://github.com/go-krb5/krb5/blob/master/CONTRIBUTING.md).
-
 ---
 
 ## References
+
 * [RFC 3244 Microsoft Windows 2000 Kerberos Change Password and Set Password Protocols](https://tools.ietf.org/html/rfc3244)
 * [RFC 4120 The Kerberos Network Authentication Service (V5)](https://tools.ietf.org/html/rfc4120)
 * [RFC 3961 Encryption and Checksum Specifications for Kerberos 5](https://tools.ietf.org/html/rfc3961)
@@ -75,18 +73,15 @@ If you are interested in contributing to krb5, great! Please read the [contribut
 
 ## Thanks
 
+* [Jonathan Turner](https://github.com/jcmturner) for the [Original and Related Repositories](https://github.com/jcmturner/gokrb5)
 * Greg Hudson from the MIT Consortium for Kerberos and Internet Trust for providing useful advice.
 
-## Contributing
-
-Thank you for your interest in contributing to krb5 please read the 
-[contribution guide](https://github.com/go-krb5/krb5/blob/master/CONTRIBUTING.md) as it should help you get started.
-
 ## Known Issues
-| Issue                                                                                                                                                                                                                         | Worked around?                                                              | References                                          |
-|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------|-----------------------------------------------------|
-| The Go standard library's encoding/asn1 package cannot unmarshal into slice of asn1.RawValue                                                                                                                                  | Yes                                                                         | https://github.com/golang/go/issues/17321           |
-| The Go standard library's encoding/asn1 package cannot marshal into a GeneralString                                                                                                                                           | Yes - using https://github.com/jcmturner/gofork/tree/master/encoding/asn1   | https://github.com/golang/go/issues/18832           |
-| The Go standard library's encoding/asn1 package cannot marshal into slice of strings and pass stringtype parameter tags to members                                                                                            | Yes - using https://github.com/jcmturner/gofork/tree/master/encoding/asn1   | https://github.com/golang/go/issues/18834           |
-| The Go standard library's encoding/asn1 package cannot marshal with application tags                                                                                                                                          | Yes                                                                         |                                                     |
-| The Go standard library's x/crypto/pbkdf2.Key function uses the int type for iteraction count limiting meaning the 4294967296 count specified in https://tools.ietf.org/html/rfc3962 section 4 cannot be met on 32bit systems | Yes - using https://github.com/jcmturner/gofork/tree/master/x/crypto/pbkdf2 | https://go-review.googlesource.com/c/crypto/+/85535 |
+
+| Issue                                                                                                                                                                                                                         | Worked around?                                                    | References                                          |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------|-----------------------------------------------------|
+| The Go standard library's encoding/asn1 package cannot unmarshal into slice of asn1.RawValue                                                                                                                                  | Yes                                                               | https://github.com/golang/go/issues/17321           |
+| The Go standard library's encoding/asn1 package cannot marshal into a GeneralString                                                                                                                                           | Yes - using https://github.com/go-krb/x/tree/master/encoding/asn1 | https://github.com/golang/go/issues/18832           |
+| The Go standard library's encoding/asn1 package cannot marshal into slice of strings and pass stringtype parameter tags to members                                                                                            | Yes - using https://github.com/go-krb/x/tree/master/encoding/asn1 | https://github.com/golang/go/issues/18834           |
+| The Go standard library's encoding/asn1 package cannot marshal with application tags                                                                                                                                          | Yes                                                               |                                                     |
+| The Go standard library's x/crypto/pbkdf2.Key function uses the int type for iteraction count limiting meaning the 4294967296 count specified in https://tools.ietf.org/html/rfc3962 section 4 cannot be met on 32bit systems | Yes - using https://github.com/go-crypt/x/tree/master/pbkdf2      | https://go-review.googlesource.com/c/crypto/+/85535 |
