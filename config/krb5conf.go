@@ -340,27 +340,39 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 		if ignore && c > 0 && !strings.Contains(line, "{") && !strings.Contains(line, "}") {
 			continue
 		}
+
 		//Remove comments after the values
 		if idx := strings.IndexAny(line, "#;"); idx != -1 {
 			line = line[:idx]
 		}
+
 		line = strings.TrimSpace(line)
+
 		if line == "" {
 			continue
 		}
+
 		if !strings.Contains(line, "=") && !strings.Contains(line, "}") {
 			return InvalidErrorf("realms section line (%s)", line)
 		}
+
 		if strings.Contains(line, "v4_") {
 			ignore = true
 			err = UnsupportedDirective{"v4 configurations are not supported"}
 		}
+
+		if strings.Contains(line, "auth_to_local_names") {
+			ignore = true
+			err = UnsupportedDirective{"auth_to_local_names are not supported"}
+		}
+
 		if strings.Contains(line, "{") {
 			c++
 			if ignore {
 				continue
 			}
 		}
+
 		if strings.Contains(line, "}") {
 			c--
 			if c < 0 {
