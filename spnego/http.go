@@ -96,6 +96,8 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 				e.reqTarget.Header.Del(HTTPHeaderAuthRequest)
 				c.reqs = append(c.reqs, e.reqTarget)
 				if len(c.reqs) >= 10 {
+					c.reqs = c.reqs[:0]
+
 					return resp, errors.New("stopped after 10 redirects")
 				}
 				if req.Body != nil {
@@ -120,6 +122,9 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		resp.Body.Close()
 		return c.Do(req)
 	}
+
+	c.reqs = c.reqs[:0]
+
 	return resp, err
 }
 
