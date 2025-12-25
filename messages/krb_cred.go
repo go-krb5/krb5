@@ -43,7 +43,7 @@ type EncKrbCredPart struct {
 // KrbCredInfo is the KRB_CRED_INFO part of KRB_CRED.
 type KrbCredInfo struct {
 	Key       types.EncryptionKey `asn1:"explicit,tag:0"`
-	PRealm    string              `asn1:"generalstring,optional,explicit,tag:1"`
+	PRealm    string              `asn1:"general,optional,explicit,tag:1"`
 	PName     types.PrincipalName `asn1:"optional,explicit,tag:2"`
 	Flags     asn1.BitString      `asn1:"optional,explicit,tag:3"`
 	AuthTime  time.Time           `asn1:"generalized,optional,explicit,tag:4"`

@@ -25,11 +25,11 @@ type KRBError struct {
 	STime     time.Time           `asn1:"generalized,explicit,tag:4"`
 	Susec     int                 `asn1:"explicit,tag:5"`
 	ErrorCode int32               `asn1:"explicit,tag:6"`
-	CRealm    string              `asn1:"generalstring,optional,explicit,tag:7"`
+	CRealm    string              `asn1:"general,optional,explicit,tag:7"`
 	CName     types.PrincipalName `asn1:"optional,explicit,tag:8"`
-	Realm     string              `asn1:"generalstring,explicit,tag:9"`
+	Realm     string              `asn1:"general,explicit,tag:9"`
 	SName     types.PrincipalName `asn1:"explicit,tag:10"`
-	EText     string              `asn1:"generalstring,optional,explicit,tag:11"`
+	EText     string              `asn1:"general,optional,explicit,tag:11"`
 	EData     []byte              `asn1:"optional,explicit,tag:12"`
 }
 
@@ -63,7 +63,7 @@ func (k *KRBError) Unmarshal(b []byte) error {
 
 // Marshal a KRBError into bytes.
 func (k *KRBError) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*k)
+	b, err := asn1.Marshal(*k, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling KRBError")
 	}

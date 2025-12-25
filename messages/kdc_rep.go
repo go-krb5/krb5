@@ -26,7 +26,7 @@ type marshalKDCRep struct {
 	PVNO    int                  `asn1:"explicit,tag:0"`
 	MsgType int                  `asn1:"explicit,tag:1"`
 	PAData  types.PADataSequence `asn1:"explicit,optional,tag:2"`
-	CRealm  string               `asn1:"generalstring,explicit,tag:3"`
+	CRealm  string               `asn1:"general,explicit,tag:3"`
 	CName   types.PrincipalName  `asn1:"explicit,tag:4"`
 	// Ticket needs to be a raw value as it is wrapped in an APPLICATION tag
 	Ticket  asn1.RawValue       `asn1:"explicit,tag:5"`
@@ -66,7 +66,7 @@ type EncKDCRepPart struct {
 	StartTime     time.Time            `asn1:"generalized,explicit,optional,tag:6"`
 	EndTime       time.Time            `asn1:"generalized,explicit,tag:7"`
 	RenewTill     time.Time            `asn1:"generalized,explicit,optional,tag:8"`
-	SRealm        string               `asn1:"generalstring,explicit,tag:9"`
+	SRealm        string               `asn1:"general,explicit,tag:9"`
 	SName         types.PrincipalName  `asn1:"explicit,tag:10"`
 	CAddr         []types.HostAddress  `asn1:"explicit,optional,tag:11"`
 	EncPAData     types.PADataSequence `asn1:"explicit,optional,tag:12"`
@@ -125,7 +125,7 @@ func (k *ASRep) Marshal() ([]byte, error) {
 		Tag:        5,
 		Bytes:      b,
 	}
-	mk, err := asn1.Marshal(m)
+	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REP")
 	}
@@ -180,7 +180,7 @@ func (k *TGSRep) Marshal() ([]byte, error) {
 		Tag:        5,
 		Bytes:      b,
 	}
-	mk, err := asn1.Marshal(m)
+	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling TGS_REP")
 	}
@@ -205,7 +205,7 @@ func (e *EncKDCRepPart) Unmarshal(b []byte) error {
 
 // Marshal encrypted part of KRB_KDC_REP.
 func (e *EncKDCRepPart) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*e)
+	b, err := asn1.Marshal(*e, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "marshaling error of AS_REP encpart")
 	}

@@ -50,7 +50,7 @@ func GetHostAddress(s string) (HostAddress, error) {
 // GetAddress returns a string representation of the HostAddress.
 func (h *HostAddress) GetAddress() (string, error) {
 	var b []byte
-	_, err := asn1.Unmarshal(h.Address, &b)
+	_, err := asn1.Unmarshal(h.Address, &b, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return string(b), err
 }
 

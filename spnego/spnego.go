@@ -111,7 +111,7 @@ type SPNEGOToken struct {
 func (s *SPNEGOToken) Marshal() ([]byte, error) {
 	var b []byte
 	if s.Init {
-		hb, _ := asn1.Marshal(gssapi.OIDSPNEGO.OID())
+		hb, _ := asn1.Marshal(gssapi.OIDSPNEGO.OID(), asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 		tb, err := s.NegTokenInit.Marshal()
 		if err != nil {
 			return b, fmt.Errorf("could not marshal NegTokenInit: %v", err)

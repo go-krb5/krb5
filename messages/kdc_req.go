@@ -55,7 +55,7 @@ type TGSReq struct {
 type marshalKDCReqBody struct {
 	KDCOptions  asn1.BitString      `asn1:"explicit,tag:0"`
 	CName       types.PrincipalName `asn1:"explicit,optional,tag:1"`
-	Realm       string              `asn1:"generalstring,explicit,tag:2"`
+	Realm       string              `asn1:"general,explicit,tag:2"`
 	SName       types.PrincipalName `asn1:"explicit,optional,tag:3"`
 	From        time.Time           `asn1:"generalized,explicit,optional,tag:4"`
 	Till        time.Time           `asn1:"generalized,explicit,tag:5"`
@@ -72,7 +72,7 @@ type marshalKDCReqBody struct {
 type KDCReqBody struct {
 	KDCOptions        asn1.BitString      `asn1:"explicit,tag:0"`
 	CName             types.PrincipalName `asn1:"explicit,optional,tag:1"`
-	Realm             string              `asn1:"generalstring,explicit,tag:2"`
+	Realm             string              `asn1:"general,explicit,tag:2"`
 	SName             types.PrincipalName `asn1:"explicit,optional,tag:3"`
 	From              time.Time           `asn1:"generalized,explicit,optional,tag:4"`
 	Till              time.Time           `asn1:"generalized,explicit,tag:5"`
@@ -319,7 +319,7 @@ func (k *TGSReq) Unmarshal(b []byte) error {
 // Unmarshal bytes b into the KRB_KDC_REQ body struct.
 func (k *KDCReqBody) Unmarshal(b []byte) error {
 	var m marshalKDCReqBody
-	_, err := asn1.Unmarshal(b, &m)
+	_, err := asn1.Unmarshal(b, &m, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling KDC_REQ body")
 	}
@@ -366,7 +366,7 @@ func (k *ASReq) Marshal() ([]byte, error) {
 		Tag:        4,
 		Bytes:      b,
 	}
-	mk, err := asn1.Marshal(m)
+	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
@@ -392,7 +392,7 @@ func (k *TGSReq) Marshal() ([]byte, error) {
 		Tag:        4,
 		Bytes:      b,
 	}
-	mk, err := asn1.Marshal(m)
+	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
@@ -425,7 +425,7 @@ func (k *KDCReqBody) Marshal() ([]byte, error) {
 	if len(rawtkts.Bytes) > 0 {
 		m.AdditionalTickets = rawtkts
 	}
-	b, err = asn1.Marshal(m)
+	b, err = asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error in marshaling KDC request body")
 	}

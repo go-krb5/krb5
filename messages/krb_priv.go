@@ -72,7 +72,7 @@ func (k *KRBPriv) Marshal() ([]byte, error) {
 		MsgType: k.MsgType,
 		EncPart: k.EncPart,
 	}
-	b, err := asn1.Marshal(tk)
+	b, err := asn1.Marshal(tk, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return []byte{}, err
 	}
@@ -83,7 +83,7 @@ func (k *KRBPriv) Marshal() ([]byte, error) {
 // EncryptEncPart encrypts the DecryptedEncPart within the KRBPriv.
 // Use to prepare for marshaling.
 func (k *KRBPriv) EncryptEncPart(key types.EncryptionKey) error {
-	b, err := asn1.Marshal(k.DecryptedEncPart)
+	b, err := asn1.Marshal(k.DecryptedEncPart, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return err
 	}

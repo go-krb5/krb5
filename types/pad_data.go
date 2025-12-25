@@ -49,7 +49,7 @@ func GetPAEncTSEncAsnMarshalled() ([]byte, error) {
 		PATimestamp: t,
 		PAUSec:      int((t.UnixNano() / int64(time.Microsecond)) - (t.Unix() * 1e6)),
 	}
-	b, err := asn1.Marshal(p)
+	b, err := asn1.Marshal(p, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return b, fmt.Errorf("error mashaling PAEncTSEnc: %v", err)
 	}
@@ -68,7 +68,7 @@ type ETypeInfo []ETypeInfoEntry
 // ETypeInfo2Entry implements RFC 4120 types: https://tools.ietf.org/html/rfc4120#section-5.2.7.5
 type ETypeInfo2Entry struct {
 	EType     int32  `asn1:"explicit,tag:0"`
-	Salt      string `asn1:"explicit,optional,generalstring,tag:1"`
+	Salt      string `asn1:"explicit,optional,general,tag:1"`
 	S2KParams []byte `asn1:"explicit,optional,tag:2"`
 }
 
@@ -83,55 +83,55 @@ type PAReqEncPARep struct {
 
 // Unmarshal bytes into the PAData
 func (pa *PAData) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, pa)
+	_, err := asn1.Unmarshal(b, pa, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the PADataSequence
 func (pas *PADataSequence) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, pas)
+	_, err := asn1.Unmarshal(b, pas, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the PAReqEncPARep
 func (pa *PAReqEncPARep) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, pa)
+	_, err := asn1.Unmarshal(b, pa, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the PAEncTimestamp
 func (pa *PAEncTimestamp) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, pa)
+	_, err := asn1.Unmarshal(b, pa, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the PAEncTSEnc
 func (pa *PAEncTSEnc) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, pa)
+	_, err := asn1.Unmarshal(b, pa, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the ETypeInfo
 func (a *ETypeInfo) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the ETypeInfoEntry
 func (a *ETypeInfoEntry) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the ETypeInfo2
 func (a *ETypeInfo2) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the ETypeInfo2Entry
 func (a *ETypeInfo2Entry) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
@@ -141,7 +141,7 @@ func (pa *PAData) GetETypeInfo() (d ETypeInfo, err error) {
 		err = fmt.Errorf("PAData does not contain PA EType Info data. TypeID Expected: %v; Actual: %v", patype.PA_ETYPE_INFO, pa.PADataType)
 		return
 	}
-	_, err = asn1.Unmarshal(pa.PADataValue, &d)
+	_, err = asn1.Unmarshal(pa.PADataValue, &d, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return
 }
 
@@ -151,6 +151,6 @@ func (pa *PAData) GetETypeInfo2() (d ETypeInfo2, err error) {
 		err = fmt.Errorf("PAData does not contain PA EType Info 2 data. TypeID Expected: %v; Actual: %v", patype.PA_ETYPE_INFO2, pa.PADataType)
 		return
 	}
-	_, err = asn1.Unmarshal(pa.PADataValue, &d)
+	_, err = asn1.Unmarshal(pa.PADataValue, &d, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return
 }

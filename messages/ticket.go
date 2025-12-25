@@ -27,7 +27,7 @@ import (
 // Ticket implements the Kerberos ticket.
 type Ticket struct {
 	TktVNO           int                 `asn1:"explicit,tag:0"`
-	Realm            string              `asn1:"generalstring,explicit,tag:1"`
+	Realm            string              `asn1:"general,explicit,tag:1"`
 	SName            types.PrincipalName `asn1:"explicit,tag:2"`
 	EncPart          types.EncryptedData `asn1:"explicit,tag:3"`
 	DecryptedEncPart EncTicketPart       `asn1:"optional"` // Not part of ASN1 bytes so marked as optional so unmarshalling works
@@ -37,7 +37,7 @@ type Ticket struct {
 type EncTicketPart struct {
 	Flags             asn1.BitString          `asn1:"explicit,tag:0"`
 	Key               types.EncryptionKey     `asn1:"explicit,tag:1"`
-	CRealm            string                  `asn1:"generalstring,explicit,tag:2"`
+	CRealm            string                  `asn1:"general,explicit,tag:2"`
 	CName             types.PrincipalName     `asn1:"explicit,tag:3"`
 	Transited         TransitedEncoding       `asn1:"explicit,tag:4"`
 	AuthTime          time.Time               `asn1:"generalized,explicit,tag:5"`
@@ -76,7 +76,7 @@ func NewTicket(cname types.PrincipalName, crealm string, sname types.PrincipalNa
 		EndTime:   endTime,
 		RenewTill: renewTill,
 	}
-	b, err := asn1.Marshal(etp)
+	b, err := asn1.Marshal(etp, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return Ticket{}, types.EncryptionKey{}, krberror.Errorf(err, krberror.EncodingError, "error marshalling ticket encpart")
 	}
@@ -106,7 +106,7 @@ func (t *Ticket) Unmarshal(b []byte) error {
 
 // Marshal the Ticket.
 func (t *Ticket) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*t)
+	b, err := asn1.Marshal(*t, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return nil, err
 	}

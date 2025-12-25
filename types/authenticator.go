@@ -20,7 +20,7 @@ import (
 // https://tools.ietf.org/html/rfc4120#section-5.5.1
 type Authenticator struct {
 	AVNO              int               `asn1:"explicit,tag:0"`
-	CRealm            string            `asn1:"generalstring,explicit,tag:1"`
+	CRealm            string            `asn1:"general,explicit,tag:1"`
 	CName             PrincipalName     `asn1:"explicit,tag:2"`
 	Cksum             Checksum          `asn1:"explicit,optional,tag:3"`
 	Cusec             int               `asn1:"explicit,tag:4"`
@@ -73,7 +73,7 @@ func (a *Authenticator) Unmarshal(b []byte) error {
 
 // Marshal the Authenticator.
 func (a *Authenticator) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*a)
+	b, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return nil, err
 	}

@@ -13,6 +13,6 @@ type TypedDataSequence []TypedData
 
 // Unmarshal bytes into the TypedDataSequence.
 func (a *TypedDataSequence) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }

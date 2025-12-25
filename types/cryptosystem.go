@@ -33,13 +33,13 @@ type Checksum struct {
 
 // Unmarshal bytes into the EncryptedData.
 func (a *EncryptedData) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Marshal the EncryptedData.
 func (a *EncryptedData) Marshal() ([]byte, error) {
-	edb, err := asn1.Marshal(*a)
+	edb, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return edb, err
 	}
@@ -48,13 +48,13 @@ func (a *EncryptedData) Marshal() ([]byte, error) {
 
 // Unmarshal bytes into the EncryptionKey.
 func (a *EncryptionKey) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 
 // Unmarshal bytes into the Checksum.
 func (a *Checksum) Unmarshal(b []byte) error {
-	_, err := asn1.Unmarshal(b, a)
+	_, err := asn1.Unmarshal(b, a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	return err
 }
 

@@ -62,7 +62,7 @@ func AddASNAppTag(b []byte, tag int) []byte {
 		Tag:        tag,
 		Bytes:      b,
 	}
-	ab, _ := asn1.Marshal(r)
+	ab, _ := asn1.Marshal(r, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	return ab
 }
 

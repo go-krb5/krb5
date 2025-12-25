@@ -42,7 +42,7 @@ type KRB5Token struct {
 // Marshal a KRB5Token into a slice of bytes.
 func (m *KRB5Token) Marshal() ([]byte, error) {
 	// Create the header
-	b, _ := asn1.Marshal(m.OID)
+	b, _ := asn1.Marshal(m.OID, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	b = append(b, m.tokID...)
 	var tb []byte
 	var err error

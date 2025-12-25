@@ -72,7 +72,7 @@ func (n *NegTokenInit) Marshal() ([]byte, error) {
 		MechTokenBytes: n.MechTokenBytes,
 		MechListMIC:    n.MechListMIC,
 	}
-	b, err := asn1.Marshal(m)
+	b, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +82,7 @@ func (n *NegTokenInit) Marshal() ([]byte, error) {
 		IsCompound: true,
 		Bytes:      b,
 	}
-	nb, err := asn1.Marshal(nt)
+	nb, err := asn1.Marshal(nt, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +162,7 @@ func (n *NegTokenResp) Marshal() ([]byte, error) {
 		ResponseToken: n.ResponseToken,
 		MechListMIC:   n.MechListMIC,
 	}
-	b, err := asn1.Marshal(m)
+	b, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func (n *NegTokenResp) Marshal() ([]byte, error) {
 		IsCompound: true,
 		Bytes:      b,
 	}
-	nb, err := asn1.Marshal(nt)
+	nb, err := asn1.Marshal(nt, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return nil, err
 	}
@@ -249,14 +249,14 @@ func (n *NegTokenResp) Context() context.Context {
 // If error is nil and the boolean is false the response is a NegTokenResp.
 func UnmarshalNegToken(b []byte) (bool, interface{}, error) {
 	var a asn1.RawValue
-	_, err := asn1.Unmarshal(b, &a)
+	_, err := asn1.Unmarshal(b, &a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	if err != nil {
 		return false, nil, fmt.Errorf("error unmarshalling NegotiationToken: %v", err)
 	}
 	switch a.Tag {
 	case 0:
 		var n marshalNegTokenInit
-		_, err = asn1.Unmarshal(a.Bytes, &n)
+		_, err = asn1.Unmarshal(a.Bytes, &n, asn1.WithUnmarshalAllowTypeGeneralString(true))
 		if err != nil {
 			return false, nil, fmt.Errorf("error unmarshalling NegotiationToken type %d (Init): %v", a.Tag, err)
 		}
@@ -269,7 +269,7 @@ func UnmarshalNegToken(b []byte) (bool, interface{}, error) {
 		return true, nt, nil
 	case 1:
 		var n marshalNegTokenResp
-		_, err = asn1.Unmarshal(a.Bytes, &n)
+		_, err = asn1.Unmarshal(a.Bytes, &n, asn1.WithUnmarshalAllowTypeGeneralString(true))
 		if err != nil {
 			return false, nil, fmt.Errorf("error unmarshalling NegotiationToken type %d (Resp/Targ): %v", a.Tag, err)
 		}

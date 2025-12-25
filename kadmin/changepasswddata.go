@@ -10,12 +10,12 @@ import (
 type ChangePasswdData struct {
 	NewPasswd []byte              `asn1:"explicit,tag:0"`
 	TargName  types.PrincipalName `asn1:"explicit,optional,tag:1"`
-	TargRealm string              `asn1:"generalstring,optional,explicit,tag:2"`
+	TargRealm string              `asn1:"general,optional,explicit,tag:2"`
 }
 
 // Marshal ChangePasswdData into a byte slice.
 func (c *ChangePasswdData) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*c)
+	b, err := asn1.Marshal(*c, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return []byte{}, err
 	}
