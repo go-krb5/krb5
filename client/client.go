@@ -303,8 +303,8 @@ func (cl *Client) Diagnostics(w io.Writer) error {
 	if errs == nil || len(errs) < 1 {
 		return nil
 	}
-	err = fmt.Errorf(strings.Join(errs, "\n"))
-	return err
+
+	return errors.New(strings.Join(errs, "\n"))
 }
 
 // Print writes the details of the client to the io.Writer provided.

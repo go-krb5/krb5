@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
+	"time"
 )
 
 // Settings holds optional client settings.
@@ -12,6 +14,12 @@ type Settings struct {
 	assumePreAuthentication bool
 	preAuthEType            int32
 	logger                  *log.Logger
+	dialer                  Dialer
+}
+
+// A Dialer is a means to establish a connection.
+type Dialer interface {
+	Dial(network, addr string) (c net.Conn, err error)
 }
 
 // jsonSettings is used when marshaling the Settings details to JSON format.
@@ -22,7 +30,12 @@ type jsonSettings struct {
 
 // NewSettings creates a new client settings struct.
 func NewSettings(settings ...func(*Settings)) *Settings {
-	s := new(Settings)
+	s := &Settings{
+		dialer: &net.Dialer{
+			Timeout: time.Second * 5,
+		},
+	}
+
 	for _, set := range settings {
 		set(s)
 	}
@@ -35,6 +48,12 @@ func NewSettings(settings ...func(*Settings)) *Settings {
 func DisablePAFXFAST(b bool) func(*Settings) {
 	return func(s *Settings) {
 		s.disablePAFXFast = b
+	}
+}
+
+func UseDialer(dialer Dialer) func(*Settings) {
+	return func(s *Settings) {
+		s.dialer = dialer
 	}
 }
 
