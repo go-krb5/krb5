@@ -68,6 +68,11 @@ func LoadCCache(cpath string) (*CCache, error) {
 	if err != nil {
 		return c, err
 	}
+
+	if len(b) < 10 {
+		return c, errors.New("Invalid credential cache data: file too short")
+	}
+
 	err = c.Unmarshal(b)
 	return c, err
 }
