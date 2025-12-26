@@ -129,14 +129,16 @@ func TestDES3EncryptDecryptData(t *testing.T) {
 	t.Parallel()
 
 	var tests = []struct {
-		name      string
-		key       string // hex string (24 bytes)
-		plaintext string // hex string
+		name        string
+		key         string // hex string (24 bytes)
+		plaintext   string // hex string
+		expectError bool
 	}{
 		{
-			name:      "Empty plaintext",
-			key:       "0123456789abcdef0123456789abcdef0123456789abcdef",
-			plaintext: "",
+			name:        "Empty plaintext",
+			key:         "0123456789abcdef0123456789abcdef0123456789abcdef",
+			plaintext:   "",
+			expectError: true,
 		},
 		{
 			name:      "8 byte plaintext (1 DES block)",
@@ -173,6 +175,12 @@ func TestDES3EncryptDecryptData(t *testing.T) {
 			plaintext, _ := hex.DecodeString(test.plaintext)
 
 			_, ciphertext, err := rfc3961.DES3EncryptData(key, plaintext, &e)
+
+			if test.expectError {
+				assert.Error(t, err, "Expected error for empty plaintext")
+				return
+			}
+			
 			if err != nil {
 				t.Fatalf("DES3EncryptData failed: %v", err)
 			}
