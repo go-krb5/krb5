@@ -11,7 +11,7 @@ import (
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/adtype"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/keyusage"
@@ -80,7 +80,7 @@ func NewTicket(cname types.PrincipalName, crealm string, sname types.PrincipalNa
 	if err != nil {
 		return Ticket{}, types.EncryptionKey{}, krberror.Errorf(err, krberror.EncodingError, "error marshalling ticket encpart")
 	}
-	b = asn1tools.AddASNAppTag(b, asnAppTag.EncTicketPart)
+	b = asn1tools.AddASNAppTag(b, asn1apptag.EncTicketPart)
 	skey, _, err := sktab.GetEncryptionKey(sname, srealm, kvno, eTypeID)
 	if err != nil {
 		return Ticket{}, types.EncryptionKey{}, krberror.Errorf(err, krberror.EncryptingError, "error getting encryption key for new ticket")
@@ -100,7 +100,7 @@ func NewTicket(cname types.PrincipalName, crealm string, sname types.PrincipalNa
 
 // Unmarshal bytes b into a Ticket struct.
 func (t *Ticket) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, t, fmt.Sprintf("application,explicit,tag:%d", asnAppTag.Ticket))
+	_, err := asn1.UnmarshalWithParams(b, t, fmt.Sprintf("application,explicit,tag:%d", asn1apptag.Ticket))
 	return err
 }
 
@@ -110,13 +110,13 @@ func (t *Ticket) Marshal() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	b = asn1tools.AddASNAppTag(b, asnAppTag.Ticket)
+	b = asn1tools.AddASNAppTag(b, asn1apptag.Ticket)
 	return b, nil
 }
 
 // Unmarshal bytes b into the EncTicketPart struct.
 func (t *EncTicketPart) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, t, fmt.Sprintf("application,explicit,tag:%d", asnAppTag.EncTicketPart))
+	_, err := asn1.UnmarshalWithParams(b, t, fmt.Sprintf("application,explicit,tag:%d", asn1apptag.EncTicketPart))
 	return err
 }
 
@@ -136,7 +136,7 @@ func unmarshalTicketsSequence(in asn1.RawValue) ([]Ticket, error) {
 	var tkts []Ticket
 	var raw asn1.RawValue
 	for p < (len(b)) {
-		_, err := asn1.UnmarshalWithParams(b[p:], &raw, fmt.Sprintf("application,tag:%d", asnAppTag.Ticket))
+		_, err := asn1.UnmarshalWithParams(b[p:], &raw, fmt.Sprintf("application,tag:%d", asn1apptag.Ticket))
 		if err != nil {
 			return nil, fmt.Errorf("unmarshaling sequence of tickets failed getting length of ticket: %v", err)
 		}

@@ -9,7 +9,7 @@ import (
 
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/iana"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/krberror"
@@ -50,7 +50,7 @@ func NewKRBError(sname types.PrincipalName, realm string, code int32, etext stri
 
 // Unmarshal bytes b into the KRBError struct.
 func (k *KRBError) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.KRBError))
+	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.KRBError))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "KRB_ERROR unmarshal error")
 	}
@@ -67,7 +67,7 @@ func (k *KRBError) Marshal() ([]byte, error) {
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling KRBError")
 	}
-	b = asn1tools.AddASNAppTag(b, asnAppTag.KRBError)
+	b = asn1tools.AddASNAppTag(b, asn1apptag.KRBError)
 	return b, nil
 }
 

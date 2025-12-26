@@ -7,7 +7,7 @@ import (
 	"github.com/go-krb5/x/encoding/asn1"
 
 	"github.com/go-krb5/krb5/crypto"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/krberror"
@@ -58,7 +58,7 @@ type KrbCredInfo struct {
 // Unmarshal bytes b into the KRBCred struct.
 func (k *KRBCred) Unmarshal(b []byte) error {
 	var m marshalKRBCred
-	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.KRBCred))
+	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.KRBCred))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
@@ -95,7 +95,7 @@ func (k *KRBCred) DecryptEncPart(key types.EncryptionKey) error {
 
 // Unmarshal bytes b into the encrypted part of KRB_CRED.
 func (k *EncKrbCredPart) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.EncKrbCredPart))
+	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncKrbCredPart))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling EncKrbCredPart")
 	}

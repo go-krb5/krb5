@@ -1,14 +1,19 @@
 # krb5
 
-It is recommended to use the latest version: [![Version](https://img.shields.io/github/release/go-krb5/krb5.svg)](https://github.com/go-krb5/krb5/releases)
+[![GoDoc](https://godoc.org/github.com/go-krb5/krb5?status.svg)](https://godoc.org/github.com/go-krb5/krb5)
+[![Go Report Card](https://goreportcard.com/badge/github.com/go-krb5/krb5)](https://goreportcard.com/report/github.com/go-krb5/krb5)
+[![Version](https://img.shields.io/github/release/go-krb5/krb5.svg)](https://github.com/go-krb5/krb5/releases)
 
-#### Go Version Support
+Kerberos 5 implementation in pure go. 
 
-![Go version](https://img.shields.io/badge/Go-1.25-brightgreen.svg)
-![Go version](https://img.shields.io/badge/Go-1.24-brightgreen.svg)
-![Go version](https://img.shields.io/badge/Go-1.23-brightgreen.svg)
+## Thanks
 
-krb5 may work with other versions of Go but they are not formally tested.
+This library literally could not exist without [Jonathan Turner](https://github.com/jcmturner). We are unaware of the circumstances but his
+activity on GitHub seems to have ceased which is a significant loss for the community. Ultimately this is his org, and
+we're just the current stewards.
+
+* [Jonathan Turner](https://github.com/jcmturner) for the [Original and Related Repositories](https://github.com/jcmturner/gokrb5)
+* Greg Hudson from the MIT Consortium for Kerberos and Internet Trust for providing useful advice.
 
 ## Features
 
@@ -26,17 +31,78 @@ krb5 may work with other versions of Go but they are not formally tested.
   * Parsing krb5.conf files
   * Parsing client credentials cache files such as `/tmp/krb5cc_$(id -u $(whoami))`
 
-#### Implemented Encryption & Checksum Types
+## Support
 
-| Implementation             | Encryption ID | Checksum ID | RFC  |
-|----------------------------|---------------|-------------|------|
-| des3-cbc-sha1-kd           | 16            | 12          | 3961 |
-| aes128-cts-hmac-sha1-96    | 17            | 15          | 3962 |
-| aes256-cts-hmac-sha1-96    | 18            | 16          | 3962 |
-| aes128-cts-hmac-sha256-128 | 19            | 19          | 8009 |
-| aes256-cts-hmac-sha384-192 | 20            | 20          | 8009 |
-| rc4-hmac                   | 23            | -138        | 4757 |
+![Go version](https://img.shields.io/badge/Go-1.25-brightgreen.svg)
 
+This library; unless otherwise explicitly expressed; will officially support versions of go which are currently
+supported by the go maintainers (usually 3 minor versions) with a brief transition time (usually 1 patch release of go,
+for example if go 1.21.0 is released, we will likely still support go 1.17 until go 1.21.1 is released). These specific
+rules apply at the time of a published release.
+
+This library in our opinion handles a critical element of security in a dependent project and we aim to avoid backwards
+compatibility at the cost of security wherever possible. We also consider this especially important in a language like
+go where their backwards compatibility when upgrading the compile tools is usually flawless.
+
+Changes to the supported version of go in the positive direction (i.e. older versions deprecated and newer versions 
+added) **_will never_** be considered a breaking change for this library.
+
+This policy means that users who wish to build this with older versions of go may find there are features being used
+which are not available in that version. The current intentionally supported versions of go are as follows:
+
+- go 1.25
+- ~~go 1.24~~ (not supported by `encoding/asn1` using `reflect.TypeAssert`)
+- ~~go 1.23~~ (not supported by golang.org/x/crypto v0.42.0 and above)
+
+## Additional Notes and Documentation
+
+- [References](REFERENCE.md)
+- [Breaking Changes](BREAKING.md)
+
+## To Do
+
+- [ ] Investigate mechanisms to have a encryption type registry to allow implementation of deprecated algorithms which
+      are not enabled by default.
+- CI Workflows:
+  - [ ] Unit Tests
+  - [ ] Integration Tests
+  - [ ] Coverage
+  - [ ] Renovate
+- [ ] Document Breaking Changes
+- [ ] Setup Governance
+- [ ] Engage Community to assist in merging PR's and ensure they receive the adequate credit
+- [ ] Overhaul go docs
+- [ ] Error Cleanup and Overhaul
+
+## Implementation
+
+The following section contains some implementation specific information.
+
+### Encryption & Checksum Types
+
+|            Type            |        Implemented         | Encryption ID | Checksum ID |    Documentation     |
+|:--------------------------:|:--------------------------:|:-------------:|:-----------:|:--------------------:|
+|        des-cbc-crc         | No (deprecated, insecure)  |       1       |      x      | [RFC3961], [RFC6649] |
+|        des-cbc-md4         | No (deprecated, insecure)  |       2       |      x      | [RFC3961], [RFC6649] |
+|        des-cbc-md5         | No (deprecated, insecure)  |       3       |      x      | [RFC3961], [RFC6649] |
+|        des3-cbc-md5        | No (deprecated, insecure)  |       5       |      x      | [RFC3961], [RFC8429] |
+|       des3-cbc-sha1        | No (deprecated, insecure)  |       7       |     13      | [RFC3961], [RFC8429] |
+|       des3-cbc-sha1        |             No             |       8       |     13      |      [RFC3961]       |
+|      des3-cbc-sha1-kd      | Yes (deprecated, insecure) |      16       |     12      | [RFC3961], [RFC8429] |
+|  aes128-cts-hmac-sha1-96   |            Yes             |      17       |     15      |      [RFC3962]       |
+|  aes256-cts-hmac-sha1-96   |            Yes             |      18       |     16      |      [RFC3962]       |
+| aes128-cts-hmac-sha256-128 |            Yes             |      19       |     19      |      [RFC8009]       |
+| aes256-cts-hmac-sha384-192 |            Yes             |      20       |     20      |      [RFC8009]       |
+|          rc4-hmac          |            Yes             |      23       |    -138     |      [RFC4757]       |
+
+[RFC3961]: https://datatracker.ietf.org/doc/html/rfc3961
+[RFC3962]: https://datatracker.ietf.org/doc/html/rfc3962
+[RFC8009]: https://datatracker.ietf.org/doc/html/rfc8009
+[RFC4757]: https://datatracker.ietf.org/doc/html/rfc4757
+[RFC6649]: https://datatracker.ietf.org/doc/html/rfc6649
+[RFC8429]: https://datatracker.ietf.org/doc/html/rfc8429
+
+### Tested Scenarios
 
 The following is working/tested:
 
@@ -44,37 +110,6 @@ The following is working/tested:
 * Tested against a KDC that supports PA-FX-FAST.
 * Tested against users that have pre-authentication required using PA-ENC-TIMESTAMP.
 * Microsoft PAC Authorization Data is processed and exposed in the HTTP request context. Available if Microsoft Active Directory is used as the KDC.
-
----
-
-## References
-
-* [RFC 3244 Microsoft Windows 2000 Kerberos Change Password and Set Password Protocols](https://tools.ietf.org/html/rfc3244)
-* [RFC 4120 The Kerberos Network Authentication Service (V5)](https://tools.ietf.org/html/rfc4120)
-* [RFC 3961 Encryption and Checksum Specifications for Kerberos 5](https://tools.ietf.org/html/rfc3961)
-* [RFC 3962 Advanced Encryption Standard (AES) Encryption for Kerberos 5](https://tools.ietf.org/html/rfc3962)
-* [RFC 4121 The Kerberos Version 5 GSS-API Mechanism](https://tools.ietf.org/html/rfc4121)
-* [RFC 4178 The Simple and Protected Generic Security Service Application Program Interface (GSS-API) Negotiation Mechanism](https://tools.ietf.org/html/rfc4178.html)
-* [RFC 4559 SPNEGO-based Kerberos and NTLM HTTP Authentication in Microsoft Windows](https://tools.ietf.org/html/rfc4559.html)
-* [RFC 4757 The RC4-HMAC Kerberos Encryption Types Used by Microsoft Windows](https://tools.ietf.org/html/rfc4757)
-* [RFC 6806 Kerberos Principal Name Canonicalization and Cross-Realm Referrals](https://tools.ietf.org/html/rfc6806.html)
-* [RFC 6113 A Generalized Framework for Kerberos Pre-Authentication](https://tools.ietf.org/html/rfc6113.html)
-* [RFC 8009 AES Encryption with HMAC-SHA2 for Kerberos 5](https://tools.ietf.org/html/rfc8009)
-* [IANA Assigned Kerberos Numbers](http://www.iana.org/assignments/kerberos-parameters/kerberos-parameters.xhtml)
-* [HTTP-Based Cross-Platform Authentication by Using the Negotiate Protocol - Part 1](https://msdn.microsoft.com/en-us/library/ms995329.aspx)
-* [HTTP-Based Cross-Platform Authentication by Using the Negotiate Protocol - Part 2](https://msdn.microsoft.com/en-us/library/ms995330.aspx)
-* [Microsoft PAC Validation](https://blogs.msdn.microsoft.com/openspecification/2009/04/24/understanding-microsoft-kerberos-pac-validation/)
-* [Microsoft Kerberos Protocol Extensions](https://msdn.microsoft.com/en-us/library/cc233855.aspx)
-* [Windows Data Types](https://msdn.microsoft.com/en-us/library/cc230273.aspx)
-
-### Useful Links
-
-* https://en.wikipedia.org/wiki/Ciphertext_stealing#CBC_ciphertext_stealing
-
-## Thanks
-
-* [Jonathan Turner](https://github.com/jcmturner) for the [Original and Related Repositories](https://github.com/jcmturner/gokrb5)
-* Greg Hudson from the MIT Consortium for Kerberos and Internet Trust for providing useful advice.
 
 ## Known Issues
 

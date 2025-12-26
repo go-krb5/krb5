@@ -12,7 +12,7 @@ import (
 
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/iana"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 )
 
 // Authenticator - A record containing information that can be shown to have been recently generated using the session
@@ -67,7 +67,7 @@ func (a *Authenticator) GenerateSeqNumberAndSubKey(keyType int32, keySize int) e
 
 // Unmarshal bytes into the Authenticator.
 func (a *Authenticator) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, a, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.Authenticator))
+	_, err := asn1.UnmarshalWithParams(b, a, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.Authenticator))
 	return err
 }
 
@@ -77,6 +77,6 @@ func (a *Authenticator) Marshal() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	b = asn1tools.AddASNAppTag(b, asnAppTag.Authenticator)
+	b = asn1tools.AddASNAppTag(b, asn1apptag.Authenticator)
 	return b, nil
 }

@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/types"
@@ -29,7 +29,7 @@ type EncAPRepPart struct {
 
 // Unmarshal bytes b into the APRep struct.
 func (a *APRep) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, a, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.APREP))
+	_, err := asn1.UnmarshalWithParams(b, a, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.APREP))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
@@ -42,7 +42,7 @@ func (a *APRep) Unmarshal(b []byte) error {
 
 // Unmarshal bytes b into the APRep encrypted part struct.
 func (a *EncAPRepPart) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, a, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.EncAPRepPart))
+	_, err := asn1.UnmarshalWithParams(b, a, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncAPRepPart))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "AP_REP unmarshal error")
 	}
