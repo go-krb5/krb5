@@ -10,10 +10,10 @@ import (
 )
 
 func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {
+	// This test is meant to cover the fix for https://github.com/jcmturner/gokrb5/issues/332
+
 	t.Parallel()
 
-	// This test is meant to cover the fix for
-	// https://github.com/go-krb5/krb5/issues/332
 	krb5ConfWithKDCAndDNSLookupKDC := `
 [libdefaults]
  dns_lookup_kdc = true
