@@ -211,7 +211,7 @@ func TestVerifyAPREQ_Replay(t *testing.T) {
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5.replay"}, //using a unique suffix to avoid replay cache issues
+		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
