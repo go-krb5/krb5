@@ -19,6 +19,6 @@ func (c *ChangePasswdData) Marshal() ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	//b = asn1tools.AddASNAppTag(b, asnAppTag.)
+
 	return b, nil
 }

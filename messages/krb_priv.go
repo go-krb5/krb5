@@ -9,7 +9,7 @@ import (
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/krberror"
@@ -45,7 +45,7 @@ func NewKRBPriv(part EncKrbPrivPart) KRBPriv {
 
 // Unmarshal bytes b into the KRBPriv struct.
 func (k *KRBPriv) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.KRBPriv))
+	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.KRBPriv))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
@@ -58,7 +58,7 @@ func (k *KRBPriv) Unmarshal(b []byte) error {
 
 // Unmarshal bytes b into the EncKrbPrivPart struct.
 func (k *EncKrbPrivPart) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.EncKrbPrivPart))
+	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncKrbPrivPart))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "KRB_PRIV unmarshal error")
 	}
@@ -76,7 +76,7 @@ func (k *KRBPriv) Marshal() ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	b = asn1tools.AddASNAppTag(b, asnAppTag.KRBPriv)
+	b = asn1tools.AddASNAppTag(b, asn1apptag.KRBPriv)
 	return b, nil
 }
 
@@ -87,7 +87,7 @@ func (k *KRBPriv) EncryptEncPart(key types.EncryptionKey) error {
 	if err != nil {
 		return err
 	}
-	b = asn1tools.AddASNAppTag(b, asnAppTag.EncKrbPrivPart)
+	b = asn1tools.AddASNAppTag(b, asn1apptag.EncKrbPrivPart)
 	k.EncPart, err = crypto.GetEncryptedData(b, key, keyusage.KRB_PRIV_ENCPART, 1)
 	if err != nil {
 		return err

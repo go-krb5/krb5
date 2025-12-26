@@ -6,7 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/types"
@@ -32,7 +32,7 @@ type KRBSafeBody struct {
 
 // Unmarshal bytes b into the KRBSafe struct.
 func (s *KRBSafe) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, s, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.KRBSafe))
+	_, err := asn1.UnmarshalWithParams(b, s, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.KRBSafe))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}

@@ -16,7 +16,7 @@ import (
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
@@ -273,7 +273,7 @@ func (k *TGSReq) setPAData(paRealm string, tgt Ticket, sessionKey types.Encrypti
 // Unmarshal bytes b into the ASReq struct.
 func (k *ASReq) Unmarshal(b []byte) error {
 	var m marshalKDCReq
-	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.ASREQ))
+	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.ASREQ))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling AS_REQ")
 	}
@@ -296,7 +296,7 @@ func (k *ASReq) Unmarshal(b []byte) error {
 // Unmarshal bytes b into the TGSReq struct.
 func (k *TGSReq) Unmarshal(b []byte) error {
 	var m marshalKDCReq
-	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.TGSREQ))
+	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.TGSREQ))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling TGS_REQ")
 	}
@@ -370,7 +370,7 @@ func (k *ASReq) Marshal() ([]byte, error) {
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
-	mk = asn1tools.AddASNAppTag(mk, asnAppTag.ASREQ)
+	mk = asn1tools.AddASNAppTag(mk, asn1apptag.ASREQ)
 	return mk, nil
 }
 
@@ -396,7 +396,7 @@ func (k *TGSReq) Marshal() ([]byte, error) {
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
-	mk = asn1tools.AddASNAppTag(mk, asnAppTag.TGSREQ)
+	mk = asn1tools.AddASNAppTag(mk, asn1apptag.TGSREQ)
 	return mk, nil
 }
 

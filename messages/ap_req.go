@@ -9,7 +9,7 @@ import (
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
@@ -94,7 +94,7 @@ func authenticatorKeyUsage(pn types.PrincipalName) int {
 // Unmarshal bytes b into the APReq struct.
 func (a *APReq) Unmarshal(b []byte) error {
 	var m marshalAPReq
-	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.APREQ))
+	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.APREQ))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "unmarshal error of AP_REQ")
 	}
@@ -135,7 +135,7 @@ func (a *APReq) Marshal() ([]byte, error) {
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "marshaling error of AP_REQ")
 	}
-	mk = asn1tools.AddASNAppTag(mk, asnAppTag.APREQ)
+	mk = asn1tools.AddASNAppTag(mk, asn1apptag.APREQ)
 	return mk, nil
 }
 

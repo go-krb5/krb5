@@ -1,5 +1,5 @@
-// Package asnAppTag provides ASN1 application tag numbers.
-package asnAppTag
+// Package asn1apptag provides ASN1 application tag numbers.
+package asn1apptag
 
 // ASN1 application tag numbers.
 const (

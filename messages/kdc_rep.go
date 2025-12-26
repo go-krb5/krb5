@@ -13,7 +13,7 @@ import (
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/crypto"
-	"github.com/go-krb5/krb5/iana/asnAppTag"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
@@ -81,7 +81,7 @@ type LastReq struct {
 // Unmarshal bytes b into the ASRep struct.
 func (k *ASRep) Unmarshal(b []byte) error {
 	var m marshalKDCRep
-	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.ASREP))
+	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.ASREP))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
@@ -129,14 +129,14 @@ func (k *ASRep) Marshal() ([]byte, error) {
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REP")
 	}
-	mk = asn1tools.AddASNAppTag(mk, asnAppTag.ASREP)
+	mk = asn1tools.AddASNAppTag(mk, asn1apptag.ASREP)
 	return mk, nil
 }
 
 // Unmarshal bytes b into the TGSRep struct.
 func (k *TGSRep) Unmarshal(b []byte) error {
 	var m marshalKDCRep
-	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.TGSREP))
+	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.TGSREP))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
@@ -184,18 +184,18 @@ func (k *TGSRep) Marshal() ([]byte, error) {
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling TGS_REP")
 	}
-	mk = asn1tools.AddASNAppTag(mk, asnAppTag.TGSREP)
+	mk = asn1tools.AddASNAppTag(mk, asn1apptag.TGSREP)
 	return mk, nil
 }
 
 // Unmarshal bytes b into encrypted part of KRB_KDC_REP.
 func (e *EncKDCRepPart) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, e, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.EncASRepPart))
+	_, err := asn1.UnmarshalWithParams(b, e, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncASRepPart))
 	if err != nil {
 		// Try using tag 26
 		// Ref: RFC 4120 - mentions that some implementations use application tag number 26 wether or not the reply is
 		// a AS-REP or a TGS-REP.
-		_, err = asn1.UnmarshalWithParams(b, e, fmt.Sprintf("application,explicit,tag:%v", asnAppTag.EncTGSRepPart))
+		_, err = asn1.UnmarshalWithParams(b, e, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncTGSRepPart))
 		if err != nil {
 			return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling encrypted part within KDC_REP")
 		}
@@ -209,7 +209,7 @@ func (e *EncKDCRepPart) Marshal() ([]byte, error) {
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "marshaling error of AS_REP encpart")
 	}
-	b = asn1tools.AddASNAppTag(b, asnAppTag.EncASRepPart)
+	b = asn1tools.AddASNAppTag(b, asn1apptag.EncASRepPart)
 	return b, nil
 }
 
