@@ -6,7 +6,7 @@
 [![codecov](https://codecov.io/github/go-krb5/krb5/graph/badge.svg?token=P1FN91DTLE)](https://codecov.io/github/go-krb5/krb5)
 ![License](https://img.shields.io/github/license/go-krb5/krb5?logo=apache&color=blue)
 
-Kerberos 5 implementation in pure go. 
+Kerberos 5 implementation in pure go.
 
 ## Thanks
 
@@ -19,7 +19,7 @@ we're just the current stewards.
 
 ## Features
 
-* **Pure Go** - no dependency on external libraries 
+* **Pure Go** - no dependency on external libraries
 * No platform specific code
 * Server Side
   * HTTP handler wrapper implements SPNEGO Kerberos authentication
@@ -46,7 +46,7 @@ This library in our opinion handles a critical element of security in a dependen
 compatibility at the cost of security wherever possible. We also consider this especially important in a language like
 go where their backwards compatibility when upgrading the compile tools is usually flawless.
 
-Changes to the supported version of go in the positive direction (i.e. older versions deprecated and newer versions 
+Changes to the supported version of go in the positive direction (i.e. older versions deprecated and newer versions
 added) **_will never_** be considered a breaking change for this library.
 
 This policy means that users who wish to build this with older versions of go may find there are features being used
