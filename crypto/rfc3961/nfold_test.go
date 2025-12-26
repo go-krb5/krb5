@@ -9,6 +9,7 @@ import (
 
 func Test_nfold(t *testing.T) {
 	t.Parallel()
+
 	var tests = []struct {
 		n      int
 		b      []byte

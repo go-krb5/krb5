@@ -24,6 +24,7 @@ func TestGetHostAddress(t *testing.T) {
 		if err != nil {
 			t.Errorf("error getting host for %s: %v", test.str, err)
 		}
+
 		assert.Equal(t, test.ipType, h.AddrType, "wrong address type for %s", test.str)
 		assert.Equal(t, test.hex, hex.EncodeToString(h.Address), "wrong address bytes for %s", test.str)
 	}

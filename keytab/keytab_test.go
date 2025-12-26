@@ -19,12 +19,15 @@ import (
 
 func TestUnmarshal(t *testing.T) {
 	t.Parallel()
+
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := New()
+
 	err := kt.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error parsing keytab data: %v\n", err)
 	}
+
 	assert.Equal(t, uint8(2), kt.version, "Keytab version not as expected")
 	assert.Equal(t, uint32(1), kt.Entries[0].KVNO, "KVNO not as expected")
 	assert.Equal(t, uint8(1), kt.Entries[0].KVNO8, "KVNO8 not as expected")
@@ -39,17 +42,22 @@ func TestUnmarshal(t *testing.T) {
 
 func TestMarshal(t *testing.T) {
 	t.Parallel()
+
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := New()
+
 	err := kt.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error parsing keytab data: %v\n", err)
 	}
+
 	mb, err := kt.Marshal()
 	if err != nil {
 		t.Fatalf("Error marshaling: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshaled bytes not the same as input bytes")
+
 	err = kt.Unmarshal(mb)
 	if err != nil {
 		t.Fatalf("Error parsing marshaled bytes: %v", err)
@@ -58,42 +66,54 @@ func TestMarshal(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	t.Parallel()
+
 	f := "test/testdata/testuser1.testtab"
 	cwd, _ := os.Getwd()
+
 	dir := os.Getenv("TRAVIS_BUILD_DIR")
 	if dir != "" {
 		f = dir + "/" + f
 	} else if filepath.Base(cwd) == "keytab" {
 		f = "../" + f
 	}
+
 	kt, err := Load(f)
 	if err != nil {
 		t.Fatalf("could not load keytab: %v", err)
 	}
+
 	assert.Equal(t, uint8(2), kt.version, "keytab version not as expected")
 	assert.Equal(t, 12, len(kt.Entries), "keytab entry count not as expected: %+v", *kt)
+
 	for _, e := range kt.Entries {
 		if e.Principal.Realm != "TEST.GOKRB5" {
 			t.Error("principal realm not as expected")
 		}
+
 		if e.Principal.NameType != int32(1) {
 			t.Error("name type not as expected")
 		}
+
 		if e.Principal.NumComponents != int16(1) {
 			t.Error("number of component not as expected")
 		}
+
 		if len(e.Principal.Components) != 1 {
 			t.Error("number of component not as expected")
 		}
+
 		if e.Principal.Components[0] != "testuser1" {
 			t.Error("principal components not as expected")
 		}
+
 		if e.Timestamp.IsZero() {
 			t.Error("entry timestamp incorrect")
 		}
+
 		if e.KVNO == uint32(0) {
 			t.Error("entry kvno not as expected")
 		}
+
 		if e.KVNO8 == uint8(0) {
 			t.Error("entry kvno8 not as expected")
 		}
@@ -103,13 +123,14 @@ func TestLoad(t *testing.T) {
 // This test provides inputs to readBytes that previously
 // caused a panic.
 func TestReadBytes(t *testing.T) {
-	var endian binary.ByteOrder
-	endian = binary.BigEndian
+	var endian binary.ByteOrder = binary.BigEndian
+
 	p := 0
 
 	if _, err := readBytes(nil, &p, 1, &endian); err == nil {
 		t.Fatal("err should be populated because s was given that exceeds array length")
 	}
+
 	if _, err := readBytes(nil, &p, -1, &endian); err == nil {
 		t.Fatal("err should be given because negative s was given")
 	}
@@ -123,6 +144,7 @@ func TestUnmarshalPotentialPanics(t *testing.T) {
 	if err := kt.Unmarshal(nil); err == nil {
 		t.Fatal("should have errored, input is absent")
 	}
+
 	if err := kt.Unmarshal([]byte{}); err == nil {
 		t.Fatal("should have errored, input is empty")
 	}
@@ -136,11 +158,12 @@ func TestUnmarshalPotentialPanics(t *testing.T) {
 	}
 }
 
-// cxf testing stuff
+// cxf testing stuff.
 func TestBadKeytabs(t *testing.T) {
 	badPayloads := make([]string, 3)
 	badPayloads = append(badPayloads, "BQIwMDAwMDA=")
 	badPayloads = append(badPayloads, "BQIAAAAwAAEACjAwMDAwMDAwMDAAIDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw")
+
 	badPayloads = append(badPayloads, "BQKAAAAA")
 	for _, v := range badPayloads {
 		decodedKt, _ := base64.StdEncoding.DecodeString(v)
@@ -150,26 +173,26 @@ func TestBadKeytabs(t *testing.T) {
 }
 
 func TestKeytabEntriesUser(t *testing.T) {
-
-	// Load known-good keytab generated with ktutil
+	// Load known-good keytab generated with ktutil.
 	ktutilb64 := "BQIAAABGAAEAC0VYQU1QTEUuT1JHAAR1c2VyAAAAAV5ePQAfABIAIG6I6ys5Me8XyS54Ck7kIfFBH/WxBOP3W1DdE/ntBPnGAAAAHwAAADYAAQALRVhBTVBMRS5PUkcABHVzZXIAAAABXl49AB8AEQAQm7fVug9VRBJVhEGjHyN3EgAAAB8AAAA2AAEAC0VYQU1QTEUuT1JHAAR1c2VyAAAAAV5ePQAfABcAEBENDFHhRNNvt+T54BL7uIgAAAAf"
+
 	ktutilbytes, err := base64.StdEncoding.DecodeString(ktutilb64)
 	if err != nil {
 		t.Errorf("Could not parse b64 ktutil keytab: %s", err)
 	}
+
 	ktutil := new(Keytab)
+
 	err = ktutil.Unmarshal(ktutilbytes)
 	if err != nil {
 		t.Fatalf("Could not load ktutil-generated keytab: %s", err)
 	}
 
-	// Generate the same keytab with krb5
-	var ts time.Time = ktutil.Entries[0].Timestamp
-	var encTypes []int32 = []int32{
-		etypeID.AES256_CTS_HMAC_SHA1_96,
-		etypeID.AES128_CTS_HMAC_SHA1_96,
-		etypeID.RC4_HMAC,
-	}
+	// Generate the same keytab with krb5.
+	var (
+		ts       = ktutil.Entries[0].Timestamp
+		encTypes = []int32{etypeID.AES256_CTS_HMAC_SHA1_96, etypeID.AES128_CTS_HMAC_SHA1_96, etypeID.RC4_HMAC}
+	)
 
 	kt := New()
 	for _, et := range encTypes {
@@ -178,36 +201,37 @@ func TestKeytabEntriesUser(t *testing.T) {
 			t.Errorf("Error adding entry to keytab: %s", err)
 		}
 	}
+
 	generated, err := kt.Marshal()
 	if err != nil {
 		t.Errorf("Error marshalling generated keytab: %s", err)
 	}
 
-	// Compare content
+	// Compare content.
 	assert.Equal(t, generated, ktutilbytes, "Service keytab doesn't match ktutil keytab")
 }
 
 func TestKeytabEntriesService(t *testing.T) {
-
-	// Load known-good keytab generated with ktutil
+	// Load known-good keytab generated with ktutil.
 	ktutilb64 := "BQIAAABXAAIAC0VYQU1QTEUuT1JHAARIVFRQAA93d3cuZXhhbXBsZS5vcmcAAAABXl49ggoAEgAgOCSpM5CdiZQn1+rUtLtt6sTrg5Saw1DXJMai7vDWJ0QAAAAKAAAARwACAAtFWEFNUExFLk9SRwAESFRUUAAPd3d3LmV4YW1wbGUub3JnAAAAAV5ePYIKABEAEDpczoDyER1jscz0RWkThCMAAAAKAAAARwACAAtFWEFNUExFLk9SRwAESFRUUAAPd3d3LmV4YW1wbGUub3JnAAAAAV5ePYIKABcAELP27YfH0Th5rD+GtJkQmXQAAAAK"
+
 	ktutilbytes, err := base64.StdEncoding.DecodeString(ktutilb64)
 	if err != nil {
 		t.Errorf("Could not parse b64 ktutil keytab: %s", err)
 	}
+
 	ktutil := new(Keytab)
+
 	err = ktutil.Unmarshal(ktutilbytes)
 	if err != nil {
 		t.Errorf("Could not load ktutil-generated keytab: %s", err)
 	}
 
-	// Generate the same keytab with krb5
-	var ts time.Time = ktutil.Entries[0].Timestamp
-	var encTypes []int32 = []int32{
-		etypeID.AES256_CTS_HMAC_SHA1_96,
-		etypeID.AES128_CTS_HMAC_SHA1_96,
-		etypeID.RC4_HMAC,
-	}
+	// Generate the same keytab with krb5.
+	var (
+		ts       = ktutil.Entries[0].Timestamp
+		encTypes = []int32{etypeID.AES256_CTS_HMAC_SHA1_96, etypeID.AES128_CTS_HMAC_SHA1_96, etypeID.RC4_HMAC}
+	)
 
 	kt := New()
 	for _, et := range encTypes {
@@ -216,12 +240,13 @@ func TestKeytabEntriesService(t *testing.T) {
 			t.Errorf("Error adding entry to keytab: %s", err)
 		}
 	}
+
 	generated, err := kt.Marshal()
 	if err != nil {
 		t.Errorf("Error marshalling generated keytab: %s", err)
 	}
 
-	// Compare content
+	// Compare content.
 	assert.Equal(t, generated, ktutilbytes, "Service keytab doesn't match ktutil keytab")
 }
 
@@ -243,10 +268,13 @@ func TestKeytab_GetEncryptionKey(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
 	assert.Equal(t, 4, kvno)
+
 	_, kvno, err = kt.GetEncryptionKey(pn, realm, 3, 18)
 	if err != nil {
 		t.Error(err)
 	}
+
 	assert.Equal(t, 3, kvno)
 }

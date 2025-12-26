@@ -34,6 +34,7 @@ type Client struct {
 // Set the realm to empty string to use the default realm from config.
 func NewWithPassword(username, realm, password string, krb5conf *config.Config, settings ...func(*Settings)) *Client {
 	creds := credentials.New(username, realm)
+
 	return &Client{
 		Credentials: creds.WithPassword(password),
 		Config:      krb5conf,
@@ -48,6 +49,7 @@ func NewWithPassword(username, realm, password string, krb5conf *config.Config, 
 // NewWithKeytab creates a new client from a keytab credential.
 func NewWithKeytab(username, realm string, kt *keytab.Keytab, krb5conf *config.Config, settings ...func(*Settings)) *Client {
 	creds := credentials.New(username, realm)
+
 	return &Client{
 		Credentials: creds.WithKeytab(kt),
 		Config:      krb5conf,
@@ -76,15 +78,19 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 		NameType:   nametype.KRB_NT_SRV_INST,
 		NameString: []string{"krbtgt", c.DefaultPrincipal.Realm},
 	}
+
 	cred, ok := c.GetEntry(spn)
 	if !ok {
 		return cl, errors.New("TGT not found in CCache")
 	}
+
 	var tgt messages.Ticket
+
 	err := tgt.Unmarshal(cred.Ticket)
 	if err != nil {
 		return cl, fmt.Errorf("TGT bytes in cache are not valid: %v", err)
 	}
+
 	cl.sessions.Entries[c.DefaultPrincipal.Realm] = &session{
 		realm:      c.DefaultPrincipal.Realm,
 		authTime:   cred.AuthTime,
@@ -95,10 +101,12 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 	}
 	for _, cred := range c.GetEntries() {
 		var tkt messages.Ticket
+
 		err = tkt.Unmarshal(cred.Ticket)
 		if err != nil {
 			return cl, fmt.Errorf("cache entry ticket bytes are not valid: %v", err)
 		}
+
 		cl.cache.addEntry(
 			tkt,
 			cred.AuthTime,
@@ -108,6 +116,7 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 			cred.Key,
 		)
 	}
+
 	return cl, nil
 }
 
@@ -122,16 +131,22 @@ func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (t
 	} else if cl.Credentials.HasPassword() {
 		if krberr != nil && krberr.ErrorCode == errorcode.KDC_ERR_PREAUTH_REQUIRED {
 			var pas types.PADataSequence
+
 			err := pas.Unmarshal(krberr.EData)
 			if err != nil {
 				return types.EncryptionKey{}, 0, fmt.Errorf("could not get PAData from KRBError to generate key from password: %v", err)
 			}
+
 			key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), krberr.CName, krberr.CRealm, etype.GetETypeID(), pas)
+
 			return key, 0, err
 		}
+
 		key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cl.Credentials.CName(), cl.Credentials.Domain(), etype.GetETypeID(), types.PADataSequence{})
+
 		return key, 0, err
 	}
+
 	return types.EncryptionKey{}, 0, errors.New("credential has neither keytab or password to generate key")
 }
 
@@ -140,26 +155,30 @@ func (cl *Client) IsConfigured() (bool, error) {
 	if cl.Credentials.UserName() == "" {
 		return false, errors.New("client does not have a username")
 	}
+
 	if cl.Credentials.Domain() == "" {
 		return false, errors.New("client does not have a define realm")
 	}
-	// Client needs to have either a password, keytab or a session already (later when loading from CCache)
+	// Client needs to have either a password, keytab or a session already (later when loading from CCache).
 	if !cl.Credentials.HasPassword() && !cl.Credentials.HasKeytab() {
 		authTime, _, _, _, err := cl.sessionTimes(cl.Credentials.Domain())
 		if err != nil || authTime.IsZero() {
 			return false, errors.New("client has neither a keytab nor a password set and no session")
 		}
 	}
+
 	if !cl.Config.LibDefaults.DNSLookupKDC {
 		for _, r := range cl.Config.Realms {
 			if r.Realm == cl.Credentials.Domain() {
 				if len(r.KDC) > 0 {
 					return true, nil
 				}
+
 				return false, errors.New("client krb5 config does not have any defined KDCs for the default realm")
 			}
 		}
 	}
+
 	return true, nil
 }
 
@@ -168,26 +187,32 @@ func (cl *Client) Login() error {
 	if ok, err := cl.IsConfigured(); !ok {
 		return err
 	}
+
 	if !cl.Credentials.HasPassword() && !cl.Credentials.HasKeytab() {
 		_, endTime, _, _, err := cl.sessionTimes(cl.Credentials.Domain())
 		if err != nil {
 			return krberror.Errorf(err, krberror.KRBMsgError, "no user credentials available and error getting any existing session")
 		}
+
 		if time.Now().UTC().After(endTime) {
 			return krberror.New(krberror.KRBMsgError, "cannot login, no user credentials available and no valid existing session")
 		}
-		// no credentials but there is a session with tgt already
+		// no credentials but there is a session with tgt already.
 		return nil
 	}
+
 	ASReq, err := messages.NewASReqForTGT(cl.Credentials.Domain(), cl.Config, cl.Credentials.CName())
 	if err != nil {
 		return krberror.Errorf(err, krberror.KRBMsgError, "error generating new AS_REQ")
 	}
+
 	ASRep, err := cl.ASExchange(cl.Credentials.Domain(), ASReq, 0)
 	if err != nil {
 		return err
 	}
+
 	cl.addSession(ASRep.Ticket, ASRep.DecryptedEncPart)
+
 	return nil
 }
 
@@ -200,6 +225,7 @@ func (cl *Client) AffirmLogin() error {
 			return fmt.Errorf("could not get valid TGT for client's realm: %v", err)
 		}
 	}
+
 	return nil
 }
 
@@ -208,6 +234,7 @@ func (cl *Client) realmLogin(realm string) error {
 	if realm == cl.Credentials.Domain() {
 		return cl.Login()
 	}
+
 	_, endTime, _, _, err := cl.sessionTimes(cl.Credentials.Domain())
 	if err != nil || time.Now().UTC().After(endTime) {
 		err := cl.Login()
@@ -215,6 +242,7 @@ func (cl *Client) realmLogin(realm string) error {
 			return fmt.Errorf("could not get valid TGT for client's realm: %v", err)
 		}
 	}
+
 	tgt, skey, err := cl.sessionTGT(cl.Credentials.Domain())
 	if err != nil {
 		return err
@@ -229,6 +257,7 @@ func (cl *Client) realmLogin(realm string) error {
 	if err != nil {
 		return err
 	}
+
 	cl.addSession(tgsRep.Ticket, tgsRep.DecryptedEncPart)
 
 	return nil
@@ -237,6 +266,7 @@ func (cl *Client) realmLogin(realm string) error {
 // Destroy stops the auto-renewal of all sessions and removes the sessions and cache entries from the client.
 func (cl *Client) Destroy() {
 	creds := credentials.New("", "")
+
 	cl.sessions.destroy()
 	cl.cache.clear()
 	cl.Credentials = creds
@@ -246,53 +276,66 @@ func (cl *Client) Destroy() {
 // Diagnostics runs a set of checks that the client is properly configured and writes details to the io.Writer provided.
 func (cl *Client) Diagnostics(w io.Writer) error {
 	cl.Print(w)
+
 	var errs []string
+
 	if cl.Credentials.HasKeytab() {
 		var loginRealmEncTypes []int32
+
 		for _, e := range cl.Credentials.Keytab().Entries {
 			if e.Principal.Realm == cl.Credentials.Realm() {
 				loginRealmEncTypes = append(loginRealmEncTypes, e.Key.KeyType)
 			}
 		}
+
 		for _, et := range cl.Config.LibDefaults.DefaultTktEnctypeIDs {
 			var etInKt bool
+
 			for _, val := range loginRealmEncTypes {
 				if val == et {
 					etInKt = true
 					break
 				}
 			}
+
 			if !etInKt {
 				errs = append(errs, fmt.Sprintf("default_tkt_enctypes specifies %d but this enctype is not available in the client's keytab", et))
 			}
 		}
+
 		for _, et := range cl.Config.LibDefaults.PreferredPreauthTypes {
 			var etInKt bool
+
 			for _, val := range loginRealmEncTypes {
 				if int(val) == et {
 					etInKt = true
 					break
 				}
 			}
+
 			if !etInKt {
 				errs = append(errs, fmt.Sprintf("preferred_preauth_types specifies %d but this enctype is not available in the client's keytab", et))
 			}
 		}
 	}
+
 	udpCnt, udpKDC, err := cl.Config.GetKDCs(cl.Credentials.Realm(), false)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("error when resolving KDCs for UDP communication: %v", err))
 	}
+
 	if udpCnt < 1 {
 		errs = append(errs, "no KDCs resolved for communication via UDP.")
 	} else {
 		b, _ := json.MarshalIndent(&udpKDC, "", "  ")
 		fmt.Fprintf(w, "UDP KDCs: %s\n", string(b))
 	}
+
 	tcpCnt, tcpKDC, err := cl.Config.GetKDCs(cl.Credentials.Realm(), false)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("error when resolving KDCs for TCP communication: %v", err))
 	}
+
 	if tcpCnt < 1 {
 		errs = append(errs, "no KDCs resolved for communication via TCP.")
 	} else {

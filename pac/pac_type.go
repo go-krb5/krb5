@@ -52,37 +52,44 @@ type InfoBuffer struct {
 	Offset       uint64 // A 64-bit unsigned integer in little-endian format that contains the offset to the beginning of the buffer, in bytes, from the beginning of the PACTYPE structure. The data offset MUST be a multiple of eight. The following sections specify the format of each type of element.
 }
 
-// Unmarshal bytes into the PACType struct
+// Unmarshal bytes into the PACType struct.
 func (pac *PACType) Unmarshal(b []byte) (err error) {
 	pac.Data = b
 	zb := make([]byte, len(b), len(b))
 	copy(zb, b)
 	pac.ZeroSigData = zb
 	r := mstypes.NewReader(bytes.NewReader(b))
+
 	pac.CBuffers, err = r.Uint32()
 	if err != nil {
 		return
 	}
+
 	pac.Version, err = r.Uint32()
 	if err != nil {
 		return
 	}
+
 	buf := make([]InfoBuffer, pac.CBuffers, pac.CBuffers)
 	for i := range buf {
 		buf[i].ULType, err = r.Uint32()
 		if err != nil {
 			return
 		}
+
 		buf[i].CBBufferSize, err = r.Uint32()
 		if err != nil {
 			return
 		}
+
 		buf[i].Offset, err = r.Uint64()
 		if err != nil {
 			return
 		}
 	}
+
 	pac.Buffers = buf
+
 	return nil
 }
 
@@ -92,127 +99,157 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 	for _, buf := range pac.Buffers {
 		p := make([]byte, buf.CBBufferSize, buf.CBBufferSize)
 		copy(p, pac.Data[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)])
+
 		switch buf.ULType {
 		case infoTypeKerbValidationInfo:
 			if pac.KerbValidationInfo != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k KerbValidationInfo
+
 			err := k.Unmarshal(p)
 			if err != nil {
 				return fmt.Errorf("error processing KerbValidationInfo: %v", err)
 			}
+
 			pac.KerbValidationInfo = &k
 		case infoTypeCredentials:
 			// Currently PAC parsing is only useful on the service side in krb5
 			// The CredentialsInfo are only useful when krb5 has implemented RFC4556 and only applied on the client side.
 			// Skipping CredentialsInfo - will be revisited under RFC4556 implementation.
 			continue
-			//if pac.CredentialsInfo != nil {
+			// if pac.CredentialsInfo != nil {
 			//	//Must ignore subsequent buffers of this type
 			//	continue
 			//}
-			//var k CredentialsInfo
-			//err := k.Unmarshal(p, key) // The encryption key used is the AS reply key only available to the client.
-			//if err != nil {
+			// var k CredentialsInfo
+			// err := k.Unmarshal(p, key) // The encryption key used is the AS reply key only available to the client.
+			// if err != nil {
 			//	return fmt.Errorf("error processing CredentialsInfo: %v", err)
 			//}
-			//pac.CredentialsInfo = &k
+			// pac.CredentialsInfo = &k.
 		case infoTypePACServerSignatureData:
 			if pac.ServerChecksum != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k SignatureData
+
 			zb, err := k.Unmarshal(p)
 			copy(pac.ZeroSigData[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)], zb)
+
 			if err != nil {
 				return fmt.Errorf("error processing ServerChecksum: %v", err)
 			}
+
 			pac.ServerChecksum = &k
 		case infoTypePACKDCSignatureData:
 			if pac.KDCChecksum != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k SignatureData
+
 			zb, err := k.Unmarshal(p)
 			copy(pac.ZeroSigData[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)], zb)
+
 			if err != nil {
 				return fmt.Errorf("error processing KDCChecksum: %v", err)
 			}
+
 			pac.KDCChecksum = &k
 		case infoTypePACClientInfo:
 			if pac.ClientInfo != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k ClientInfo
+
 			err := k.Unmarshal(p)
 			if err != nil {
 				return fmt.Errorf("error processing ClientInfo: %v", err)
 			}
+
 			pac.ClientInfo = &k
 		case infoTypeS4UDelegationInfo:
 			if pac.S4UDelegationInfo != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k S4UDelegationInfo
+
 			err := k.Unmarshal(p)
 			if err != nil {
 				l.Printf("could not process S4U_DelegationInfo: %v", err)
 				continue
 			}
+
 			pac.S4UDelegationInfo = &k
 		case infoTypeUPNDNSInfo:
 			if pac.UPNDNSInfo != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k UPNDNSInfo
+
 			err := k.Unmarshal(p)
 			if err != nil {
 				l.Printf("could not process UPN_DNSInfo: %v", err)
 				continue
 			}
+
 			pac.UPNDNSInfo = &k
 		case infoTypePACClientClaimsInfo:
 			if pac.ClientClaimsInfo != nil || len(p) < 1 {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k ClientClaimsInfo
+
 			err := k.Unmarshal(p)
 			if err != nil {
 				l.Printf("could not process ClientClaimsInfo: %v", err)
 				continue
 			}
+
 			pac.ClientClaimsInfo = &k
 		case infoTypePACDeviceInfo:
 			if pac.DeviceInfo != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k DeviceInfo
+
 			err := k.Unmarshal(p)
 			if err != nil {
 				l.Printf("could not process DeviceInfo: %v", err)
 				continue
 			}
+
 			pac.DeviceInfo = &k
 		case infoTypePACDeviceClaimsInfo:
 			if pac.DeviceClaimsInfo != nil {
-				//Must ignore subsequent buffers of this type
+				// Must ignore subsequent buffers of this type.
 				continue
 			}
+
 			var k DeviceClaimsInfo
+
 			err := k.Unmarshal(p)
 			if err != nil {
 				l.Printf("could not process DeviceClaimsInfo: %v", err)
 				continue
 			}
+
 			pac.DeviceClaimsInfo = &k
 		}
 	}
@@ -228,19 +265,24 @@ func (pac *PACType) verify(key types.EncryptionKey) (bool, error) {
 	if pac.KerbValidationInfo == nil {
 		return false, errors.New("PAC Info Buffers does not contain a KerbValidationInfo")
 	}
+
 	if pac.ServerChecksum == nil {
 		return false, errors.New("PAC Info Buffers does not contain a ServerChecksum")
 	}
+
 	if pac.KDCChecksum == nil {
 		return false, errors.New("PAC Info Buffers does not contain a KDCChecksum")
 	}
+
 	if pac.ClientInfo == nil {
 		return false, errors.New("PAC Info Buffers does not contain a ClientInfo")
 	}
+
 	etype, err := crypto.GetChksumEtype(int32(pac.ServerChecksum.SignatureType))
 	if err != nil {
 		return false, err
 	}
+
 	if ok := etype.VerifyChecksum(key.KeyValue,
 		pac.ZeroSigData,
 		pac.ServerChecksum.Signature,

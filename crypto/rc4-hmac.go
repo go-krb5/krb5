@@ -15,7 +15,7 @@ import (
 	"github.com/go-krb5/krb5/iana/etypeID"
 )
 
-// RC4HMAC implements Kerberos encryption type rc4-hmac
+// RC4HMAC implements Kerberos encryption type rc4-hmac.
 type RC4HMAC struct {
 }
 
@@ -66,7 +66,7 @@ func (e RC4HMAC) GetHMACBitLength() int {
 
 // GetCypherBlockBitLength returns the bit count size of the cypher block.
 func (e RC4HMAC) GetCypherBlockBitLength() int {
-	return 8 // doesn't really apply
+	return 8
 }
 
 // StringToKey returns a key derived from the string provided.
@@ -79,6 +79,7 @@ func (e RC4HMAC) RandomToKey(b []byte) []byte {
 	r := bytes.NewReader(b)
 	h := md4.New()
 	io.Copy(h, r)
+
 	return h.Sum(nil)
 }
 
@@ -130,5 +131,6 @@ func (e RC4HMAC) VerifyChecksum(protocolKey, data, chksum []byte, usage uint32) 
 	if err != nil {
 		return false
 	}
+
 	return hmac.Equal(checksum, chksum)
 }

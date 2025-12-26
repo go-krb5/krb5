@@ -16,16 +16,19 @@ import (
 
 func TestUnmarshalMarshalKRBError(t *testing.T) {
 	t.Parallel()
+
 	var a KRBError
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5error)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
-	//Parse the test time value into a time.Time type
+	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO is not as expected")
@@ -50,21 +53,25 @@ func TestUnmarshalMarshalKRBError(t *testing.T) {
 	if err != nil {
 		t.Errorf("error marshalling KRBError: %v", err)
 	}
+
 	assert.Equal(t, b, b2, "marshalled bytes not as expected")
 }
 
 func TestUnmarshalMarshalKRBError_optionalsNULL(t *testing.T) {
 	t.Parallel()
+
 	var a KRBError
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5errorOptionalsNULL)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
-	//Parse the test time value into a time.Time type
+	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO is not as expected")
@@ -82,5 +89,6 @@ func TestUnmarshalMarshalKRBError_optionalsNULL(t *testing.T) {
 	if err != nil {
 		t.Errorf("error marshalling KRBError: %v", err)
 	}
+
 	assert.Equal(t, b, b2, "marshalled bytes not as expected")
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
-// Replay cache is required as specified in RFC 4120 section 3.2.3
+// Replay cache is required as specified in RFC 4120 section 3.2.3.
 
 // Cache for tickets received from clients keyed by fully qualified client name. Used to track replay of tickets.
 type Cache struct {
@@ -26,14 +26,19 @@ type clientEntries struct {
 // Cache entry tracking client time values of tickets sent to the service.
 type replayCacheEntry struct {
 	presentedTime time.Time
-	sName         types.PrincipalName
-	cTime         time.Time // This combines the ticket's CTime and Cusec
+
+	sName types.PrincipalName
+
+	// This combines the ticket's CTime and Cusec.
+	cTime time.Time
 }
 
 func (c *Cache) getClientEntries(cname types.PrincipalName) (clientEntries, bool) {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
+
 	ce, ok := c.entries[cname.PrincipalNameString()]
+
 	return ce, ok
 }
 
@@ -41,10 +46,12 @@ func (c *Cache) getClientEntry(cname types.PrincipalName, t time.Time) (replayCa
 	if ce, ok := c.getClientEntries(cname); ok {
 		c.mux.RLock()
 		defer c.mux.RUnlock()
+
 		if e, ok := ce.replayMap[t]; ok {
 			return e, true
 		}
 	}
+
 	return replayCacheEntry{}, false
 }
 
@@ -55,11 +62,12 @@ var once sync.Once
 
 // GetReplayCache returns a pointer to the Cache singleton.
 func GetReplayCache(d time.Duration) *Cache {
-	// Create a singleton of the ReplayCache and start a background thread to regularly clean out old entries
+	// Create a singleton of the ReplayCache and start a background thread to regularly clean out old entries.
 	once.Do(func() {
 		replayCache = Cache{
 			entries: make(map[string]clientEntries),
 		}
+
 		go func() {
 			for {
 				// TODO consider using a context here.
@@ -68,6 +76,7 @@ func GetReplayCache(d time.Duration) *Cache {
 			}
 		}()
 	})
+
 	return &replayCache
 }
 
@@ -77,6 +86,7 @@ func (c *Cache) AddEntry(sname types.PrincipalName, a types.Authenticator) {
 	if ce, ok := c.getClientEntries(a.CName); ok {
 		c.mux.Lock()
 		defer c.mux.Unlock()
+
 		ce.replayMap[ct] = replayCacheEntry{
 			presentedTime: time.Now().UTC(),
 			sName:         sname,
@@ -87,6 +97,7 @@ func (c *Cache) AddEntry(sname types.PrincipalName, a types.Authenticator) {
 	} else {
 		c.mux.Lock()
 		defer c.mux.Unlock()
+
 		c.entries[a.CName.PrincipalNameString()] = clientEntries{
 			replayMap: map[time.Time]replayCacheEntry{
 				ct: {
@@ -105,12 +116,14 @@ func (c *Cache) AddEntry(sname types.PrincipalName, a types.Authenticator) {
 func (c *Cache) ClearOldEntries(d time.Duration) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
 	for ke, ce := range c.entries {
 		for k, e := range ce.replayMap {
 			if time.Now().UTC().Sub(e.presentedTime) > d {
 				delete(ce.replayMap, k)
 			}
 		}
+
 		if len(ce.replayMap) == 0 {
 			delete(c.entries, ke)
 		}
@@ -125,6 +138,8 @@ func (c *Cache) IsReplay(sname types.PrincipalName, a types.Authenticator) bool 
 			return true
 		}
 	}
+
 	c.AddEntry(sname, a)
+
 	return false
 }

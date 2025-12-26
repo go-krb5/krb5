@@ -25,13 +25,17 @@ func TestMultiThreadedClientSession(t *testing.T) {
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
 	kt.Unmarshal(b)
+
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
+
 	addr := os.Getenv("TEST_KDC_ADDR")
 	if addr == "" {
 		addr = testdata.KDC_IP_TEST_GOKRB5
 	}
+
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 	cl := NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
+
 	err := cl.Login()
 	if err != nil {
 		t.Fatalf("failed to log in: %v", err)
@@ -41,30 +45,37 @@ func TestMultiThreadedClientSession(t *testing.T) {
 	if !ok {
 		t.Fatal("error initially getting session")
 	}
+
 	go func() {
 		for {
 			err := cl.renewTGT(s)
 			if err != nil {
 				t.Logf("error renewing TGT: %v", err)
 			}
+
 			time.Sleep(time.Millisecond * 100)
 		}
 	}()
 
 	var wg sync.WaitGroup
 	wg.Add(10)
+
 	for i := 0; i < 10; i++ {
 		go func() {
 			defer wg.Done()
+
 			tgt, _, err := cl.sessionTGT("TEST.GOKRB5")
 			if err != nil || tgt.Realm != "TEST.GOKRB5" {
 				t.Logf("error getting session: %v", err)
 			}
+
 			_, _, _, r, _ := cl.sessionTimes("TEST.GOKRB5")
 			fmt.Fprintf(io.Discard, "%v", r)
 		}()
+
 		time.Sleep(time.Second)
 	}
+
 	wg.Wait()
 }
 
@@ -76,9 +87,11 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 	if addr == "" {
 		addr = testdata.KDC_IP_TEST_GOKRB5
 	}
+
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
 	kt := keytab.New()
 	kt.Unmarshal(b)
+
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5_SHORTTICKETS}
 	c.LibDefaults.PreferredPreauthTypes = []int{int(etypeID.DES3_CBC_SHA1_KD)} // a preauth etype the KDC does not support. Test this does not cause renewal to fail.
@@ -88,27 +101,35 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 	if err != nil {
 		t.Errorf("error on logging in: %v\n", err)
 	}
+
 	n := runtime.NumGoroutine()
+
 	for i := 0; i < 24; i++ {
 		time.Sleep(time.Second * 5)
+
 		_, endTime, _, _, err := cl.sessionTimes("TEST.GOKRB5")
 		if err != nil {
 			t.Errorf("could not get client's session: %v", err)
 		}
+
 		if time.Now().UTC().After(endTime) {
 			t.Fatalf("session auto update failed")
 		}
+
 		spn := "HTTP/host.test.gokrb5"
+
 		tkt, key, err := cl.GetServiceTicket(spn)
 		if err != nil {
 			t.Fatalf("error getting service ticket: %v\n", err)
 		}
+
 		b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 		skt := keytab.New()
 		skt.Unmarshal(b)
 		tkt.DecryptEncPart(skt, nil)
 		assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 		assert.Equal(t, int32(18), key.KeyType)
+
 		if runtime.NumGoroutine() > n {
 			t.Fatalf("number of goroutines is increasing: should not be more than %d, is %d", n, runtime.NumGoroutine())
 		}
@@ -119,6 +140,7 @@ func TestSessions_JSON(t *testing.T) {
 	s := &sessions{
 		Entries: make(map[string]*session),
 	}
+
 	for i := 0; i < 3; i++ {
 		realm := fmt.Sprintf("test%d", i)
 		e := &session{
@@ -130,10 +152,12 @@ func TestSessions_JSON(t *testing.T) {
 		}
 		s.Entries[realm] = e
 	}
+
 	j, err := s.JSON()
 	if err != nil {
 		t.Errorf("error getting json: %v", err)
 	}
+
 	expected := `[
   {
     "Realm": "test0",

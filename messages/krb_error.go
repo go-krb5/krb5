@@ -36,6 +36,7 @@ type KRBError struct {
 // NewKRBError creates a new KRBError.
 func NewKRBError(sname types.PrincipalName, realm string, code int32, etext string) KRBError {
 	t := time.Now().UTC()
+
 	return KRBError{
 		PVNO:      iana.PVNO,
 		MsgType:   msgtype.KRB_ERROR,
@@ -54,10 +55,12 @@ func (k *KRBError) Unmarshal(b []byte) error {
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "KRB_ERROR unmarshal error")
 	}
+
 	expectedMsgType := msgtype.KRB_ERROR
 	if k.MsgType != expectedMsgType {
 		return krberror.NewErrorf(krberror.KRBMsgError, "message ID does not indicate a KRB_ERROR. Expected: %v; Actual: %v", expectedMsgType, k.MsgType)
 	}
+
 	return nil
 }
 
@@ -67,7 +70,9 @@ func (k *KRBError) Marshal() ([]byte, error) {
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling KRBError")
 	}
+
 	b = asn1tools.AddASNAppTag(b, asn1apptag.KRBError)
+
 	return b, nil
 }
 
@@ -77,6 +82,7 @@ func (k KRBError) Error() string {
 	if k.EText != "" {
 		etxt = fmt.Sprintf("%s - %s", etxt, k.EText)
 	}
+
 	return etxt
 }
 
@@ -84,10 +90,12 @@ func processUnmarshalReplyError(b []byte, err error) error {
 	switch err.(type) {
 	case asn1.StructuralError:
 		var krberr KRBError
+
 		tmperr := krberr.Unmarshal(b)
 		if tmperr != nil {
 			return krberror.Errorf(err, krberror.EncodingError, "failed to unmarshal KDC's reply")
 		}
+
 		return krberr
 	default:
 		return krberror.Errorf(err, krberror.EncodingError, "failed to unmarshal KDC's reply")

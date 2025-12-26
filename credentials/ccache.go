@@ -64,6 +64,7 @@ type Credential struct {
 // LoadCCache loads a credential cache file into a CCache type.
 func LoadCCache(cpath string) (*CCache, error) {
 	c := new(CCache)
+
 	b, err := os.ReadFile(cpath)
 	if err != nil {
 		return c, err
@@ -74,44 +75,52 @@ func LoadCCache(cpath string) (*CCache, error) {
 	}
 
 	err = c.Unmarshal(b)
+
 	return c, err
 }
 
 // Unmarshal a byte slice of credential cache data into CCache type.
 func (c *CCache) Unmarshal(b []byte) error {
 	p := 0
-	//The first byte of the file always has the value 5
+	// The first byte of the file always has the value 5.
 	if int8(b[p]) != 5 {
 		return errors.New("Invalid credential cache data. First byte does not equal 5")
 	}
+
 	p++
-	//Get credential cache version
-	//The second byte contains the version number (1 to 4)
+	// Get credential cache version
+	// The second byte contains the version number (1 to 4).
 	c.Version = b[p]
 	if c.Version < 1 || c.Version > 4 {
 		return errors.New("Invalid credential cache data. Keytab version is not within 1 to 4")
 	}
+
 	p++
-	//Version 1 or 2 of the file format uses native byte order for integer representations. Versions 3 & 4 always uses big-endian byte order
+	// Version 1 or 2 of the file format uses native byte order for integer representations. Versions 3 & 4 always uses big-endian byte order.
 	var endian binary.ByteOrder
+
 	endian = binary.BigEndian
 	if (c.Version == 1 || c.Version == 2) && isNativeEndianLittle() {
 		endian = binary.LittleEndian
 	}
+
 	if c.Version == 4 {
 		err := parseHeader(b, &p, c, &endian)
 		if err != nil {
 			return err
 		}
 	}
+
 	c.DefaultPrincipal = parsePrincipal(b, &p, c, &endian)
 	for p < len(b) {
 		cred, err := parseCredential(b, &p, c, &endian)
 		if err != nil {
 			return err
 		}
+
 		c.Credentials = append(c.Credentials, cred)
 	}
+
 	return nil
 }
 
@@ -119,40 +128,50 @@ func parseHeader(b []byte, p *int, c *CCache, e *binary.ByteOrder) error {
 	if c.Version != 4 {
 		return errors.New("Credentials cache version is not 4 so there is no header to parse.")
 	}
+
 	h := header{}
+
 	h.length = uint16(readInt16(b, p, e))
 	for *p <= int(h.length) {
 		f := headerField{}
 		f.tag = uint16(readInt16(b, p, e))
 		f.length = uint16(readInt16(b, p, e))
 		f.value = b[*p : *p+int(f.length)]
+
 		*p += int(f.length)
 		if !f.valid() {
 			return errors.New("Invalid credential cache header found")
 		}
+
 		h.fields = append(h.fields, f)
 	}
+
 	c.Header = h
+
 	return nil
 }
 
 // Parse the Keytab bytes of a principal into a Keytab entry's principal.
 func parsePrincipal(b []byte, p *int, c *CCache, e *binary.ByteOrder) (princ principal) {
 	if c.Version != 1 {
-		//Name Type is omitted in version 1
+		// Name Type is omitted in version 1.
 		princ.PrincipalName.NameType = readInt32(b, p, e)
 	}
+
 	nc := int(readInt32(b, p, e))
 	if c.Version == 1 {
-		//In version 1 the number of components includes the realm. Minus 1 to make consistent with version 2
+		// In version 1 the number of components includes the realm. Minus 1 to make consistent with version 2.
 		nc--
 	}
+
 	lenRealm := readInt32(b, p, e)
+
 	princ.Realm = string(readBytes(b, p, int(lenRealm), e))
 	for i := 0; i < nc; i++ {
 		l := readInt32(b, p, e)
 		princ.PrincipalName.NameString = append(princ.PrincipalName.NameString, string(readBytes(b, p, int(l), e)))
 	}
+
 	return princ
 }
 
@@ -161,36 +180,45 @@ func parseCredential(b []byte, p *int, c *CCache, e *binary.ByteOrder) (cred *Cr
 	cred.Client = parsePrincipal(b, p, c, e)
 	cred.Server = parsePrincipal(b, p, c, e)
 	key := types.EncryptionKey{}
+
 	key.KeyType = int32(readInt16(b, p, e))
 	if c.Version == 3 {
-		//repeated twice in version 3
+		// repeated twice in version 3.
 		key.KeyType = int32(readInt16(b, p, e))
 	}
+
 	key.KeyValue = readData(b, p, e)
 	cred.Key = key
 	cred.AuthTime = readTimestamp(b, p, e)
 	cred.StartTime = readTimestamp(b, p, e)
 	cred.EndTime = readTimestamp(b, p, e)
+
 	cred.RenewTill = readTimestamp(b, p, e)
 	if ik := readInt8(b, p, e); ik == 0 {
 		cred.IsSKey = false
 	} else {
 		cred.IsSKey = true
 	}
+
 	cred.TicketFlags = types.NewKrbFlags()
 	cred.TicketFlags.Bytes = readBytes(b, p, 4, e)
 	l := int(readInt32(b, p, e))
+
 	cred.Addresses = make([]types.HostAddress, l, l)
 	for i := range cred.Addresses {
 		cred.Addresses[i] = readAddress(b, p, e)
 	}
+
 	l = int(readInt32(b, p, e))
+
 	cred.AuthData = make([]types.AuthorizationDataEntry, l, l)
 	for i := range cred.AuthData {
 		cred.AuthData[i] = readAuthDataEntry(b, p, e)
 	}
+
 	cred.Ticket = readData(b, p, e)
 	cred.SecondTicket = readData(b, p, e)
+
 	return
 }
 
@@ -213,55 +241,66 @@ func (c *CCache) GetClientCredentials() *Credentials {
 	}
 }
 
-// Contains tests if the cache contains a credential for the provided server PrincipalName
+// Contains tests if the cache contains a credential for the provided server PrincipalName.
 func (c *CCache) Contains(p types.PrincipalName) bool {
 	for _, cred := range c.Credentials {
 		if cred.Server.PrincipalName.Equal(p) {
 			return true
 		}
 	}
+
 	return false
 }
 
 // GetEntry returns a specific credential for the PrincipalName provided.
 func (c *CCache) GetEntry(p types.PrincipalName) (*Credential, bool) {
 	cred := new(Credential)
+
 	var found bool
+
 	for i := range c.Credentials {
 		if c.Credentials[i].Server.PrincipalName.Equal(p) {
 			cred = c.Credentials[i]
 			found = true
+
 			break
 		}
 	}
+
 	if !found {
 		return cred, false
 	}
+
 	return cred, true
 }
 
 // GetEntries filters out configuration entries an returns a slice of credentials.
 func (c *CCache) GetEntries() []*Credential {
 	creds := make([]*Credential, 0)
+
 	for _, cred := range c.Credentials {
-		// Filter out configuration entries
+		// Filter out configuration entries.
 		if strings.HasPrefix(cred.Server.Realm, "X-CACHECONF") {
 			continue
 		}
+
 		creds = append(creds, cred)
 	}
+
 	return creds
 }
 
 func (h *headerField) valid() bool {
-	// See https://web.mit.edu/kerberos/krb5-latest/doc/formats/ccache_file_format.html - Header format
+	// See https://web.mit.edu/kerberos/krb5-latest/doc/formats/ccache_file_format.html - Header format.
 	switch h.tag {
 	case headerFieldTagKDCOffset:
 		if h.length != 8 || len(h.value) != 8 {
 			return false
 		}
+
 		return true
 	}
+
 	return false
 }
 
@@ -274,6 +313,7 @@ func readAddress(b []byte, p *int, e *binary.ByteOrder) types.HostAddress {
 	a := types.HostAddress{}
 	a.AddrType = int32(readInt16(b, p, e))
 	a.Address = readData(b, p, e)
+
 	return a
 }
 
@@ -281,6 +321,7 @@ func readAuthDataEntry(b []byte, p *int, e *binary.ByteOrder) types.Authorizatio
 	a := types.AuthorizationDataEntry{}
 	a.ADType = int32(readInt16(b, p, e))
 	a.ADData = readData(b, p, e)
+
 	return a
 }
 
@@ -293,7 +334,9 @@ func readTimestamp(b []byte, p *int, e *binary.ByteOrder) time.Time {
 func readInt8(b []byte, p *int, e *binary.ByteOrder) (i int8) {
 	buf := bytes.NewBuffer(b[*p : *p+1])
 	binary.Read(buf, *e, &i)
+
 	*p++
+
 	return
 }
 
@@ -301,7 +344,9 @@ func readInt8(b []byte, p *int, e *binary.ByteOrder) (i int8) {
 func readInt16(b []byte, p *int, e *binary.ByteOrder) (i int16) {
 	buf := bytes.NewBuffer(b[*p : *p+2])
 	binary.Read(buf, *e, &i)
+
 	*p += 2
+
 	return
 }
 
@@ -309,7 +354,9 @@ func readInt16(b []byte, p *int, e *binary.ByteOrder) (i int16) {
 func readInt32(b []byte, p *int, e *binary.ByteOrder) (i int32) {
 	buf := bytes.NewBuffer(b[*p : *p+4])
 	binary.Read(buf, *e, &i)
+
 	*p += 4
+
 	return
 }
 
@@ -317,23 +364,28 @@ func readBytes(b []byte, p *int, s int, e *binary.ByteOrder) []byte {
 	buf := bytes.NewBuffer(b[*p : *p+s])
 	r := make([]byte, s)
 	binary.Read(buf, *e, &r)
+
 	*p += s
+
 	return r
 }
 
 func isNativeEndianLittle() bool {
-	var x = 0x012345678
-	var p = unsafe.Pointer(&x)
-	var bp = (*[4]byte)(p)
+	var (
+		x  = 0x012345678
+		p  = unsafe.Pointer(&x)
+		bp = (*[4]byte)(p)
+	)
 
 	var endian bool
-	if 0x01 == bp[0] {
+	if bp[0] == 0x01 {
 		endian = false
-	} else if (0x78 & 0xff) == (bp[0] & 0xff) {
+	} else if bp[0]&0xff == 0x78&0xff {
 		endian = true
 	} else {
-		// Default to big endian
+		// Default to big endian.
 		endian = false
 	}
+
 	return endian
 }

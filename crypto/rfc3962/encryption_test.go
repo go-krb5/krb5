@@ -20,10 +20,10 @@ func TestStringToKey(t *testing.T) {
 		iterations  uint32
 		passphrase  string
 		salt        string
-		tempKey128  string // PBKDF2 output for 128-bit
-		finalKey128 string // After DK function for AES-128
-		tempKey256  string // PBKDF2 output for 256-bit
-		finalKey256 string // After DK function for AES-256
+		tempKey128  string
+		finalKey128 string
+		tempKey256  string
+		finalKey256 string
 	}{
 		{
 			name:        "RFC 3962 Appendix B - iteration count 1",
@@ -59,7 +59,7 @@ func TestStringToKey(t *testing.T) {
 			name:        "RFC 3962 Appendix B - iteration count 5 with binary salt",
 			iterations:  5,
 			passphrase:  "password",
-			salt:        "0x1234567878563412", // 0x1234567878563412 <- raw hex
+			salt:        "0x1234567878563412",
 			tempKey128:  "d1daa78615f287e6a1c8b120d7062a49",
 			finalKey128: "e9b23d52273747dd5c35cb55be619d8e",
 			tempKey256:  "d1daa78615f287e6a1c8b120d7062a493f98d203e6be49a6adf4fa574b6e64ee",
@@ -68,7 +68,7 @@ func TestStringToKey(t *testing.T) {
 		{
 			name:        "RFC 3962 Appendix B - 64 char passphrase",
 			iterations:  1200,
-			passphrase:  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", //64 chars
+			passphrase:  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 			salt:        "pass phrase equals block size",
 			tempKey128:  "139c30c0966bc32ba55fdbf212530ac9",
 			finalKey128: "59d1bb789a828b1aa54ef9c2883f69ed",
@@ -78,7 +78,7 @@ func TestStringToKey(t *testing.T) {
 		{
 			name:        "RFC 3962 Appendix B - 65 char passphrase",
 			iterations:  1200,
-			passphrase:  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX", //65 chars
+			passphrase:  "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
 			salt:        "pass phrase exceeds block size",
 			tempKey128:  "9ccad6d468770cd51b10e6a68721be61",
 			finalKey128: "cb8005dc5f90179a7f02104c0018751d",
@@ -88,7 +88,7 @@ func TestStringToKey(t *testing.T) {
 		{
 			name:        "RFC 3962 Appendix B - UTF-8 passphrase (g-clef)",
 			iterations:  50,
-			passphrase:  "𝄞", // 0xf09d849e
+			passphrase:  "𝄞",
 			salt:        "EXAMPLE.COMpianist",
 			tempKey128:  "6b9cf26d45455a43a5b8bb276a403b39",
 			finalKey128: "f149c1f2e154a73452d43e7fe62a56e5",
@@ -101,14 +101,16 @@ func TestStringToKey(t *testing.T) {
 		t.Run("AES128", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				var e crypto.Aes128CtsHmacSha96
+
 				salt := decodeHex(test.salt)
+
 				k, err := e.StringToKey(test.passphrase, salt, common.IterationsToS2Kparams(test.iterations))
 				if err != nil {
 					t.Fatalf("StringToKey failed: %v", err)
 				}
+
 				assert.Equal(t, test.finalKey128, hex.EncodeToString(k), "Final key not as expected")
 			})
-
 		})
 	}
 
@@ -116,14 +118,16 @@ func TestStringToKey(t *testing.T) {
 		t.Run("AES256", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				var e crypto.Aes256CtsHmacSha96
+
 				salt := decodeHex(test.salt)
+
 				k, err := e.StringToKey(test.passphrase, salt, common.IterationsToS2Kparams(test.iterations))
 				if err != nil {
 					t.Fatalf("StringToKey failed: %v", err)
 				}
+
 				assert.Equal(t, test.finalKey256, hex.EncodeToString(k), "Final key not as expected")
 			})
-
 		})
 	}
 }
@@ -131,7 +135,7 @@ func TestStringToKey(t *testing.T) {
 func TestCBCCTS_AES128(t *testing.T) {
 	t.Parallel()
 
-	// RFC 3962 Appendix B - CBC with ciphertext stealing test vectors
+	// RFC 3962 Appendix B - CBC with ciphertext stealing test vectors.
 	aesKey, _ := hex.DecodeString("636869636b656e207465726979616b69")
 
 	var tests = []struct {
@@ -180,6 +184,7 @@ func TestCBCCTS_AES128(t *testing.T) {
 
 	for _, test := range tests {
 		var e crypto.Aes128CtsHmacSha96
+
 		t.Run(test.name, func(t *testing.T) {
 			input, _ := hex.DecodeString(test.input)
 			expectedOutput, _ := hex.DecodeString(test.output)
@@ -192,11 +197,12 @@ func TestCBCCTS_AES128(t *testing.T) {
 			assert.Equal(t, test.output, hex.EncodeToString(actualOutput), "Ciphertext not as expected")
 			assert.Equal(t, test.nextIV, hex.EncodeToString(actualIV), "Next IV not as expected")
 
-			// Test decryption
+			// Test decryption.
 			decrypted, err := rfc3962.DecryptData(aesKey, expectedOutput, &e)
 			if err != nil {
 				t.Fatalf("DecryptData failed: %v", err)
 			}
+
 			assert.Equal(t, test.input, hex.EncodeToString(decrypted), "Decrypted plaintext not as expected")
 		})
 	}
@@ -241,9 +247,10 @@ func TestEncryptDecryptMessage(t *testing.T) {
 
 			t.Run("AES128", func(t *testing.T) {
 				var e crypto.Aes128CtsHmacSha96
+
 				key, _ := hex.DecodeString(test.key128)
 
-				// Test full message encryption/decryption round-trip
+				// Test full message encryption/decryption round-trip.
 				_, encryptedMessage, err := rfc3962.EncryptMessage(key, plaintext, test.usage, &e)
 				if err != nil {
 					t.Fatalf("EncryptMessage failed: %v", err)
@@ -253,11 +260,13 @@ func TestEncryptDecryptMessage(t *testing.T) {
 				if err != nil {
 					t.Fatalf("DecryptMessage failed: %v", err)
 				}
+
 				assert.Equal(t, plaintext, decryptedMessage, "Round-trip encrypt/decrypt failed")
 			})
 
 			t.Run("AES256", func(t *testing.T) {
 				var e crypto.Aes256CtsHmacSha96
+
 				key, _ := hex.DecodeString(test.key256)
 
 				_, encryptedMessage, err := rfc3962.EncryptMessage(key, plaintext, test.usage, &e)
@@ -269,13 +278,14 @@ func TestEncryptDecryptMessage(t *testing.T) {
 				if err != nil {
 					t.Fatalf("DecryptMessage failed: %v", err)
 				}
+
 				assert.Equal(t, plaintext, decryptedMessage, "Round-trip encrypt/decrypt failed")
 			})
 		})
 	}
 }
 
-// Error handling tests
+// Error handling tests.
 
 func TestEncryptData_InvalidKeySize(t *testing.T) {
 	t.Parallel()
@@ -301,6 +311,7 @@ func TestEncryptData_InvalidKeySize(t *testing.T) {
 	}
 
 	var e crypto.Aes128CtsHmacSha96
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			wrongKey := make([]byte, test.wrongKeySize)
@@ -350,7 +361,7 @@ func TestDecryptMessage_InvalidKeySize_AES128(t *testing.T) {
 
 	var e crypto.Aes128CtsHmacSha96
 
-	wrongKey := make([]byte, 24) // Wrong size
+	wrongKey := make([]byte, 24)
 	fakeCiphertext := make([]byte, 32)
 	testUsage := uint32(2)
 
@@ -366,5 +377,6 @@ func decodeHex(s string) string {
 		b, _ := hex.DecodeString(s[2:])
 		return string(b)
 	}
+
 	return s
 }

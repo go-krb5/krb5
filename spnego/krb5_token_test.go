@@ -25,15 +25,19 @@ const (
 
 func TestKRB5Token_Unmarshal(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(KRB5TokenHex)
 	if err != nil {
 		t.Fatalf("Error decoding KRB5Token hex: %v", err)
 	}
+
 	var mt KRB5Token
+
 	err = mt.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling KRB5Token: %v", err)
 	}
+
 	assert.Equal(t, gssapi.OIDKRB5.OID(), mt.OID, "KRB5Token OID not as expected.")
 	assert.Equal(t, []byte{1, 0}, mt.tokID, "TokID not as expected")
 	assert.Equal(t, msgtype.KRB_AP_REQ, mt.APReq.MsgType, "KRB5Token AP_REQ does not have the right message type.")
@@ -43,10 +47,12 @@ func TestKRB5Token_Unmarshal(t *testing.T) {
 
 func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(AuthChksum)
 	if err != nil {
 		t.Fatalf("Error decoding KRB5Token hex: %v", err)
 	}
+
 	cb := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
 	assert.Equal(t, b, cb, "SPNEGO Authenticator checksum not as expected")
 }
@@ -54,24 +60,32 @@ func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
 // Test with explicit subkey generation.
 func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 	t.Parallel()
+
 	creds := credentials.New("hftsai", testdata.TEST_REALM)
 	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
+
 	var etypeID int32 = 18
-	keyLen := 32 // etypeID 18 refers to AES256 -> 32 bytes key
+
+	keyLen := 32
+
 	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
 	if err != nil {
 		t.Fatalf("Error creating authenticator: %v", err)
 	}
+
 	a.GenerateSeqNumberAndSubKey(etypeID, keyLen)
 	assert.Equal(t, int32(32771), a.Cksum.CksumType, "Checksum type in authenticator for SPNEGO mechtoken not as expected.")
 	assert.Equal(t, etypeID, a.SubKey.KeyType, "Subkey not of the expected type.")
 	assert.Equal(t, keyLen, len(a.SubKey.KeyValue), "Subkey value not of the right length")
+
 	var nz bool
+
 	for _, b := range a.SubKey.KeyValue {
 		if b != byte(0) {
 			nz = true
 		}
 	}
+
 	assert.True(t, nz, "subkey not initialised")
 	assert.Condition(t, assert.Comparison(func() bool {
 		return a.SeqNumber > 0
@@ -84,12 +98,15 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 // Test without subkey generation.
 func TestKRB5Token_newAuthenticator(t *testing.T) {
 	t.Parallel()
+
 	creds := credentials.New("hftsai", testdata.TEST_REALM)
 	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
+
 	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
 	if err != nil {
 		t.Fatalf("Error creating authenticator: %v", err)
 	}
+
 	assert.Equal(t, int32(32771), a.Cksum.CksumType, "Checksum type in authenticator for SPNEGO mechtoken not as expected.")
 	assert.Equal(t, int32(0), a.SubKey.KeyType, "Subkey not of the expected type.")
 	assert.Nil(t, a.SubKey.KeyValue, "Subkey should not be set.")
@@ -104,6 +121,7 @@ func TestKRB5Token_newAuthenticator(t *testing.T) {
 
 func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	t.Parallel()
+
 	creds := credentials.New("hftsai", testdata.TEST_REALM)
 	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
 	cl := client.Client{
@@ -111,10 +129,12 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	}
 
 	var tkt messages.Ticket
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = tkt.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
@@ -129,14 +149,17 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating KRB5Token: %v", err)
 	}
+
 	mb, err := mt.Marshal()
 	if err != nil {
 		t.Fatalf("Error unmarshalling KRB5Token: %v", err)
 	}
+
 	err = mt.Unmarshal(mb)
 	if err != nil {
 		t.Fatalf("Error unmarshalling KRB5Token: %v", err)
 	}
+
 	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, mt.OID, "KRB5Token OID not as expected.")
 	assert.Equal(t, []byte{1, 0}, mt.tokID, "TokID not as expected")
 	assert.Equal(t, msgtype.KRB_AP_REQ, mt.APReq.MsgType, "KRB5Token AP_REQ does not have the right message type.")

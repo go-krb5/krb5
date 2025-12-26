@@ -13,14 +13,14 @@ import (
 func TestClient_Login_DNSKDCs(t *testing.T) {
 	test.Privileged(t)
 
-	//ns := os.Getenv("DNSUTILS_OVERRIDE_NS")
-	//if ns == "" {
+	// ns := os.Getenv("DNSUTILS_OVERRIDE_NS")
+	// if ns == "" {
 	//	os.Setenv("DNSUTILS_OVERRIDE_NS", testdata.TEST_NS)
-	//}
+	// }.
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
-	// Set to lookup KDCs in DNS
+	// Set to lookup KDCs in DNS.
 	c.LibDefaults.DNSLookupKDC = true
-	//Blank out the KDCs to ensure they are not being used
+	// Blank out the KDCs to ensure they are not being used.
 	c.Realms = []config.Realm{}
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)

@@ -15,10 +15,10 @@ func TestDES3DeriveRandom(t *testing.T) {
 
 	var tests = []struct {
 		name       string
-		key        string // hex string (24 bytes for DES3)
-		usage      string // hex string or special value like "kerberos"
-		expectedDR string // hex string
-		expectedDK string // hex string
+		key        string
+		usage      string
+		expectedDR string
+		expectedDK string
 	}{
 		{
 			name:       "Test vector 1",
@@ -37,7 +37,7 @@ func TestDES3DeriveRandom(t *testing.T) {
 		{
 			name:       "kerberos usage",
 			key:        "d3f8298ccb166438dcb9b93ee5a7629286a491f838f802fb",
-			usage:      "kerberos", // Special string usage
+			usage:      "kerberos",
 			expectedDR: "2270db565d2a3d64cfbfdc5305d4f778a6de42d9da",
 			expectedDK: "2370da575d2a3da864cebfdc5204d56df779a7df43d9da43",
 		},
@@ -48,6 +48,7 @@ func TestDES3DeriveRandom(t *testing.T) {
 			var e crypto.Des3CbcSha1Kd
 
 			key, _ := hex.DecodeString(test.key)
+
 			var usage []byte
 			if test.usage == "kerberos" {
 				usage = []byte("kerberos")
@@ -55,16 +56,17 @@ func TestDES3DeriveRandom(t *testing.T) {
 				usage, _ = hex.DecodeString(test.usage)
 			}
 
-			// Test DR (derive-random) function
+			// Test DR (derive-random) function.
 			dr, err := e.DeriveRandom(key, usage)
 			assert.NoError(t, err)
 			assert.Equal(t, test.expectedDR, hex.EncodeToString(dr), "DR result not as expected")
 
-			// Test DK (derive-key) function
+			// Test DK (derive-key) function.
 			dk, err := e.DeriveKey(key, usage)
 			if err != nil {
 				t.Fatalf("DeriveKey failed: %v", err)
 			}
+
 			assert.Equal(t, test.expectedDK, hex.EncodeToString(dk), "DK result not as expected")
 		})
 	}
@@ -77,7 +79,7 @@ func TestDES3StringToKey(t *testing.T) {
 		name     string
 		password string
 		salt     string
-		expected string // hex string (24 bytes for DES3)
+		expected string
 	}{
 		{
 			name:     "password @ ATHENA.MIT.EDUraeburn",
@@ -105,7 +107,7 @@ func TestDES3StringToKey(t *testing.T) {
 		},
 		{
 			name:     "UTF-8 g-clef",
-			password: "𝄞", // 0xf09d849e
+			password: "𝄞",
 			salt:     "EXAMPLE.COMpianist",
 			expected: "85763726585dbc1cce6ec43e1f751f07f1c4cbb098f40b19",
 		},
@@ -130,8 +132,8 @@ func TestDES3EncryptDecryptData(t *testing.T) {
 
 	var tests = []struct {
 		name        string
-		key         string // hex string (24 bytes)
-		plaintext   string // hex string
+		key         string
+		plaintext   string
 		expectError bool
 	}{
 		{
@@ -158,7 +160,7 @@ func TestDES3EncryptDecryptData(t *testing.T) {
 		{
 			name:      "Non-block-aligned plaintext (11 bytes)",
 			key:       "0123456789abcdef0123456789abcdef0123456789abcdef",
-			plaintext: "48656c6c6f20576f726c64", // "Hello World"
+			plaintext: "48656c6c6f20576f726c64",
 		},
 		{
 			name:      "Single byte",
@@ -180,7 +182,7 @@ func TestDES3EncryptDecryptData(t *testing.T) {
 				assert.Error(t, err, "Expected error for empty plaintext")
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("DES3EncryptData failed: %v", err)
 			}
@@ -190,7 +192,7 @@ func TestDES3EncryptDecryptData(t *testing.T) {
 				t.Fatalf("DES3DecryptData failed: %v", err)
 			}
 
-			// Remove padding and compare
+			// Remove padding and compare.
 			assert.Equal(t, plaintext, decrypted[:len(plaintext)], "Round-trip encrypt/decrypt failed")
 		})
 	}
@@ -201,8 +203,8 @@ func TestDES3EncryptDecryptMessage(t *testing.T) {
 
 	var tests = []struct {
 		name      string
-		key       string // hex string (24 bytes)
-		plaintext string // hex string
+		key       string
+		plaintext string
 		usage     uint32
 	}{
 		{
@@ -253,13 +255,14 @@ func TestDES3EncryptDecryptMessage(t *testing.T) {
 	}
 }
 
-// Error handling tests
+// Error handling tests.
 
 func TestDES3EncryptData_InvalidKeySize(t *testing.T) {
 	t.Parallel()
 
 	var e crypto.Des3CbcSha1Kd
-	wrongKey := make([]byte, 16) // Should be 24 bytes
+
+	wrongKey := make([]byte, 16)
 	plaintext := []byte("test data")
 
 	_, _, err := rfc3961.DES3EncryptData(wrongKey, plaintext, &e)
@@ -272,7 +275,8 @@ func TestDES3DecryptData_InvalidKeySize(t *testing.T) {
 	t.Parallel()
 
 	var e crypto.Des3CbcSha1Kd
-	wrongKey := make([]byte, 16) // Should be 24 bytes
+
+	wrongKey := make([]byte, 16)
 	ciphertext := make([]byte, 24)
 
 	_, err := rfc3961.DES3DecryptData(wrongKey, ciphertext, &e)
@@ -285,6 +289,7 @@ func TestDES3DecryptMessage_InvalidCiphertextSize(t *testing.T) {
 	t.Parallel()
 
 	var e crypto.Des3CbcSha1Kd
+
 	key := make([]byte, 24)
 	fakeCiphertext := make([]byte, 48)
 	testUsage := uint32(2)

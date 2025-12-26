@@ -11,7 +11,6 @@ import (
 
 func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {
 	// This test is meant to cover the fix for https://github.com/jcmturner/gokrb5/issues/332
-
 	t.Parallel()
 
 	krb5ConfWithKDCAndDNSLookupKDC := `
@@ -33,9 +32,11 @@ func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if count != 1 {
 		t.Fatalf("expected 1 but received %d", count)
 	}
+
 	if kdcs[1] != "kdc2b.test.krb5:88" {
 		t.Fatalf("expected kdc2b.test.krb5:88 but received %s", kdcs[1])
 	}
@@ -52,12 +53,15 @@ func TestResolveKDC(t *testing.T) {
 	// KDCs when they're not provided and we should be looking them up.
 	c.LibDefaults.DNSLookupKDC = true
 	c.Realms = make([]Realm, 0)
+
 	count, res, err := c.GetKDCs(c.LibDefaults.DefaultRealm, true)
 	if err != nil {
 		t.Errorf("error resolving KDC via DNS TCP: %v", err)
 	}
+
 	assert.Equal(t, 5, count, "Number of SRV records not as expected: %v", res)
 	assert.Equal(t, count, len(res), "Map size does not match: %v", res)
+
 	expected := []string{
 		"kdc.test.krb5:88",
 		"kdc1a.test.krb5:88",
@@ -67,12 +71,14 @@ func TestResolveKDC(t *testing.T) {
 	}
 	for _, s := range expected {
 		var found bool
+
 		for _, v := range res {
 			if s == v {
 				found = true
 				break
 			}
 		}
+
 		assert.True(t, found, "Record %s not found in results", s)
 	}
 }
@@ -82,23 +88,28 @@ func TestResolveKDCNoDNS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	c.LibDefaults.DNSLookupKDC = false
+
 	_, res, err := c.GetKDCs(c.LibDefaults.DefaultRealm, true)
 	if err != nil {
 		t.Errorf("error resolving KDCs from config: %v", err)
 	}
+
 	expected := []string{
 		"127.0.0.1:88",
 		"127.0.0.2:88",
 	}
 	for _, s := range expected {
 		var found bool
+
 		for _, v := range res {
 			if s == v {
 				found = true
 				break
 			}
 		}
+
 		assert.True(t, found, "Record %s not found in results", s)
 	}
 }

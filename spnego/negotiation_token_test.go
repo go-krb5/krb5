@@ -15,18 +15,23 @@ const (
 
 func TestUnmarshal_negTokenInit(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testNegTokenInit)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	isInit, nt, err := UnmarshalNegToken(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling negotiation token: %v", err)
 	}
+
 	assert.IsType(t, NegTokenInit{}, nt, "Not the expected type NegTokenInit")
 	assert.True(t, isInit, "Boolean indicating type is negTokenInit is not true")
+
 	nInit := nt.(NegTokenInit)
 	assert.Equal(t, 4, len(nInit.MechTypes))
+
 	expectMechTypes := []asn1.ObjectIdentifier{
 		[]int{1, 2, 840, 113554, 1, 2, 2},
 		[]int{1, 3, 5, 1, 5, 2},
@@ -38,34 +43,43 @@ func TestUnmarshal_negTokenInit(t *testing.T) {
 
 func TestMarshal_negTokenInit(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testNegTokenInit)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	_, nt, err := UnmarshalNegToken(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling negotiation token: %v", err)
 	}
+
 	nInit := nt.(NegTokenInit)
+
 	mb, err := nInit.Marshal()
 	if err != nil {
 		t.Fatalf("Error marshalling negotiation init token: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshalled bytes not as expected for NegTokenInit")
 }
 
 func TestUnmarshal_negTokenResp(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testNegTokenResp)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	isInit, nt, err := UnmarshalNegToken(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling negotiation token: %v", err)
 	}
+
 	assert.IsType(t, NegTokenResp{}, nt, "Not the expected type NegTokenResp")
 	assert.False(t, isInit, "Boolean indicating type is negTokenInit is not false")
+
 	nResp := nt.(NegTokenResp)
 	assert.Equal(t, asn1.Enumerated(0), nResp.NegState)
 	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, nResp.SupportedMech, "SupportedMech type not as expected.")
@@ -73,34 +87,42 @@ func TestUnmarshal_negTokenResp(t *testing.T) {
 
 func TestMarshal_negTokenResp(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testNegTokenResp)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	_, nt, err := UnmarshalNegToken(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling negotiation token: %v", err)
 	}
+
 	nResp := nt.(NegTokenResp)
+
 	mb, err := nResp.Marshal()
 	if err != nil {
 		t.Fatalf("Error marshalling negotiation init token: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshalled bytes not as expected for NegTokenResp")
 }
 
 func TestUnmarshal_negTokenInitWithReqFlags(t *testing.T) {
 	mhex := "a01e301ca00d300b06092a864886f712010202a10403020176a2050403010203"
+
 	mb, err := hex.DecodeString(mhex)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	var m NegTokenInit
+
 	err = m.Unmarshal(mb)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(m.MechTokenBytes) != 3 {
 		t.Errorf("unmarshal did not return the correct number of mechToken bytes")
 	}

@@ -8,16 +8,21 @@ import (
 	"github.com/go-krb5/x/encoding/asn1"
 )
 
-// GSS-API OID names
+// GSS-API OID names.
 const (
-	// GSS-API OID names
-	OIDKRB5         OIDName = "KRB5"         // MechType OID for Kerberos 5
-	OIDMSLegacyKRB5 OIDName = "MSLegacyKRB5" // MechType OID for Kerberos 5
-	OIDSPNEGO       OIDName = "SPNEGO"
-	OIDGSSIAKerb    OIDName = "GSSIAKerb" // Indicates the client cannot get a service ticket and asks the server to serve as an intermediate to the target KDC. http://k5wiki.kerberos.org/wiki/Projects/IAKERB#IAKERB_mech
+	// GSS-API OID names.
+
+	OIDKRB5 OIDName = "KRB5"
+
+	OIDMSLegacyKRB5 OIDName = "MSLegacyKRB5"
+
+	OIDSPNEGO OIDName = "SPNEGO"
+
+	// Indicates the client cannot get a service ticket and asks the server to serve as an intermediate to the target KDC. http://k5wiki.kerberos.org/wiki/Projects/IAKERB#IAKERB_mech
+	OIDGSSIAKerb OIDName = "GSSIAKerb"
 )
 
-// GSS-API status values
+// GSS-API status values.
 const (
 	StatusBadBindings = 1 << iota
 	StatusBadMech
@@ -99,19 +104,32 @@ GSS_Inquire_names_for_mech   indicate name types supported by mechanism
 GSS_Inquire_mechs_for_name   indicates mechanisms supporting name type
 GSS_Canonicalize_name        translate name to per-mechanism form
 GSS_Export_name              externalize per-mechanism name
-GSS_Duplicate_name           duplicate name object
+GSS_Duplicate_name           duplicate name object.
 */
 
 // Mechanism is the GSS-API interface for authentication mechanisms.
 type Mechanism interface {
 	OID() asn1.ObjectIdentifier
-	AcquireCred() error                                               // acquire credentials for use (eg. AS exchange for KRB5)
-	InitSecContext() (ContextToken, error)                            // initiate outbound security context (eg TGS exchange builds AP_REQ to go into ContextToken to send to service)
-	AcceptSecContext(ct ContextToken) (bool, context.Context, Status) // service verifies the token server side to establish a context
-	MIC() MICToken                                                    // apply integrity check, receive as token separate from message
-	VerifyMIC(mt MICToken) (bool, error)                              // validate integrity check token along with message
-	Wrap(msg []byte) WrapToken                                        // sign, optionally encrypt, encapsulate
-	Unwrap(wt WrapToken) []byte                                       // decapsulate, decrypt if needed, validate integrity check
+	// acquire credentials for use (eg. AS exchange for KRB5).
+	AcquireCred() error
+
+	// initiate outbound security context (eg TGS exchange builds AP_REQ to go into ContextToken to send to service).
+	InitSecContext() (ContextToken, error)
+
+	// service verifies the token server side to establish a context.
+	AcceptSecContext(ct ContextToken) (bool, context.Context, Status)
+
+	// apply integrity check, receive as token separate from message.
+	MIC() MICToken
+
+	// validate integrity check token along with message.
+	VerifyMIC(mt MICToken) (bool, error)
+
+	// sign, optionally encrypt, encapsulate.
+	Wrap(msg []byte) WrapToken
+
+	// decapsulate, decrypt if needed, validate integrity check.
+	Unwrap(wt WrapToken) []byte
 }
 
 // OIDName is the type for defined GSS-API OIDs.
@@ -129,6 +147,7 @@ func (o OIDName) OID() asn1.ObjectIdentifier {
 	case OIDGSSIAKerb:
 		return asn1.ObjectIdentifier{1, 3, 6, 1, 5, 2, 5}
 	}
+
 	return asn1.ObjectIdentifier{}
 }
 
@@ -141,6 +160,7 @@ type Status struct {
 // Error returns the Status description.
 func (s Status) Error() string {
 	var str string
+
 	switch s.Code {
 	case StatusBadBindings:
 		str = "channel binding mismatch"
@@ -195,8 +215,10 @@ func (s Status) Error() string {
 	default:
 		str = "unknown GSS-API error status"
 	}
+
 	if s.Message != "" {
 		return fmt.Sprintf("%s: %s", str, s.Message)
 	}
+
 	return str
 }

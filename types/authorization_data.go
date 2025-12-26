@@ -5,7 +5,7 @@ import (
 )
 
 // Reference: https://www.ietf.org/rfc/rfc4120.txt
-// Section: 5.2.6
+// Section: 5.2.6.
 
 // AuthorizationData implements RFC 4120 type: https://tools.ietf.org/html/rfc4120#section-5.2.6
 type AuthorizationData []AuthorizationDataEntry

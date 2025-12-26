@@ -7,7 +7,7 @@ import (
 )
 
 // Reference: https://www.ietf.org/rfc/rfc4120.txt
-// Section: 5.2.2
+// Section: 5.2.2.
 
 // PrincipalName implements RFC 4120 type: https://tools.ietf.org/html/rfc4120#section-5.2.2
 type PrincipalName struct {
@@ -26,10 +26,12 @@ func NewPrincipalName(ntype int32, spn string) PrincipalName {
 // GetSalt returns a salt derived from the PrincipalName.
 func (pn PrincipalName) GetSalt(realm string) string {
 	var sb []byte
+
 	sb = append(sb, realm...)
 	for _, n := range pn.NameString {
 		sb = append(sb, n...)
 	}
+
 	return string(sb)
 }
 
@@ -44,6 +46,7 @@ func (pn PrincipalName) Equal(n PrincipalName) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -55,13 +58,15 @@ func (pn PrincipalName) PrincipalNameString() string {
 // ParseSPNString will parse a string in the format <service>/<name>@<realm>
 // a PrincipalName type will be returned with the name type set to KRB_NT_PRINCIPAL(1)
 // and the realm will be returned as a string. If the "@<realm>" suffix
-// is not included in the SPN then the value of realm string returned will be ""
+// is not included in the SPN then the value of realm string returned will be "".
 func ParseSPNString(spn string) (pn PrincipalName, realm string) {
 	if strings.Contains(spn, "@") {
 		s := strings.Split(spn, "@")
 		realm = s[len(s)-1]
 		spn = strings.TrimSuffix(spn, "@"+realm)
 	}
+
 	pn = NewPrincipalName(nametype.KRB_NT_PRINCIPAL, spn)
+
 	return
 }

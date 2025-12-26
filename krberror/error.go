@@ -19,7 +19,7 @@ const (
 	KDCError        = "KDC_Error"
 )
 
-// Krberror is an error type for krb5
+// Krberror is an error type for krb5.
 type Krberror struct {
 	RootCause string
 	EText     []string
@@ -49,6 +49,7 @@ func Errorf(err error, et, format string, a ...interface{}) Krberror {
 		e.Add(et, fmt.Sprintf(format, a...))
 		return e
 	}
+
 	return NewErrorf(et, format+": %s", append(a, err)...)
 }
 
@@ -60,6 +61,7 @@ func NewErrorf(et, format string, a ...interface{}) Krberror {
 	} else {
 		s = fmt.Sprintf("%s: %s", et, format)
 	}
+
 	return Krberror{
 		RootCause: et,
 		EText:     []string{s},

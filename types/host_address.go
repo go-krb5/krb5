@@ -1,7 +1,7 @@
 package types
 
 // Reference: https://www.ietf.org/rfc/rfc4120.txt
-// Section: 5.2.5
+// Section: 5.2.5.
 
 import (
 	"bytes"
@@ -22,14 +22,17 @@ type HostAddress struct {
 	Address  []byte `asn1:"explicit,tag:1"`
 }
 
-// GetHostAddress returns a HostAddress struct from a string in the format <hostname>:<port>
+// GetHostAddress returns a HostAddress struct from a string in the format <hostname>:<port>.
 func GetHostAddress(s string) (HostAddress, error) {
 	var h HostAddress
+
 	cAddr, _, err := net.SplitHostPort(s)
 	if err != nil {
 		return h, fmt.Errorf("invalid format of client address: %v", err)
 	}
+
 	ip := net.ParseIP(cAddr)
+
 	var ht int32
 	if ip.To4() != nil {
 		ht = addrtype.IPv4
@@ -40,17 +43,21 @@ func GetHostAddress(s string) (HostAddress, error) {
 	} else {
 		return h, fmt.Errorf("could not determine client's address types: %v", err)
 	}
+
 	h = HostAddress{
 		AddrType: ht,
 		Address:  ip,
 	}
+
 	return h, nil
 }
 
 // GetAddress returns a string representation of the HostAddress.
 func (h *HostAddress) GetAddress() (string, error) {
 	var b []byte
+
 	_, err := asn1.Unmarshal(h.Address, &b, asn1.WithUnmarshalAllowTypeGeneralString(true))
+
 	return string(b), err
 }
 
@@ -60,59 +67,70 @@ func LocalHostAddresses() (ha HostAddresses, err error) {
 	if err != nil {
 		return
 	}
+
 	for _, iface := range ifs {
 		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
-			// Interface is either loopback of not up
+			// Interface is either loopback of not up.
 			continue
 		}
+
 		addrs, err := iface.Addrs()
 		if err != nil {
 			continue
 		}
+
 		for _, addr := range addrs {
 			var ip net.IP
+
 			switch v := addr.(type) {
 			case *net.IPNet:
 				ip = v.IP
 			case *net.IPAddr:
 				ip = v.IP
 			}
+
 			var a HostAddress
+
 			if ip.To16() == nil {
-				//neither IPv4 or IPv6
+				// neither IPv4 or IPv6.
 				continue
 			}
+
 			if ip.To4() != nil {
-				//Is IPv4
+				// Is IPv4.
 				a.AddrType = addrtype.IPv4
 				a.Address = ip.To4()
 			} else {
 				a.AddrType = addrtype.IPv6
 				a.Address = ip.To16()
 			}
+
 			ha = append(ha, a)
 		}
 	}
+
 	return ha, nil
 }
 
-// HostAddressesFromNetIPs returns a HostAddresses type from a slice of net.IP
+// HostAddressesFromNetIPs returns a HostAddresses type from a slice of net.IP.
 func HostAddressesFromNetIPs(ips []net.IP) (ha HostAddresses) {
 	for _, ip := range ips {
 		ha = append(ha, HostAddressFromNetIP(ip))
 	}
+
 	return ha
 }
 
-// HostAddressFromNetIP returns a HostAddress type from a net.IP
+// HostAddressFromNetIP returns a HostAddress type from a net.IP.
 func HostAddressFromNetIP(ip net.IP) HostAddress {
 	if ip.To4() != nil {
-		//Is IPv4
+		// Is IPv4.
 		return HostAddress{
 			AddrType: addrtype.IPv4,
 			Address:  ip.To4(),
 		}
 	}
+
 	return HostAddress{
 		AddrType: addrtype.IPv6,
 		Address:  ip.To16(),
@@ -124,18 +142,22 @@ func HostAddressesEqual(h, a []HostAddress) bool {
 	if len(h) != len(a) {
 		return false
 	}
+
 	for _, e := range a {
 		var found bool
+
 		for _, i := range h {
 			if e.Equal(i) {
 				found = true
 				break
 			}
 		}
+
 		if !found {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -146,6 +168,7 @@ func HostAddressesContains(h []HostAddress, a HostAddress) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -154,6 +177,7 @@ func (h *HostAddress) Equal(a HostAddress) bool {
 	if h.AddrType != a.AddrType {
 		return false
 	}
+
 	return bytes.Equal(h.Address, a.Address)
 }
 
@@ -164,6 +188,7 @@ func (h *HostAddresses) Contains(a HostAddress) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -172,10 +197,12 @@ func (h *HostAddresses) Equal(a []HostAddress) bool {
 	if len(*h) != len(a) {
 		return false
 	}
+
 	for _, e := range a {
 		if !h.Contains(e) {
 			return false
 		}
 	}
+
 	return true
 }

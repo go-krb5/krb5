@@ -20,15 +20,19 @@ const (
 
 func TestPAC_ClientClaimsInfoStr_Unmarshal(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testdata.MarshaledPAC_ClientClaimsInfoStr)
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k ClientClaimsInfo
+
 	err = k.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshaling test data: %v", err)
 	}
+
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrayCount, "claims array count not as expected")
 	assert.Equal(t, mstypes.ClaimsSourceTypeAD, k.ClaimsSet.ClaimsArrays[0].ClaimsSourceType, "claims source type not as expected")
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrays[0].ClaimsCount, "claims count not as expected")
@@ -41,15 +45,19 @@ func TestPAC_ClientClaimsInfoStr_Unmarshal(t *testing.T) {
 
 func TestPAC_ClientClaimsMultiValueUint_Unmarshal(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testdata.MarshaledPAC_ClientClaimsInfoMultiUint)
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k ClientClaimsInfo
+
 	err = k.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshaling test data: %v", err)
 	}
+
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrayCount, "claims array count not as expected")
 	assert.Equal(t, mstypes.ClaimsSourceTypeAD, k.ClaimsSet.ClaimsArrays[0].ClaimsSourceType, "claims source type not as expected")
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrays[0].ClaimsCount, "claims count not as expected")
@@ -62,15 +70,19 @@ func TestPAC_ClientClaimsMultiValueUint_Unmarshal(t *testing.T) {
 
 func TestPAC_ClientClaimsInt_Unmarshal(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testdata.MarshaledPAC_ClientClaimsInfoInt)
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k ClientClaimsInfo
+
 	err = k.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshaling test data: %v", err)
 	}
+
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrayCount, "claims array count not as expected")
 	assert.Equal(t, mstypes.ClaimsSourceTypeAD, k.ClaimsSet.ClaimsArrays[0].ClaimsSourceType, "claims source type not as expected")
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrays[0].ClaimsCount, "claims count not as expected")
@@ -83,15 +95,19 @@ func TestPAC_ClientClaimsInt_Unmarshal(t *testing.T) {
 
 func TestPAC_ClientClaimsMultiValueStr_Unmarshal(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testdata.MarshaledPAC_ClientClaimsInfoMultiStr)
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k ClientClaimsInfo
+
 	err = k.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshaling test data: %v", err)
 	}
+
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrayCount, "claims array count not as expected")
 	assert.Equal(t, mstypes.ClaimsSourceTypeAD, k.ClaimsSet.ClaimsArrays[0].ClaimsSourceType, "claims source type not as expected")
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrays[0].ClaimsCount, "claims count not as expected")
@@ -103,17 +119,21 @@ func TestPAC_ClientClaimsMultiValueStr_Unmarshal(t *testing.T) {
 }
 
 func TestPAC_ClientClaimsInfoMultiEntry_Unmarshal(t *testing.T) {
-	// Has an int and a str claim type
+	// Has an int and a str claim type.
 	t.Parallel()
+
 	b, err := hex.DecodeString(testdata.MarshaledPAC_ClientClaimsInfoMulti)
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k ClientClaimsInfo
+
 	err = k.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshaling test data: %v", err)
 	}
+
 	assert.Equal(t, uint32(1), k.ClaimsSet.ClaimsArrayCount, "claims array count not as expected")
 	assert.Equal(t, mstypes.ClaimsSourceTypeAD, k.ClaimsSet.ClaimsArrays[0].ClaimsSourceType, "claims source type not as expected")
 	assert.Equal(t, uint32(2), k.ClaimsSet.ClaimsArrays[0].ClaimsCount, "claims count not as expected")
@@ -129,7 +149,7 @@ func TestPAC_ClientClaimsInfoMultiEntry_Unmarshal(t *testing.T) {
 }
 
 // Compressed claims not yet supported.
-//func TestPAC_ClientClaimsInfo_Unmarshal_UnsupportedCompression(t *testing.T) {
+// func TestPAC_ClientClaimsInfo_Unmarshal_UnsupportedCompression(t *testing.T) {
 //	t.Parallel()
 //	b, err := hex.DecodeString(testdata.MarshaledPAC_ClientClaimsInfo_XPRESS_HUFF)
 //	if err != nil {
@@ -141,4 +161,4 @@ func TestPAC_ClientClaimsInfoMultiEntry_Unmarshal(t *testing.T) {
 //		t.Fatalf("Error unmarshaling test data: %v", err)
 //	}
 //	assert.Equal(t, mstypes.CompressionFormatXPressHuff, k.ClaimsSetMetadata.CompressionFormat, "compression format not as expected")
-//}
+// }.

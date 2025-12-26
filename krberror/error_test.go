@@ -9,7 +9,9 @@ import (
 
 func TestErrorf(t *testing.T) {
 	err := fmt.Errorf("an error")
+
 	var a Krberror
+
 	a = Errorf(err, "cause", "some text")
 	assert.Equal(t, "[Root cause: cause] cause: some text: an error", a.Error())
 	a = Errorf(err, "cause", "arg1=%d arg2=%s", 123, "arg")

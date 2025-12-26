@@ -50,7 +50,7 @@ type KerbValidationInfo struct {
 	LogonServer            mstypes.RPCUnicodeString
 	LogonDomainName        mstypes.RPCUnicodeString
 	LogonDomainID          mstypes.RPCSID `ndr:"pointer"`
-	Reserved1              [2]uint32      // Has 2 elements
+	Reserved1              [2]uint32
 	UserAccountControl     uint32
 	SubAuthStatus          uint32
 	LastSuccessfulILogon   mstypes.FileTime
@@ -64,37 +64,45 @@ type KerbValidationInfo struct {
 	ResourceGroupIDs       []mstypes.GroupMembership `ndr:"pointer,conformant"`
 }
 
-// Unmarshal bytes into the DeviceInfo struct
+// Unmarshal bytes into the DeviceInfo struct.
 func (k *KerbValidationInfo) Unmarshal(b []byte) (err error) {
 	dec := ndr.NewDecoder(bytes.NewReader(b))
+
 	err = dec.Decode(k)
 	if err != nil {
 		err = fmt.Errorf("error unmarshaling KerbValidationInfo: %v", err)
 	}
+
 	return
 }
 
 // GetGroupMembershipSIDs returns a slice of strings containing the group membership SIDs found in the PAC.
 func (k *KerbValidationInfo) GetGroupMembershipSIDs() []string {
 	var g []string
+
 	lSID := k.LogonDomainID.String()
 	for i := range k.GroupIDs {
 		g = append(g, fmt.Sprintf("%s-%d", lSID, k.GroupIDs[i].RelativeID))
 	}
+
 	for _, s := range k.ExtraSIDs {
 		var exists = false
+
 		for _, es := range g {
 			if es == s.SID.String() {
 				exists = true
 				break
 			}
 		}
+
 		if !exists {
 			g = append(g, s.SID.String())
 		}
 	}
+
 	for _, r := range k.ResourceGroupIDs {
 		var exists = false
+
 		s := fmt.Sprintf("%s-%d", k.ResourceGroupDomainSID.String(), r.RelativeID)
 		for _, es := range g {
 			if es == s {
@@ -102,9 +110,11 @@ func (k *KerbValidationInfo) GetGroupMembershipSIDs() []string {
 				break
 			}
 		}
+
 		if !exists {
 			g = append(g, s)
 		}
 	}
+
 	return g
 }

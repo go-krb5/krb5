@@ -13,7 +13,7 @@ import (
 	"github.com/go-krb5/krb5/credentials"
 )
 
-// NewKRB5BasicAuthenticator creates a new NewKRB5BasicAuthenticator
+// NewKRB5BasicAuthenticator creates a new NewKRB5BasicAuthenticator.
 func NewKRB5BasicAuthenticator(headerVal string, krb5conf *config.Config, serviceSettings *Settings, clientSettings *client.Settings) KRB5BasicAuthenticator {
 	return KRB5BasicAuthenticator{
 		BasicHeaderValue: headerVal,
@@ -42,32 +42,39 @@ func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, er
 		err = fmt.Errorf("could not parse basic authentication header: %v", err)
 		return
 	}
+
 	cl := client.NewWithPassword(a.username, a.realm, a.password, a.clientConfig)
+
 	err = cl.Login()
 	if err != nil {
-		// Username and/or password could be wrong
+		// Username and/or password could be wrong.
 		err = fmt.Errorf("error with user credentials during login: %v", err)
 		return
 	}
+
 	tkt, _, err := cl.GetServiceTicket(a.serviceSettings.SName())
 	if err != nil {
 		err = fmt.Errorf("could not get service ticket: %v", err)
 		return
 	}
+
 	err = tkt.DecryptEncPart(a.serviceSettings.Keytab, a.serviceSettings.KeytabPrincipal())
 	if err != nil {
 		err = fmt.Errorf("could not decrypt service ticket: %v", err)
 		return
 	}
+
 	cl.Credentials.SetAuthTime(time.Now().UTC())
 	cl.Credentials.SetAuthenticated(true)
+
 	isPAC, pac, err := tkt.GetPACType(a.serviceSettings.Keytab, a.serviceSettings.KeytabPrincipal(), a.serviceSettings.Logger())
 	if isPAC && err != nil {
 		err = fmt.Errorf("error processing PAC: %v", err)
 		return
 	}
+
 	if isPAC {
-		// There is a valid PAC. Adding attributes to creds
+		// There is a valid PAC. Adding attributes to creds.
 		cl.Credentials.SetADCredentials(credentials.ADCredentials{
 			GroupMembershipSIDs: pac.KerbValidationInfo.GetGroupMembershipSIDs(),
 			LogOnTime:           pac.KerbValidationInfo.LogOnTime.Time(),
@@ -82,8 +89,10 @@ func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, er
 			LogonDomainID:       pac.KerbValidationInfo.LogonDomainID.String(),
 		})
 	}
+
 	ok = true
 	i = cl.Credentials
+
 	return
 }
 
@@ -97,13 +106,14 @@ func parseBasicHeaderValue(s string) (domain, username, password string, err err
 	if err != nil {
 		return
 	}
+
 	v := string(b)
 	vc := strings.SplitN(v, ":", 2)
 	password = vc[1]
 	// Domain and username can be specified in 2 formats:
 	// <Username> - no domain specified
 	// <Domain>\<Username>
-	// <Username>@<Domain>
+	// <Username>@<Domain>.
 	if strings.Contains(vc[0], `\`) {
 		u := strings.SplitN(vc[0], `\`, 2)
 		domain = u[0]
@@ -115,5 +125,6 @@ func parseBasicHeaderValue(s string) (domain, username, password string, err err
 	} else {
 		username = vc[0]
 	}
+
 	return
 }

@@ -1,7 +1,7 @@
 package messages
 
 // Reference: https://www.ietf.org/rfc/rfc4120.txt
-// Section: 5.4.1
+// Section: 5.4.1.
 
 import (
 	"crypto/rand"
@@ -64,7 +64,7 @@ type marshalKDCReqBody struct {
 	EType       []int32             `asn1:"explicit,tag:8"`
 	Addresses   []types.HostAddress `asn1:"explicit,optional,tag:9"`
 	EncAuthData types.EncryptedData `asn1:"explicit,optional,tag:10"`
-	// Ticket needs to be a raw value as it is wrapped in an APPLICATION tag
+	// Ticket needs to be a raw value as it is wrapped in an APPLICATION tag.
 	AdditionalTickets asn1.RawValue `asn1:"explicit,optional,tag:11"`
 }
 
@@ -90,6 +90,7 @@ func NewASReqForTGT(realm string, c *config.Config, cname types.PrincipalName) (
 		NameType:   nametype.KRB_NT_SRV_INST,
 		NameString: []string{"krbtgt", realm},
 	}
+
 	return NewASReq(realm, c, cname, sname)
 }
 
@@ -99,6 +100,7 @@ func NewASReqForChgPasswd(realm string, c *config.Config, cname types.PrincipalN
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"kadmin", "changepw"},
 	}
+
 	return NewASReq(realm, c, cname, sname)
 }
 
@@ -108,11 +110,13 @@ func NewASReq(realm string, c *config.Config, cname, sname types.PrincipalName) 
 	if err != nil {
 		return ASReq{}, err
 	}
+
 	t := time.Now().UTC()
-	// Copy the default options to make this thread safe
+	// Copy the default options to make this thread safe.
 	kopts := types.NewKrbFlags()
 	copy(kopts.Bytes, c.LibDefaults.KDCDefaultOptions.Bytes)
 	kopts.BitLength = c.LibDefaults.KDCDefaultOptions.BitLength
+
 	a := ASReq{
 		KDCReqFields{
 			PVNO:    iana.PVNO,
@@ -132,25 +136,31 @@ func NewASReq(realm string, c *config.Config, cname, sname types.PrincipalName) 
 	if c.LibDefaults.Forwardable {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
 	}
+
 	if c.LibDefaults.Canonicalize {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Canonicalize)
 	}
+
 	if c.LibDefaults.Proxiable {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Proxiable)
 	}
+
 	if c.LibDefaults.RenewLifetime != 0 {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Renewable)
 		a.ReqBody.RTime = t.Add(c.LibDefaults.RenewLifetime)
 		a.ReqBody.RTime = t.Add(time.Duration(48) * time.Hour)
 	}
+
 	if !c.LibDefaults.NoAddresses {
 		ha, err := types.LocalHostAddresses()
 		if err != nil {
 			return a, fmt.Errorf("could not get local addresses: %v", err)
 		}
+
 		ha = append(ha, types.HostAddressesFromNetIPs(c.LibDefaults.ExtraAddresses)...)
 		a.ReqBody.Addresses = ha
 	}
+
 	return a, nil
 }
 
@@ -160,7 +170,9 @@ func NewTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Co
 	if err != nil {
 		return a, err
 	}
+
 	err = a.setPAData(paRealm, tgt, sessionKey)
+
 	return a, err
 }
 
@@ -170,26 +182,30 @@ func NewUser2UserTGSReq(cname types.PrincipalName, kdcRealm string, c *config.Co
 	if err != nil {
 		return a, err
 	}
+
 	a.ReqBody.AdditionalTickets = []Ticket{verifyingTGT}
 	types.SetFlag(&a.ReqBody.KDCOptions, flags.EncTktInSkey)
 	err = a.setPAData(clientTGT.Realm, clientTGT, sessionKey)
+
 	return a, err
 }
 
-// tgsReq populates the fields for a TGS_REQ
+// tgsReq populates the fields for a TGS_REQ.
 func tgsReq(cname, sname types.PrincipalName, kdcRealm string, renewal bool, c *config.Config) (TGSReq, error) {
 	nonce, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt32))
 	if err != nil {
 		return TGSReq{}, err
 	}
+
 	t := time.Now().UTC()
+
 	k := KDCReqFields{
 		PVNO:    iana.PVNO,
 		MsgType: msgtype.KRB_TGS_REQ,
 		ReqBody: KDCReqBody{
 			KDCOptions: types.NewKrbFlags(),
 			Realm:      kdcRealm,
-			CName:      cname, // Add the CName to make validation of the reply easier
+			CName:      cname,
 			SName:      sname,
 			Till:       t.Add(c.LibDefaults.TicketLifetime),
 			Nonce:      int(nonce.Int64()),
@@ -200,135 +216,163 @@ func tgsReq(cname, sname types.PrincipalName, kdcRealm string, renewal bool, c *
 	if c.LibDefaults.Forwardable {
 		types.SetFlag(&k.ReqBody.KDCOptions, flags.Forwardable)
 	}
+
 	if c.LibDefaults.Canonicalize {
 		types.SetFlag(&k.ReqBody.KDCOptions, flags.Canonicalize)
 	}
+
 	if c.LibDefaults.Proxiable {
 		types.SetFlag(&k.ReqBody.KDCOptions, flags.Proxiable)
 	}
+
 	if c.LibDefaults.RenewLifetime > time.Duration(0) {
 		types.SetFlag(&k.ReqBody.KDCOptions, flags.Renewable)
 		k.ReqBody.RTime = t.Add(c.LibDefaults.RenewLifetime)
 	}
+
 	if !c.LibDefaults.NoAddresses {
 		ha, err := types.LocalHostAddresses()
 		if err != nil {
 			return TGSReq{}, fmt.Errorf("could not get local addresses: %v", err)
 		}
+
 		ha = append(ha, types.HostAddressesFromNetIPs(c.LibDefaults.ExtraAddresses)...)
 		k.ReqBody.Addresses = ha
 	}
+
 	if renewal {
 		types.SetFlag(&k.ReqBody.KDCOptions, flags.Renew)
 		types.SetFlag(&k.ReqBody.KDCOptions, flags.Renewable)
 	}
+
 	return TGSReq{
 		k,
 	}, nil
 }
 
 func (k *TGSReq) setPAData(paRealm string, tgt Ticket, sessionKey types.EncryptionKey) error {
-	// Marshal the request and calculate checksum
+	// Marshal the request and calculate checksum.
 	b, err := k.ReqBody.Marshal()
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error marshaling TGS_REQ body")
 	}
+
 	etype, err := crypto.GetEtype(sessionKey.KeyType)
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncryptingError, "error getting etype to encrypt authenticator")
 	}
+
 	cb, err := etype.GetChecksumHash(sessionKey.KeyValue, b, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR_CHKSUM)
 	if err != nil {
 		return krberror.Errorf(err, krberror.ChksumError, "error getting etype checksum hash")
 	}
 
 	// Form PAData for TGS_REQ
-	// Create authenticator
+	// Create authenticator.
 	auth, err := types.NewAuthenticator(paRealm, k.ReqBody.CName)
 	if err != nil {
 		return krberror.Errorf(err, krberror.KRBMsgError, "error generating new authenticator")
 	}
+
 	auth.Cksum = types.Checksum{
 		CksumType: etype.GetHashID(),
 		Checksum:  cb,
 	}
-	// Create AP_REQ
+	// Create AP_REQ.
 	apReq, err := NewAPReq(tgt, sessionKey, auth)
 	if err != nil {
 		return krberror.Errorf(err, krberror.KRBMsgError, "error generating new AP_REQ")
 	}
+
 	apb, err := apReq.Marshal()
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error marshaling AP_REQ for pre-authentication data")
 	}
+
 	k.PAData = types.PADataSequence{
 		types.PAData{
 			PADataType:  patype.PA_TGS_REQ,
 			PADataValue: apb,
 		},
 	}
+
 	return nil
 }
 
 // Unmarshal bytes b into the ASReq struct.
 func (k *ASReq) Unmarshal(b []byte) error {
 	var m marshalKDCReq
+
 	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.ASREQ))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling AS_REQ")
 	}
+
 	expectedMsgType := msgtype.KRB_AS_REQ
 	if m.MsgType != expectedMsgType {
 		return krberror.NewErrorf(krberror.KRBMsgError, "message ID does not indicate a AS_REQ. Expected: %v; Actual: %v", expectedMsgType, m.MsgType)
 	}
+
 	var reqb KDCReqBody
+
 	err = reqb.Unmarshal(m.ReqBody.Bytes)
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error processing AS_REQ body")
 	}
+
 	k.MsgType = m.MsgType
 	k.PAData = m.PAData
 	k.PVNO = m.PVNO
 	k.ReqBody = reqb
+
 	return nil
 }
 
 // Unmarshal bytes b into the TGSReq struct.
 func (k *TGSReq) Unmarshal(b []byte) error {
 	var m marshalKDCReq
+
 	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.TGSREQ))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling TGS_REQ")
 	}
+
 	expectedMsgType := msgtype.KRB_TGS_REQ
 	if m.MsgType != expectedMsgType {
 		return krberror.NewErrorf(krberror.KRBMsgError, "message ID does not indicate a TGS_REQ. Expected: %v; Actual: %v", expectedMsgType, m.MsgType)
 	}
+
 	var reqb KDCReqBody
+
 	err = reqb.Unmarshal(m.ReqBody.Bytes)
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error processing TGS_REQ body")
 	}
+
 	k.MsgType = m.MsgType
 	k.PAData = m.PAData
 	k.PVNO = m.PVNO
 	k.ReqBody = reqb
+
 	return nil
 }
 
 // Unmarshal bytes b into the KRB_KDC_REQ body struct.
 func (k *KDCReqBody) Unmarshal(b []byte) error {
 	var m marshalKDCReqBody
+
 	_, err := asn1.Unmarshal(b, &m, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling KDC_REQ body")
 	}
+
 	k.KDCOptions = m.KDCOptions
 	if len(k.KDCOptions.Bytes) < 4 {
 		tb := make([]byte, 4-len(k.KDCOptions.Bytes))
 		k.KDCOptions.Bytes = append(tb, k.KDCOptions.Bytes...)
 		k.KDCOptions.BitLength = len(k.KDCOptions.Bytes) * 8
 	}
+
 	k.CName = m.CName
 	k.Realm = m.Realm
 	k.SName = m.SName
@@ -338,6 +382,7 @@ func (k *KDCReqBody) Unmarshal(b []byte) error {
 	k.Nonce = m.Nonce
 	k.EType = m.EType
 	k.Addresses = m.Addresses
+
 	k.EncAuthData = m.EncAuthData
 	if len(m.AdditionalTickets.Bytes) > 0 {
 		k.AdditionalTickets, err = unmarshalTicketsSequence(m.AdditionalTickets)
@@ -345,6 +390,7 @@ func (k *KDCReqBody) Unmarshal(b []byte) error {
 			return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling additional tickets")
 		}
 	}
+
 	return nil
 }
 
@@ -355,22 +401,27 @@ func (k *ASReq) Marshal() ([]byte, error) {
 		MsgType: k.MsgType,
 		PAData:  k.PAData,
 	}
+
 	b, err := k.ReqBody.Marshal()
 	if err != nil {
 		var mk []byte
 		return mk, err
 	}
+
 	m.ReqBody = asn1.RawValue{
 		Class:      asn1.ClassContextSpecific,
 		IsCompound: true,
 		Tag:        4,
 		Bytes:      b,
 	}
+
 	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
+
 	mk = asn1tools.AddASNAppTag(mk, asn1apptag.ASREQ)
+
 	return mk, nil
 }
 
@@ -381,28 +432,34 @@ func (k *TGSReq) Marshal() ([]byte, error) {
 		MsgType: k.MsgType,
 		PAData:  k.PAData,
 	}
+
 	b, err := k.ReqBody.Marshal()
 	if err != nil {
 		var mk []byte
 		return mk, err
 	}
+
 	m.ReqBody = asn1.RawValue{
 		Class:      asn1.ClassContextSpecific,
 		IsCompound: true,
 		Tag:        4,
 		Bytes:      b,
 	}
+
 	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
+
 	mk = asn1tools.AddASNAppTag(mk, asn1apptag.TGSREQ)
+
 	return mk, nil
 }
 
 // Marshal KRB_KDC_REQ body struct.
 func (k *KDCReqBody) Marshal() ([]byte, error) {
 	var b []byte
+
 	m := marshalKDCReqBody{
 		KDCOptions:  k.KDCOptions,
 		CName:       k.CName,
@@ -416,18 +473,21 @@ func (k *KDCReqBody) Marshal() ([]byte, error) {
 		Addresses:   k.Addresses,
 		EncAuthData: k.EncAuthData,
 	}
+
 	rawtkts, err := MarshalTicketSequence(k.AdditionalTickets)
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error in marshaling KDC request body additional tickets")
 	}
-	//The asn1.rawValue needs the tag setting on it for where it is in the KDCReqBody
+	// The asn1.rawValue needs the tag setting on it for where it is in the KDCReqBody.
 	rawtkts.Tag = 11
 	if len(rawtkts.Bytes) > 0 {
 		m.AdditionalTickets = rawtkts
 	}
+
 	b, err = asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error in marshaling KDC request body")
 	}
+
 	return b, nil
 }

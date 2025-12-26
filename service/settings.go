@@ -25,16 +25,18 @@ type Settings struct {
 // NewSettings creates a new service Settings.
 func NewSettings(kt *keytab.Keytab, settings ...func(*Settings)) *Settings {
 	s := new(Settings)
+
 	s.Keytab = kt
 	for _, set := range settings {
 		set(s)
 	}
+
 	return s
 }
 
 // RequireHostAddr used to configure service side to required host addresses to be specified in Kerberos tickets.
 //
-// s := NewSettings(kt, RequireHostAddr(true))
+// s := NewSettings(kt, RequireHostAddr(true)).
 func RequireHostAddr(b bool) func(*Settings) {
 	return func(s *Settings) {
 		s.requireHostAddr = b
@@ -49,7 +51,7 @@ func (s *Settings) RequireHostAddr() bool {
 // DecodePAC used to configure service side to enable/disable PAC decoding if the PAC is present.
 // Defaults to enabled if not specified.
 //
-// s := NewSettings(kt, DecodePAC(false))
+// s := NewSettings(kt, DecodePAC(false)).
 func DecodePAC(b bool) func(*Settings) {
 	return func(s *Settings) {
 		s.disablePACDecoding = !b
@@ -63,7 +65,7 @@ func (s *Settings) DecodePAC() bool {
 
 // ClientAddress used to configure service side with the clients host address to be used during validation.
 //
-// s := NewSettings(kt, ClientAddress(h))
+// s := NewSettings(kt, ClientAddress(h)).
 func ClientAddress(h types.HostAddress) func(*Settings) {
 	return func(s *Settings) {
 		s.cAddr = h
@@ -77,7 +79,7 @@ func (s *Settings) ClientAddress() types.HostAddress {
 
 // Logger used to configure service side with a logger.
 //
-// s := NewSettings(kt, Logger(l))
+// s := NewSettings(kt, Logger(l)).
 func Logger(l *log.Logger) func(*Settings) {
 	return func(s *Settings) {
 		s.logger = l
@@ -91,7 +93,7 @@ func (s *Settings) Logger() *log.Logger {
 
 // KeytabPrincipal used to override the principal name used to find the key in the keytab.
 //
-// s := NewSettings(kt, KeytabPrincipal("someaccount"))
+// s := NewSettings(kt, KeytabPrincipal("someaccount")).
 func KeytabPrincipal(p string) func(*Settings) {
 	return func(s *Settings) {
 		pn, _ := types.ParseSPNString(p)
@@ -107,7 +109,7 @@ func (s *Settings) KeytabPrincipal() *types.PrincipalName {
 // MaxClockSkew used to configure service side with the maximum acceptable clock skew
 // between the service and the issue time of kerberos tickets
 //
-// s := NewSettings(kt, MaxClockSkew(d))
+// s := NewSettings(kt, MaxClockSkew(d)).
 func MaxClockSkew(d time.Duration) func(*Settings) {
 	return func(s *Settings) {
 		s.maxClockSkew = d
@@ -120,12 +122,13 @@ func (s *Settings) MaxClockSkew() time.Duration {
 	if s.maxClockSkew.Nanoseconds() == 0 {
 		return time.Duration(5) * time.Minute
 	}
+
 	return s.maxClockSkew
 }
 
 // SName used provide a specific service name to the service settings.
 //
-// s := NewSettings(kt, SName("HTTP/some.service.com"))
+// s := NewSettings(kt, SName("HTTP/some.service.com")).
 func SName(sname string) func(*Settings) {
 	return func(s *Settings) {
 		s.sname = sname
@@ -139,7 +142,7 @@ func (s *Settings) SName() string {
 
 // SessionManager configures a session manager to establish sessions with clients to avoid excessive authentication challenges.
 //
-// s := NewSettings(kt, SessionManager(sm))
+// s := NewSettings(kt, SessionManager(sm)).
 func SessionManager(sm SessionMgr) func(*Settings) {
 	return func(s *Settings) {
 		s.sessionMgr = sm

@@ -11,6 +11,7 @@ import (
 // VerifyAPREQ verifies an AP_REQ sent to the service. Returns a boolean for if the AP_REQ is valid and the client's principal name and realm.
 func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credentials, error) {
 	var creds *credentials.Credentials
+
 	ok, err := APReq.Verify(s.Keytab, s.MaxClockSkew(), s.ClientAddress(), s.KeytabPrincipal())
 	if err != nil || !ok {
 		return false, creds, err
@@ -21,7 +22,7 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 			messages.NewKRBError(APReq.Ticket.SName, APReq.Ticket.Realm, errorcode.KRB_AP_ERR_BADADDR, "ticket does not contain HostAddress values required")
 	}
 
-	// Check for replay
+	// Check for replay.
 	rc := GetReplayCache(s.MaxClockSkew())
 	if rc.IsReplay(APReq.Ticket.SName, APReq.Authenticator) {
 		return false, creds,
@@ -34,14 +35,15 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 	creds.SetAuthenticated(true)
 	creds.SetValidUntil(APReq.Ticket.DecryptedEncPart.EndTime)
 
-	//PAC decoding
+	// PAC decoding.
 	if !s.disablePACDecoding {
 		isPAC, pac, err := APReq.Ticket.GetPACType(s.Keytab, s.KeytabPrincipal(), s.Logger())
 		if isPAC && err != nil {
 			return false, creds, err
 		}
+
 		if isPAC {
-			// There is a valid PAC. Adding attributes to creds
+			// There is a valid PAC. Adding attributes to creds.
 			creds.SetADCredentials(credentials.ADCredentials{
 				GroupMembershipSIDs: pac.KerbValidationInfo.GetGroupMembershipSIDs(),
 				LogOnTime:           pac.KerbValidationInfo.LogOnTime.Time(),
@@ -57,5 +59,6 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 			})
 		}
 	}
+
 	return true, creds, nil
 }

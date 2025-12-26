@@ -13,9 +13,9 @@ import (
 
 const (
 	testMICPayload = "deadbeef"
-	// What a kerberized server might send
+	// What a kerberized server might send.
 	testMICChallengeFromAcceptor = "040401ffffffffff00000000575e85d6c34d12ba3e5b1b1310cd9cb3"
-	// What an initiator client could reply
+	// What an initiator client could reply.
 	testMICChallengeReplyFromInitiator = "040400ffffffffff00000000000000009649ca09d2f1bc51ff6e5ca3"
 
 	acceptorSign  = keyusage.GSSAPI_ACCEPTOR_SIGN
@@ -24,6 +24,7 @@ const (
 
 func getMICChallengeReference() *MICToken {
 	challenge, _ := hex.DecodeString(testMICChallengeFromAcceptor)
+
 	return &MICToken{
 		Flags:     MICTokenFlagSentByAcceptor,
 		SndSeqNum: binary.BigEndian.Uint64(challenge[8:16]),
@@ -35,11 +36,13 @@ func getMICChallengeReference() *MICToken {
 func getMICChallengeReferenceNoChksum() *MICToken {
 	c := getMICChallengeReference()
 	c.Checksum = nil
+
 	return c
 }
 
 func getMICResponseReference() *MICToken {
 	response, _ := hex.DecodeString(testMICChallengeReplyFromInitiator)
+
 	return &MICToken{
 		Flags:     0x00,
 		SndSeqNum: 0,
@@ -51,13 +54,17 @@ func getMICResponseReference() *MICToken {
 func getMICResponseReferenceNoChkSum() *MICToken {
 	r := getMICResponseReference()
 	r.Checksum = nil
+
 	return r
 }
 
 func TestUnmarshal_MICChallenge(t *testing.T) {
 	t.Parallel()
+
 	challenge, _ := hex.DecodeString(testMICChallengeFromAcceptor)
+
 	var mt MICToken
+
 	err := mt.Unmarshal(challenge, true)
 	assert.Nil(t, err, "Unexpected error occurred.")
 	assert.Equal(t, getMICChallengeReference(), &mt, "Token not decoded as expected.")
@@ -65,8 +72,11 @@ func TestUnmarshal_MICChallenge(t *testing.T) {
 
 func TestUnmarshalFailure_MICChallenge(t *testing.T) {
 	t.Parallel()
+
 	challenge, _ := hex.DecodeString(testMICChallengeFromAcceptor)
+
 	var mt MICToken
+
 	err := mt.Unmarshal(challenge, false)
 	assert.NotNil(t, err, "Expected error did not occur: a message from the acceptor cannot be expected to be sent from the initiator.")
 	assert.Nil(t, mt.Payload, "Token fields should not have been initialised")
@@ -77,8 +87,11 @@ func TestUnmarshalFailure_MICChallenge(t *testing.T) {
 
 func TestUnmarshal_MICChallengeReply(t *testing.T) {
 	t.Parallel()
+
 	response, _ := hex.DecodeString(testMICChallengeReplyFromInitiator)
+
 	var mt MICToken
+
 	err := mt.Unmarshal(response, false)
 	assert.Nil(t, err, "Unexpected error occurred.")
 	assert.Equal(t, getMICResponseReference(), &mt, "Token not decoded as expected.")
@@ -86,8 +99,11 @@ func TestUnmarshal_MICChallengeReply(t *testing.T) {
 
 func TestUnmarshalFailure_MICChallengeReply(t *testing.T) {
 	t.Parallel()
+
 	response, _ := hex.DecodeString(testMICChallengeReplyFromInitiator)
+
 	var mt MICToken
+
 	err := mt.Unmarshal(response, true)
 	assert.NotNil(t, err, "Expected error did not occur: a message from the initiator cannot be expected to be sent from the acceptor.")
 	assert.Nil(t, mt.Payload, "Token fields should not have been initialised")
@@ -98,7 +114,9 @@ func TestUnmarshalFailure_MICChallengeReply(t *testing.T) {
 
 func TestMICChallengeChecksumVerification(t *testing.T) {
 	t.Parallel()
+
 	challenge, _ := hex.DecodeString(testMICChallengeFromAcceptor)
+
 	var mt MICToken
 	mt.Unmarshal(challenge, true)
 	mt.Payload, _ = hex.DecodeString(testMICPayload)
@@ -109,7 +127,9 @@ func TestMICChallengeChecksumVerification(t *testing.T) {
 
 func TestMICResponseChecksumVerification(t *testing.T) {
 	t.Parallel()
+
 	reply, _ := hex.DecodeString(testMICChallengeReplyFromInitiator)
+
 	var mt MICToken
 	mt.Unmarshal(reply, false)
 	mt.Payload, _ = hex.DecodeString(testMICPayload)
@@ -120,11 +140,13 @@ func TestMICResponseChecksumVerification(t *testing.T) {
 
 func TestMICChecksumVerificationFailure(t *testing.T) {
 	t.Parallel()
+
 	challenge, _ := hex.DecodeString(testMICChallengeFromAcceptor)
+
 	var mt MICToken
 	mt.Unmarshal(challenge, true)
 
-	// Test a failure with the correct key but wrong keyusage:
+	// Test a failure with the correct key but wrong keyusage:.
 	challengeOk, cErr := mt.Verify(getSessionKey(), initiatorSign)
 	assert.NotNil(t, cErr, "Expected error did not occur.")
 	assert.False(t, challengeOk, "Checksum verification succeeded when it should have failed.")
@@ -134,7 +156,7 @@ func TestMICChecksumVerificationFailure(t *testing.T) {
 		KeyType:  sessionKeyType,
 		KeyValue: wrongKeyVal,
 	}
-	// Test a failure with the wrong key but correct keyusage:
+	// Test a failure with the wrong key but correct keyusage:.
 	wrongKeyOk, wkErr := mt.Verify(badKey, acceptorSign)
 	assert.NotNil(t, wkErr, "Expected error did not occur.")
 	assert.False(t, wrongKeyOk, "Checksum verification succeeded when it should have failed.")
@@ -142,6 +164,7 @@ func TestMICChecksumVerificationFailure(t *testing.T) {
 
 func TestMarshal_MICChallenge(t *testing.T) {
 	t.Parallel()
+
 	bytes, _ := getMICChallengeReference().Marshal()
 	assert.Equal(t, testMICChallengeFromAcceptor, hex.EncodeToString(bytes),
 		"Marshalling did not yield the expected result.")
@@ -149,6 +172,7 @@ func TestMarshal_MICChallenge(t *testing.T) {
 
 func TestMarshal_MICChallengeReply(t *testing.T) {
 	t.Parallel()
+
 	bytes, _ := getMICResponseReference().Marshal()
 	assert.Equal(t, testMICChallengeReplyFromInitiator, hex.EncodeToString(bytes),
 		"Marshalling did not yield the expected result.")
@@ -156,6 +180,7 @@ func TestMarshal_MICChallengeReply(t *testing.T) {
 
 func TestMarshal_MICFailures(t *testing.T) {
 	t.Parallel()
+
 	noChkSum := getMICResponseReferenceNoChkSum()
 	chkBytes, chkErr := noChkSum.Marshal()
 	assert.Nil(t, chkBytes, "No bytes should be returned.")
@@ -164,9 +189,11 @@ func TestMarshal_MICFailures(t *testing.T) {
 
 func TestNewInitiatorMICTokenSignatureAndMarshalling(t *testing.T) {
 	t.Parallel()
+
 	bytes, _ := hex.DecodeString(testMICPayload)
 	token, tErr := NewInitiatorMICToken(bytes, getSessionKey())
 	token.Payload = nil
+
 	assert.Nil(t, tErr, "Unexpected error.")
 	assert.Equal(t, getMICResponseReference(), token, "Token failed to be marshalled to the expected bytes.")
 }

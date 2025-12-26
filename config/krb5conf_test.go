@@ -444,8 +444,10 @@ const (
 
 func TestLoad(t *testing.T) {
 	t.Parallel()
+
 	cf, _ := os.CreateTemp(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
+
 	cf.WriteString(krb5Conf)
 
 	c, err := Load(cf.Name())
@@ -473,19 +475,21 @@ func TestLoad(t *testing.T) {
 
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
-
 }
 
 func TestLoadWithV4Lines(t *testing.T) {
 	t.Parallel()
+
 	cf, _ := os.CreateTemp(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
+
 	cf.WriteString(krb5ConfV4Lines)
 
 	c, err := Load(cf.Name())
 	if err == nil {
 		t.Fatalf("error should not be nil for config that includes v4 lines")
 	}
+
 	if _, ok := err.(UnsupportedDirective); !ok {
 		t.Fatalf("error should be of type UnsupportedDirective: %v", err)
 	}
@@ -510,11 +514,11 @@ func TestLoadWithV4Lines(t *testing.T) {
 
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
-
 }
 
 func TestLoad2(t *testing.T) {
 	t.Parallel()
+
 	c, err := NewFromString(krb5Conf2)
 	if err != nil {
 		t.Fatalf("Error loading config: %v", err)
@@ -545,6 +549,7 @@ func TestLoad2(t *testing.T) {
 
 func TestLoadNoBlankLines(t *testing.T) {
 	t.Parallel()
+
 	c, err := NewFromString(krb5ConfNoBlankLines)
 	if err != nil {
 		t.Fatalf("Error loading config: %v", err)
@@ -570,13 +575,14 @@ func TestLoadNoBlankLines(t *testing.T) {
 
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
-
 }
 
 func TestLoadTabs(t *testing.T) {
 	t.Parallel()
+
 	cf, _ := os.CreateTemp(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
+
 	cf.WriteString(krb5ConfTabs)
 
 	c, err := Load(cf.Name())
@@ -604,7 +610,6 @@ func TestLoadTabs(t *testing.T) {
 
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm[".test.gokrb5"], "Domain to realm mapping not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"], "Domain to realm mapping not as expected")
-
 }
 
 func TestParseDuration(t *testing.T) {
@@ -613,6 +618,7 @@ func TestParseDuration(t *testing.T) {
 	hms, _ := time.ParseDuration("12h30m15s")
 	hm, _ := time.ParseDuration("12h30m")
 	h, _ := time.ParseDuration("12h")
+
 	var tests = []struct {
 		timeStr  string
 		duration time.Duration
@@ -630,14 +636,14 @@ func TestParseDuration(t *testing.T) {
 		if err != nil {
 			t.Errorf("error parsing %s: %v", test.timeStr, err)
 		}
+
 		assert.Equal(t, test.duration, d, "Duration not as expected for: "+test.timeStr)
-
 	}
-
 }
 
 func TestResolveRealm(t *testing.T) {
 	t.Parallel()
+
 	c, err := NewFromString(krb5Conf)
 	if err != nil {
 		t.Fatalf("Error loading config: %v", err)
@@ -665,15 +671,19 @@ func TestResolveRealm(t *testing.T) {
 
 func TestJSON(t *testing.T) {
 	t.Parallel()
+
 	c, err := NewFromString(krb5Conf)
 	if err != nil {
 		t.Fatalf("Error loading config: %v", err)
 	}
+
 	c.LibDefaults.K5LoginDirectory = "/home/test"
+
 	j, err := c.JSON()
 	if err != nil {
 		t.Errorf("error marshaling krb config to JSON: %v", err)
 	}
+
 	assert.Equal(t, krb5ConfJson, j, "krb config marshaled json not as expected")
 
 	t.Log(j)

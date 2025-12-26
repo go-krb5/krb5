@@ -13,15 +13,19 @@ import (
 
 func TestUnmarshalReply(t *testing.T) {
 	t.Parallel()
+
 	var a Reply
+
 	b, err := hex.DecodeString(testdata.MarshaledKpasswd_Rep)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, 236, a.MessageLength, "message length not as expected")
 	assert.Equal(t, 1, a.Version, "message version not as expected")
 	assert.Equal(t, 140, a.APREPLength, "AP_REP length not as expected")

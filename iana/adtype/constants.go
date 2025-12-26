@@ -19,5 +19,5 @@ const (
 	ADFXFastUsed                  int32 = 72
 	ADWin2KPAC                    int32 = 128
 	ADEtypeNegotiation            int32 = 129
-	//Reserved values                   9-63
+	// Reserved values                   9-63.
 )

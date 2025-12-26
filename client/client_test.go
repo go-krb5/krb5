@@ -14,6 +14,7 @@ func TestAssumePreauthentication(t *testing.T) {
 	if !cl.settings.assumePreAuthentication {
 		t.Fatal("assumePreAuthentication should be true")
 	}
+
 	if !cl.settings.AssumePreAuthentication() {
 		t.Fatal("AssumePreAuthentication() should be true")
 	}

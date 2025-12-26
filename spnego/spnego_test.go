@@ -15,18 +15,23 @@ const (
 
 func TestUnmarshal_SPNEGO_Init(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testGSSAPIInit)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	var s SPNEGOToken
+
 	err = s.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling SPNEGO with NegTokenInit: %v", err)
 	}
+
 	assert.True(t, s.Init, "SPNEGO does not indicate it contains NegTokenInit as expected")
 	assert.False(t, s.Resp, "SPNEGO indicates is contains a NegTokenResp but it shouldn't")
 	assert.Equal(t, 4, len(s.NegTokenInit.MechTypes))
+
 	expectMechTypes := []asn1.ObjectIdentifier{
 		[]int{1, 2, 840, 113554, 1, 2, 2},
 		[]int{1, 3, 5, 1, 5, 2},
@@ -44,9 +49,11 @@ func TestUnMarshal_SPNEGO_Empty(t *testing.T) {
 	if err := sp.Unmarshal(nil); err == nil {
 		t.Fatal("should have errored, input is absent")
 	}
+
 	if err := sp.Unmarshal([]byte{}); err == nil {
 		t.Fatal("should have errored, input is empty")
 	}
+
 	if err := sp.Unmarshal([]byte{1}); err == nil {
 		t.Fatal("should have errored, input is too low")
 	}
@@ -54,15 +61,19 @@ func TestUnMarshal_SPNEGO_Empty(t *testing.T) {
 
 func TestUnmarshal_SPNEGO_RespTarg(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testGSSAPIResp)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	var s SPNEGOToken
+
 	err = s.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling SPNEGO with NegTokenResp/NegTokenTarg: %v", err)
 	}
+
 	assert.True(t, s.Resp, "SPNEGO does not indicate it contains NegTokenResp/Targ as expected")
 	assert.False(t, s.Init, "SPNEGO indicates is contains a NegTokenInit but it shouldn't")
 	assert.Equal(t, asn1.Enumerated(0), s.NegTokenResp.NegState, "Negotiation state not as expected.")
@@ -71,36 +82,46 @@ func TestUnmarshal_SPNEGO_RespTarg(t *testing.T) {
 
 func TestMarshal_SPNEGO_Init(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testGSSAPIInit)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	var s SPNEGOToken
+
 	err = s.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling SPNEGO with NegTokenInit: %v", err)
 	}
+
 	mb, err := s.Marshal()
 	if err != nil {
 		t.Fatalf("Error marshalling SPNEGO containing NegTokenInit: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshaled bytes not as expected")
 }
 
 func TestMarshal_SPNEGO_RespTarg(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testGSSAPIResp)
 	if err != nil {
 		t.Fatalf("Error converting hex string test data to bytes: %v", err)
 	}
+
 	var s SPNEGOToken
+
 	err = s.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshalling SPNEGO with NegTokenResp: %v", err)
 	}
+
 	mb, err := s.Marshal()
 	if err != nil {
 		t.Fatalf("Error marshalling SPNEGO containing NegTokenResp: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshaled bytes not as expected")
 }
