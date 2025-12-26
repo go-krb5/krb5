@@ -14,15 +14,19 @@ import (
 
 func TestUnmarshalAPReq(t *testing.T) {
 	t.Parallel()
+
 	var a APReq
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ap_req)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
 	assert.Equal(t, msgtype.KRB_AP_REQ, a.MsgType, "MsgType is not as expected")
 	assert.Equal(t, "fedcba98", hex.EncodeToString(a.APOptions.Bytes), "AP Options not as expected")
@@ -38,18 +42,23 @@ func TestUnmarshalAPReq(t *testing.T) {
 
 func TestMarshalAPReq(t *testing.T) {
 	t.Parallel()
+
 	var a APReq
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ap_req)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	mb, err := a.Marshal()
 	if err != nil {
 		t.Fatalf("Marshal of ticket errored: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshal bytes of Authenticator not as expected")
 }

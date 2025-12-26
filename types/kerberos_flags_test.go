@@ -11,7 +11,9 @@ import (
 
 func TestKerberosFlags_SetFlag(t *testing.T) {
 	t.Parallel()
+
 	b := []byte{byte(64), byte(0), byte(0), byte(16)}
+
 	var f asn1.BitString
 	SetFlag(&f, flags.Forwardable)
 	SetFlag(&f, flags.RenewableOK)
@@ -20,7 +22,9 @@ func TestKerberosFlags_SetFlag(t *testing.T) {
 
 func TestKerberosFlags_UnsetFlag(t *testing.T) {
 	t.Parallel()
+
 	b := []byte{byte(64), byte(0), byte(0), byte(0)}
+
 	var f asn1.BitString
 	SetFlag(&f, flags.Forwardable)
 	SetFlag(&f, flags.RenewableOK)
@@ -30,6 +34,7 @@ func TestKerberosFlags_UnsetFlag(t *testing.T) {
 
 func TestKerberosFlags_IsFlagSet(t *testing.T) {
 	t.Parallel()
+
 	var f asn1.BitString
 	SetFlag(&f, flags.Forwardable)
 	SetFlag(&f, flags.RenewableOK)

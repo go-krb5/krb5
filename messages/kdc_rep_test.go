@@ -28,22 +28,28 @@ const (
 
 func TestUnmarshalASRep(t *testing.T) {
 	t.Parallel()
+
 	var a ASRep
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_rep)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
 	assert.Equal(t, msgtype.KRB_AS_REP, a.MsgType, "MsgType not as expected")
 	assert.Equal(t, 2, len(a.PAData), "Number of PAData items in the sequence not as expected")
+
 	for i, pa := range a.PAData {
 		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType, fmt.Sprintf("PAData type for entry %d not as expected", i+1))
 		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue, fmt.Sprintf("PAData valye for entry %d not as expected", i+1))
 	}
+
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm, "Client Realm not as expected")
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType, "CName NameType not as expected")
 	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
@@ -63,15 +69,19 @@ func TestUnmarshalASRep(t *testing.T) {
 
 func TestUnmarshalASRep_optionalsNULL(t *testing.T) {
 	t.Parallel()
+
 	var a ASRep
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_repOptionalsNULL)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
 	assert.Equal(t, msgtype.KRB_AS_REP, a.MsgType, "MsgType not as expected")
 	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
@@ -94,40 +104,51 @@ func TestUnmarshalASRep_optionalsNULL(t *testing.T) {
 
 func TestMarshalASRep(t *testing.T) {
 	t.Parallel()
+
 	var a ASRep
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_rep)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	mb, err := a.Marshal()
 	if err != nil {
 		t.Fatalf("Marshal errored: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshal bytes of ASRep not as expected")
 }
 
 func TestUnmarshalTGSRep(t *testing.T) {
 	t.Parallel()
+
 	var a TGSRep
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_rep)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
 	assert.Equal(t, msgtype.KRB_TGS_REP, a.MsgType, "MsgType not as expected")
 	assert.Equal(t, 2, len(a.PAData), "Number of PAData items in the sequence not as expected")
+
 	for i, pa := range a.PAData {
 		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType, fmt.Sprintf("PAData type for entry %d not as expected", i+1))
 		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue, fmt.Sprintf("PAData valye for entry %d not as expected", i+1))
 	}
+
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm, "Client Realm not as expected")
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType, "CName NameType not as expected")
 	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
@@ -147,15 +168,19 @@ func TestUnmarshalTGSRep(t *testing.T) {
 
 func TestUnmarshalTGSRep_optionalsNULL(t *testing.T) {
 	t.Parallel()
+
 	var a TGSRep
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_repOptionalsNULL)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
 	assert.Equal(t, msgtype.KRB_TGS_REP, a.MsgType, "MsgType not as expected")
 	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
@@ -178,43 +203,53 @@ func TestUnmarshalTGSRep_optionalsNULL(t *testing.T) {
 
 func TestMarshalTGSRep(t *testing.T) {
 	t.Parallel()
+
 	var a TGSRep
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_rep)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	mb, err := a.Marshal()
 	if err != nil {
 		t.Fatalf("Marshal errored: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "Marshal bytes of TGSRep not as expected")
 }
 
 func TestUnmarshalEncKDCRepPart(t *testing.T) {
 	t.Parallel()
+
 	var a EncKDCRepPart
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_kdc_rep_part)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
-	//Parse the test time value into a time.Time type
+	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
 	assert.Equal(t, int32(1), a.Key.KeyType, "Key type not as expected")
 	assert.Equal(t, []byte("12345678"), a.Key.KeyValue, "Key value not as expected")
 	assert.Equal(t, 2, len(a.LastReqs), "Number of last request entries not as expected")
+
 	for i, r := range a.LastReqs {
 		assert.Equal(t, int32(-5), r.LRType, fmt.Sprintf("Last request typ not as expected for last request entry %d", i+1))
 		assert.Equal(t, tt, r.LRValue, fmt.Sprintf("Last request time value not as expected for last request entry %d", i+1))
 	}
+
 	assert.Equal(t, testdata.TEST_NONCE, a.Nonce, "Nonce not as expected")
 	assert.Equal(t, tt, a.KeyExpiration, "key expiration time not as expected")
 	assert.Equal(t, "fedcba98", hex.EncodeToString(a.Flags.Bytes), "Flags not as expected")
@@ -226,6 +261,7 @@ func TestUnmarshalEncKDCRepPart(t *testing.T) {
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.SName.NameType, "SName type not as expected")
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.SName.NameString, "SName string entries not as expected")
 	assert.Equal(t, 2, len(a.CAddr), "Number of client addresses not as expected")
+
 	for i, addr := range a.CAddr {
 		assert.Equal(t, int32(2), addr.AddrType, fmt.Sprintf("Host address type not as expected for address item %d", i+1))
 		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address), fmt.Sprintf("Host address not as expected for address item %d", i+1))
@@ -234,25 +270,30 @@ func TestUnmarshalEncKDCRepPart(t *testing.T) {
 
 func TestUnmarshalEncKDCRepPart_optionalsNULL(t *testing.T) {
 	t.Parallel()
+
 	var a EncKDCRepPart
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_kdc_rep_partOptionalsNULL)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
-	//Parse the test time value into a time.Time type
+	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
 	assert.Equal(t, int32(1), a.Key.KeyType, "Key type not as expected")
 	assert.Equal(t, []byte("12345678"), a.Key.KeyValue, "Key value not as expected")
 	assert.Equal(t, 2, len(a.LastReqs), "Number of last request entries not as expected")
+
 	for i, r := range a.LastReqs {
 		assert.Equal(t, int32(-5), r.LRType, fmt.Sprintf("Last request typ not as expected for last request entry %d", i+1))
 		assert.Equal(t, tt, r.LRValue, fmt.Sprintf("Last request time value not as expected for last request entry %d", i+1))
 	}
+
 	assert.Equal(t, testdata.TEST_NONCE, a.Nonce, "Nonce not as expected")
 	assert.Equal(t, "fe5cba98", hex.EncodeToString(a.Flags.Bytes), "Flags not as expected")
 	assert.Equal(t, tt, a.AuthTime, "Auth time not as expected")
@@ -264,12 +305,16 @@ func TestUnmarshalEncKDCRepPart_optionalsNULL(t *testing.T) {
 
 func TestUnmarshalASRepDecodeAndDecrypt(t *testing.T) {
 	t.Parallel()
+
 	var asRep ASRep
+
 	b, _ := hex.DecodeString(testuser1EType18ASREP)
+
 	err := asRep.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("AS REP Unmarshal error: %v\n", err)
 	}
+
 	assert.Equal(t, 5, asRep.PVNO, "PVNO not as expected")
 	assert.Equal(t, 11, asRep.MsgType, "MsgType not as expected")
 	assert.Equal(t, testRealm, asRep.CRealm, "Client Realm not as expected")
@@ -285,18 +330,22 @@ func TestUnmarshalASRepDecodeAndDecrypt(t *testing.T) {
 	assert.Equal(t, 1, asRep.Ticket.EncPart.KVNO, "Ticket encrypted part KVNO not as expected")
 	assert.Equal(t, etypeID.ETypesByName["aes256-cts-hmac-sha1-96"], asRep.EncPart.EType, "Etype of encrypted part not as expected")
 	assert.Equal(t, 0, asRep.EncPart.KVNO, "Encrypted part KVNO not as expected")
-	//t.Log("Finished testing unecrypted parts of AS REP")
+	// t.Log("Finished testing unecrypted parts of AS REP").
 	ktb, _ := hex.DecodeString(testuser1EType18Keytab)
 	kt := keytab.New()
+
 	err = kt.Unmarshal(ktb)
 	if err != nil {
 		t.Fatalf("keytab parse error: %v\n", err)
 	}
+
 	cred := credentials.New(testUser, testRealm)
+
 	_, err = asRep.DecryptEncPart(cred.WithKeytab(kt))
 	if err != nil {
 		t.Fatalf("Decryption of AS_REP EncPart failed: %v", err)
 	}
+
 	assert.Equal(t, int32(18), asRep.DecryptedEncPart.Key.KeyType, "KeyType in decrypted EncPart not as expected")
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.LastReqs[0].LRValue, "LastReqs did not have a time value")
 	assert.Equal(t, 2069991465, asRep.DecryptedEncPart.Nonce, "Nonce value not as expected")
@@ -312,12 +361,16 @@ func TestUnmarshalASRepDecodeAndDecrypt(t *testing.T) {
 
 func TestUnmarshalASRepDecodeAndDecrypt_withPassword(t *testing.T) {
 	t.Parallel()
+
 	var asRep ASRep
+
 	b, _ := hex.DecodeString(testuser1EType18ASREP)
+
 	err := asRep.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("AS REP Unmarshal error: %v\n", err)
 	}
+
 	assert.Equal(t, 5, asRep.PVNO, "PVNO not as expected")
 	assert.Equal(t, 11, asRep.MsgType, "MsgType not as expected")
 	assert.Equal(t, testRealm, asRep.CRealm, "Client Realm not as expected")
@@ -333,11 +386,14 @@ func TestUnmarshalASRepDecodeAndDecrypt_withPassword(t *testing.T) {
 	assert.Equal(t, 1, asRep.Ticket.EncPart.KVNO, "Ticket encrypted part KVNO not as expected")
 	assert.Equal(t, etypeID.AES256_CTS_HMAC_SHA1_96, asRep.EncPart.EType, "Etype of encrypted part not as expected")
 	assert.Equal(t, 0, asRep.EncPart.KVNO, "Encrypted part KVNO not as expected")
+
 	cred := credentials.New(testUser, testRealm)
+
 	_, err = asRep.DecryptEncPart(cred.WithPassword(testUserPassword))
 	if err != nil {
 		t.Fatalf("Decryption of AS_REP EncPart failed: %v", err)
 	}
+
 	assert.Equal(t, int32(18), asRep.DecryptedEncPart.Key.KeyType, "KeyType in decrypted EncPart not as expected")
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.LastReqs[0].LRValue, "LastReqs did not have a time value")
 	assert.Equal(t, 2069991465, asRep.DecryptedEncPart.Nonce, "Nonce value not as expected")

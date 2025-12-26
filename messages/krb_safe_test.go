@@ -15,16 +15,19 @@ import (
 
 func TestUnmarshalKRBSafe(t *testing.T) {
 	t.Parallel()
+
 	var a KRBSafe
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5safe)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
-	//Parse the test time value into a time.Time type
+	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
@@ -43,11 +46,14 @@ func TestUnmarshalKRBSafe(t *testing.T) {
 
 func TestUnmarshalKRBSafe_optionalsNULL(t *testing.T) {
 	t.Parallel()
+
 	var a KRBSafe
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5safeOptionalsNULL)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)

@@ -1,4 +1,4 @@
-// Package rfc8009 provides encryption and checksum methods as specified in RFC 8009
+// Package rfc8009 provides encryption and checksum methods as specified in RFC 8009.
 package rfc8009
 
 import (
@@ -21,10 +21,13 @@ func EncryptData(key, data []byte, e etype.EType) ([]byte, []byte, error) {
 	if e.GetETypeID() == etypeID.AES256_CTS_HMAC_SHA384_192 {
 		kl = 32
 	}
+
 	if len(key) != kl {
 		return []byte{}, []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", e.GetKeyByteSize(), len(key))
 	}
+
 	ivz := make([]byte, aes.BlockSize)
+
 	return aescts.Encrypt(key, ivz, data)
 }
 
@@ -35,20 +38,24 @@ func EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byte, [
 	if e.GetETypeID() == etypeID.AES256_CTS_HMAC_SHA384_192 {
 		kl = 32
 	}
+
 	if len(key) != kl {
 		return []byte{}, []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", kl, len(key))
 	}
+
 	if len(key) != e.GetKeyByteSize() {
 	}
-	//confounder
+	// confounder.
 	c := make([]byte, e.GetConfounderByteSize())
+
 	_, err := rand.Read(c)
 	if err != nil {
 		return []byte{}, []byte{}, fmt.Errorf("could not generate random confounder: %v", err)
 	}
+
 	plainBytes := append(c, message...)
 
-	// Derive key for encryption from usage
+	// Derive key for encryption from usage.
 	var k []byte
 	if usage != 0 {
 		k, err = e.DeriveKey(key, common.GetUsageKe(usage))
@@ -57,18 +64,21 @@ func EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byte, [
 		}
 	}
 
-	// Encrypt the data
+	// Encrypt the data.
 	iv, b, err := e.EncryptData(k, plainBytes)
 	if err != nil {
 		return iv, b, fmt.Errorf("error encrypting data: %v", err)
 	}
 
 	ivz := make([]byte, e.GetConfounderByteSize())
+
 	ih, err := GetIntegityHash(ivz, b, key, usage, e)
 	if err != nil {
 		return iv, b, fmt.Errorf("error encrypting data: %v", err)
 	}
+
 	b = append(b, ih...)
+
 	return iv, b, nil
 }
 
@@ -78,35 +88,38 @@ func DecryptData(key, data []byte, e etype.EType) ([]byte, error) {
 	if e.GetETypeID() == etypeID.AES256_CTS_HMAC_SHA384_192 {
 		kl = 32
 	}
+
 	if len(key) != kl {
 		return []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", kl, len(key))
 	}
+
 	ivz := make([]byte, aes.BlockSize)
+
 	return aescts.Decrypt(key, ivz, data)
 }
 
 // DecryptMessage decrypts the message provided using the methods specific to the etype provided as defined in RFC 8009.
 // The integrity of the message is also verified.
 func DecryptMessage(key, ciphertext []byte, usage uint32, e etype.EType) ([]byte, error) {
-	//Derive the key
+	// Derive the key.
 	k, err := e.DeriveKey(key, common.GetUsageKe(usage))
 	if err != nil {
 		return nil, fmt.Errorf("error deriving key: %v", err)
 	}
-	// Strip off the checksum from the end
+	// Strip off the checksum from the end.
 	b, err := e.DecryptData(k, ciphertext[:len(ciphertext)-e.GetHMACBitLength()/8])
 	if err != nil {
 		return nil, err
 	}
-	//Verify checksum
+	// Verify checksum.
 	if !e.VerifyIntegrity(key, ciphertext, b, usage) {
 		return nil, errors.New("integrity verification failed")
 	}
-	//Remove the confounder bytes
+	// Remove the confounder bytes.
 	return b[e.GetConfounderByteSize():], nil
 }
 
-// GetIntegityHash returns a keyed integrity hash of the bytes provided as defined in RFC 8009
+// GetIntegityHash returns a keyed integrity hash of the bytes provided as defined in RFC 8009.
 func GetIntegityHash(iv, c, key []byte, usage uint32, e etype.EType) ([]byte, error) {
 	// Generate and append integrity hash
 	// Rather than calculating the hash over the confounder and plaintext
@@ -122,5 +135,6 @@ func VerifyIntegrity(key, ct []byte, usage uint32, etype etype.EType) bool {
 	ivz := make([]byte, etype.GetConfounderByteSize())
 	ib := append(ivz, ct[:len(ct)-(etype.GetHMACBitLength()/8)]...)
 	expectedMAC, _ := common.GetIntegrityHash(ib, key, usage, etype)
+
 	return hmac.Equal(h, expectedMAC)
 }

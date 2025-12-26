@@ -14,7 +14,7 @@ import (
 
 // RFC https://tools.ietf.org/html/rfc8009
 
-// Aes256CtsHmacSha384192 implements Kerberos encryption type aes256-cts-hmac-sha384-192
+// Aes256CtsHmacSha384192 implements Kerberos encryption type aes256-cts-hmac-sha384-192.
 type Aes256CtsHmacSha384192 struct {
 }
 
@@ -113,7 +113,7 @@ func (e Aes256CtsHmacSha384192) DeriveRandom(protocolKey, usage []byte) ([]byte,
 // As the hash is calculated over the iv concatenated with the AES cipher output not the plaintext the pt value to this
 // interface method is not use. Pass any []byte.
 func (e Aes256CtsHmacSha384192) VerifyIntegrity(protocolKey, ct, pt []byte, usage uint32) bool {
-	// We don't need ib just there for the interface
+	// We don't need ib just there for the interface.
 	return rfc8009.VerifyIntegrity(protocolKey, ct, usage, e)
 }
 
@@ -128,5 +128,6 @@ func (e Aes256CtsHmacSha384192) VerifyChecksum(protocolKey, data, chksum []byte,
 	if err != nil {
 		return false
 	}
+
 	return hmac.Equal(chksum, c)
 }

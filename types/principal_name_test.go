@@ -10,6 +10,7 @@ import (
 
 func TestPrincipalName_GetSalt(t *testing.T) {
 	t.Parallel()
+
 	pn := PrincipalName{
 		NameType:   1,
 		NameString: []string{"firststring", "secondstring"},
@@ -34,5 +35,4 @@ func TestParseSPNString(t *testing.T) {
 	assert.Equal(t, "REALM.COM", realm, "realm value not as expected")
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, pn.NameType, "name type not as expected")
 	assert.Equal(t, "www.example.com", pn.NameString[0], "second element of name string not as expected")
-
 }

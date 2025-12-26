@@ -13,9 +13,9 @@ import (
 	"github.com/go-krb5/krb5/iana/etypeID"
 )
 
-// RFC 3962
+// RFC 3962.
 
-// Aes128CtsHmacSha96 implements Kerberos encryption type aes128-cts-hmac-sha1-96
+// Aes128CtsHmacSha96 implements Kerberos encryption type aes128-cts-hmac-sha1-96.
 type Aes128CtsHmacSha96 struct {
 }
 
@@ -125,5 +125,6 @@ func (e Aes128CtsHmacSha96) VerifyChecksum(protocolKey, data, chksum []byte, usa
 	if err != nil {
 		return false
 	}
+
 	return hmac.Equal(chksum, c)
 }

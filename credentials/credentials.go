@@ -39,7 +39,7 @@ type Credentials struct {
 }
 
 // marshalCredentials is used to enable marshaling and unmarshaling of credentials
-// without having exported fields on the Credentials struct
+// without having exported fields on the Credentials struct.
 type marshalCredentials struct {
 	Username        string
 	DisplayName     string
@@ -90,6 +90,7 @@ func New(username string, realm string) *Credentials {
 func NewFromPrincipalName(cname types.PrincipalName, realm string) *Credentials {
 	c := New(cname.PrincipalNameString(), realm)
 	c.cname = cname
+
 	return c
 }
 
@@ -97,6 +98,7 @@ func NewFromPrincipalName(cname types.PrincipalName, realm string) *Credentials 
 func (c *Credentials) WithKeytab(kt *keytab.Keytab) *Credentials {
 	c.keytab = kt
 	c.password = ""
+
 	return c
 }
 
@@ -110,13 +112,15 @@ func (c *Credentials) HasKeytab() bool {
 	if c.keytab != nil && len(c.keytab.Entries) > 0 {
 		return true
 	}
+
 	return false
 }
 
 // WithPassword sets the password in the Credentials struct.
 func (c *Credentials) WithPassword(password string) *Credentials {
 	c.password = password
-	c.keytab = keytab.New() // clear any keytab
+	c.keytab = keytab.New()
+
 	return c
 }
 
@@ -130,37 +134,42 @@ func (c *Credentials) HasPassword() bool {
 	if c.password != "" {
 		return true
 	}
+
 	return false
 }
 
-// SetValidUntil sets the expiry time of the credentials
+// SetValidUntil sets the expiry time of the credentials.
 func (c *Credentials) SetValidUntil(t time.Time) {
 	c.validUntil = t
 }
 
-// SetADCredentials adds ADCredentials attributes to the credentials
+// SetADCredentials adds ADCredentials attributes to the credentials.
 func (c *Credentials) SetADCredentials(a ADCredentials) {
 	c.SetAttribute(AttributeKeyADCredentials, a)
+
 	if a.FullName != "" {
 		c.SetDisplayName(a.FullName)
 	}
+
 	if a.EffectiveName != "" {
 		c.SetUserName(a.EffectiveName)
 	}
+
 	for i := range a.GroupMembershipSIDs {
 		c.AddAuthzAttribute(a.GroupMembershipSIDs[i])
 	}
 }
 
-// GetADCredentials returns ADCredentials attributes sorted in the credential
+// GetADCredentials returns ADCredentials attributes sorted in the credential.
 func (c *Credentials) GetADCredentials() ADCredentials {
 	if a, ok := c.attributes[AttributeKeyADCredentials].(ADCredentials); ok {
 		return a
 	}
+
 	return ADCredentials{}
 }
 
-// Methods to implement goidentity.Identity interface
+// Methods to implement goidentity.Identity interface.
 
 // UserName returns the credential's username.
 func (c *Credentials) UserName() string {
@@ -197,7 +206,7 @@ func (c *Credentials) Realm() string {
 	return c.Domain()
 }
 
-// SetRealm sets the realm value on the credential. Same as the domain
+// SetRealm sets the realm value on the credential. Same as the domain.
 func (c *Credentials) SetRealm(s string) {
 	c.SetDomain(s)
 }
@@ -235,11 +244,13 @@ func (c *Credentials) SetAuthTime(t time.Time) {
 // AuthzAttributes returns the credentials authorizing attributes.
 func (c *Credentials) AuthzAttributes() []string {
 	s := make([]string, len(c.groupMembership))
+
 	i := 0
 	for a := range c.groupMembership {
 		s[i] = a
 		i++
 	}
+
 	return s
 }
 
@@ -263,6 +274,7 @@ func (c *Credentials) RemoveAuthzAttribute(a string) {
 	if _, ok := c.groupMembership[a]; !ok {
 		return
 	}
+
 	delete(c.groupMembership, a)
 }
 
@@ -285,6 +297,7 @@ func (c *Credentials) Authorized(a string) bool {
 	if enabled, ok := c.groupMembership[a]; ok && enabled {
 		return true
 	}
+
 	return false
 }
 
@@ -298,10 +311,11 @@ func (c *Credentials) Expired() bool {
 	if !c.validUntil.IsZero() && time.Now().UTC().After(c.validUntil) {
 		return true
 	}
+
 	return false
 }
 
-// ValidUntil returns the credential's valid until date
+// ValidUntil returns the credential's valid until date.
 func (c *Credentials) ValidUntil() time.Time {
 	return c.validUntil
 }
@@ -326,10 +340,11 @@ func (c *Credentials) RemoveAttribute(k string) {
 	delete(c.attributes, k)
 }
 
-// Marshal the Credentials into a byte slice
+// Marshal the Credentials into a byte slice.
 func (c *Credentials) Marshal() ([]byte, error) {
 	gob.Register(map[string]interface{}{})
 	gob.Register(ADCredentials{})
+
 	buf := new(bytes.Buffer)
 	enc := gob.NewEncoder(buf)
 	mc := marshalCredentials{
@@ -347,24 +362,29 @@ func (c *Credentials) Marshal() ([]byte, error) {
 		GroupMembership: c.groupMembership,
 		SessionID:       c.sessionID,
 	}
+
 	err := enc.Encode(&mc)
 	if err != nil {
 		return []byte{}, err
 	}
+
 	return buf.Bytes(), nil
 }
 
-// Unmarshal a byte slice into Credentials
+// Unmarshal a byte slice into Credentials.
 func (c *Credentials) Unmarshal(b []byte) error {
 	gob.Register(map[string]interface{}{})
 	gob.Register(ADCredentials{})
+
 	mc := new(marshalCredentials)
 	buf := bytes.NewBuffer(b)
 	dec := gob.NewDecoder(buf)
+
 	err := dec.Decode(mc)
 	if err != nil {
 		return err
 	}
+
 	c.username = mc.Username
 	c.displayName = mc.DisplayName
 	c.realm = mc.Realm
@@ -376,6 +396,7 @@ func (c *Credentials) Unmarshal(b []byte) error {
 	c.authTime = mc.AuthTime
 	c.groupMembership = mc.GroupMembership
 	c.sessionID = mc.SessionID
+
 	return nil
 }
 
@@ -394,9 +415,11 @@ func (c *Credentials) JSON() (string, error) {
 		AuthTime:      c.authTime,
 		SessionID:     c.sessionID,
 	}
+
 	b, err := json.MarshalIndent(mc, "", "  ")
 	if err != nil {
 		return "", err
 	}
+
 	return string(b), nil
 }

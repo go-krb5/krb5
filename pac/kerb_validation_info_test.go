@@ -13,15 +13,19 @@ import (
 
 func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	t.Parallel()
+
 	b, err := hex.DecodeString(testdata.MarshaledPAC_Kerb_Validation_Info_MS)
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k KerbValidationInfo
+
 	err = k.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshaling KerbValidationInfo: %v", err)
 	}
+
 	assert.Equal(t, time.Date(2006, 4, 28, 1, 42, 50, 925640100, time.UTC), k.LogOnTime.Time(), "LogOnTime not as expected")
 	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time(), "LogOffTime not as expected")
 	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time(), "KickOffTime not as expected")
@@ -118,7 +122,9 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k2 KerbValidationInfo
+
 	err = k2.Unmarshal(b)
 	if err != nil {
 		t.Fatal("Could not unmarshal KerbValidationInfo")
@@ -191,11 +197,14 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 	if err != nil {
 		t.Fatal("Could not decode test data hex string")
 	}
+
 	var k KerbValidationInfo
+
 	err = k.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Error unmarshaling KerbValidationInfo: %v", err)
 	}
+
 	assert.Equal(t, time.Date(2017, 10, 14, 12, 03, 41, 52409900, time.UTC), k.LogOnTime.Time(), "LogOnTime not as expected")
 	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time(), "LogOffTime not as expected")
 	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time(), "KickOffTime not as expected")
@@ -254,11 +263,13 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 	assert.Equal(t, uint8(4), k.ResourceGroupDomainSID.SubAuthorityCount, "ResourceGroupDomainSID not as expected")
 	assert.Equal(t, "S-1-5-21-3062750306-1230139592-1973306805", k.ResourceGroupDomainSID.String(), "ResourceGroupDomainSID value not as expected")
 	assert.Equal(t, 2, len(k.ResourceGroupIDs), "ResourceGroupIDs not as expected")
+
 	rgids := []mstypes.GroupMembership{
 		{RelativeID: 1107, Attributes: 536870919},
 		{RelativeID: 1108, Attributes: 536870919},
 	}
 	assert.Equal(t, rgids, k.ResourceGroupIDs, "ResourceGroupIDs not as expected")
+
 	groupSids := []string{"S-1-5-21-2284869408-3503417140-1141177250-1110",
 		"S-1-5-21-2284869408-3503417140-1141177250-513",
 		"S-1-5-21-2284869408-3503417140-1141177250-1109",

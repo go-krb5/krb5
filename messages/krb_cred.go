@@ -58,16 +58,20 @@ type KrbCredInfo struct {
 // Unmarshal bytes b into the KRBCred struct.
 func (k *KRBCred) Unmarshal(b []byte) error {
 	var m marshalKRBCred
+
 	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.KRBCred))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
+
 	expectedMsgType := msgtype.KRB_CRED
 	if m.MsgType != expectedMsgType {
 		return krberror.NewErrorf(krberror.KRBMsgError, "message ID does not indicate a KRB_CRED. Expected: %v; Actual: %v", expectedMsgType, m.MsgType)
 	}
+
 	k.PVNO = m.PVNO
 	k.MsgType = m.MsgType
+
 	k.EncPart = m.EncPart
 	if len(m.Tickets.Bytes) > 0 {
 		k.Tickets, err = unmarshalTicketsSequence(m.Tickets)
@@ -75,6 +79,7 @@ func (k *KRBCred) Unmarshal(b []byte) error {
 			return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling tickets within KRB_CRED")
 		}
 	}
+
 	return nil
 }
 
@@ -84,12 +89,16 @@ func (k *KRBCred) DecryptEncPart(key types.EncryptionKey) error {
 	if err != nil {
 		return krberror.Errorf(err, krberror.DecryptingError, "error decrypting KRB_CRED EncPart")
 	}
+
 	var denc EncKrbCredPart
+
 	err = denc.Unmarshal(b)
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling encrypted part of KRB_CRED")
 	}
+
 	k.DecryptedEncPart = denc
+
 	return nil
 }
 
@@ -99,5 +108,6 @@ func (k *EncKrbCredPart) Unmarshal(b []byte) error {
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling EncKrbCredPart")
 	}
+
 	return nil
 }

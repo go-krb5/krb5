@@ -13,6 +13,7 @@ import (
 
 func TestStringToKey(t *testing.T) {
 	t.Parallel()
+
 	r, _ := hex.DecodeString("10DF9DD783E5BC8ACEA1730E74355F61")
 	randomSalt := string(r)
 
@@ -40,6 +41,7 @@ func TestStringToKey(t *testing.T) {
 
 	for _, test := range tests {
 		var e crypto.Aes128CtsHmacSha256128
+
 		t.Run("AES128", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				saltp := rfc8009.GetSaltP(test.salt, "aes128-cts-hmac-sha256-128")
@@ -49,6 +51,7 @@ func TestStringToKey(t *testing.T) {
 				if err != nil {
 					t.Fatalf("StringToKey failed: %v", err)
 				}
+
 				assert.Equal(t, test.baseKey128, hex.EncodeToString(k), "Base key not as expected")
 			})
 		})
@@ -56,6 +59,7 @@ func TestStringToKey(t *testing.T) {
 
 	for _, test := range tests {
 		var e crypto.Aes256CtsHmacSha384192
+
 		t.Run("AES256", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				saltp := rfc8009.GetSaltP(test.salt, "aes256-cts-hmac-sha384-192")
@@ -65,6 +69,7 @@ func TestStringToKey(t *testing.T) {
 				if err != nil {
 					t.Fatalf("StringToKey failed: %v", err)
 				}
+
 				assert.Equal(t, test.baseKey256, hex.EncodeToString(k), "Base key not as expected")
 			})
 		})
@@ -73,13 +78,14 @@ func TestStringToKey(t *testing.T) {
 
 func TestDeriveKey(t *testing.T) {
 	t.Parallel()
+
 	protocolBaseKey128, _ := hex.DecodeString("3705d96080c17728a0e800eab6e0d23c")
 	protocolBaseKey256, _ := hex.DecodeString("6d404d37faf79f9df0d33568d320669800eb4836472ea8a026d16b7182460c52")
 	testUsage := uint32(2)
 
 	var tests = []struct {
 		name        string
-		keyType     string // "Kc", "Ke", or "Ki"
+		keyType     string
 		expected128 string
 		expected256 string
 	}{
@@ -105,10 +111,13 @@ func TestDeriveKey(t *testing.T) {
 
 	for _, test := range tests {
 		var e crypto.Aes128CtsHmacSha256128
+
 		t.Run("AES128", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
-				var k []byte
-				var err error
+				var (
+					k   []byte
+					err error
+				)
 
 				switch test.keyType {
 				case "Kc":
@@ -122,6 +131,7 @@ func TestDeriveKey(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Error deriving %s key: %v", test.keyType, err)
 				}
+
 				assert.Equal(t, test.expected128, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
 			})
 		})
@@ -129,10 +139,13 @@ func TestDeriveKey(t *testing.T) {
 
 	for _, test := range tests {
 		var e crypto.Aes256CtsHmacSha384192
+
 		t.Run("AES256", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
-				var k []byte
-				var err error
+				var (
+					k   []byte
+					err error
+				)
 
 				switch test.keyType {
 				case "Kc":
@@ -146,6 +159,7 @@ func TestDeriveKey(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Error deriving %s key: %v", test.keyType, err)
 				}
+
 				assert.Equal(t, test.expected256, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
 			})
 		})
@@ -154,7 +168,7 @@ func TestDeriveKey(t *testing.T) {
 
 func TestEncryptDecrypt_AES128(t *testing.T) {
 	t.Parallel()
-	//RFC 8009 input-key value/HMAC-SHA256 key. Page 18
+	// RFC 8009 input-key value/HMAC-SHA256 key. Page 18.
 	protocolBaseKey, _ := hex.DecodeString("3705d96080c17728a0e800eab6e0d23c")
 	testUsage := uint32(2)
 
@@ -211,6 +225,7 @@ func TestEncryptDecrypt_AES128(t *testing.T) {
 	}
 
 	var e crypto.Aes128CtsHmacSha256128
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			plaintext, _ := hex.DecodeString(test.plaintext)
@@ -220,10 +235,12 @@ func TestEncryptDecrypt_AES128(t *testing.T) {
 			ciphertext, _ := hex.DecodeString(test.ciphertext)
 
 			confPlaintext := append(confounder, plaintext...)
+
 			_, encryptedData, err := e.EncryptData(ke, confPlaintext)
 			if err != nil {
 				t.Fatalf("EncryptData failed: %v", err)
 			}
+
 			assert.Equal(t, test.aesOutput, hex.EncodeToString(encryptedData), "AES output not as expected")
 
 			decryptedData, err := e.DecryptData(ke, aesOutput)
@@ -245,14 +262,17 @@ func TestEncryptDecrypt_AES128(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecryptMessage failed: %v", err)
 			}
+
 			assert.Equal(t, plaintext, decryptedMessage, "Round-trip encrypt/decrypt failed")
 
 			ivz := make([]byte, e.GetConfounderByteSize())
 			integrityInput := append(ivz, aesOutput...)
+
 			mac, err := common.GetIntegrityHash(integrityInput, protocolBaseKey, testUsage, e)
 			if err != nil {
 				t.Fatalf("GetIntegrityHash failed: %v", err)
 			}
+
 			assert.Equal(t, test.hmacOutput, hex.EncodeToString(mac), "HMAC output not as expected")
 		})
 	}
@@ -260,7 +280,7 @@ func TestEncryptDecrypt_AES128(t *testing.T) {
 
 func TestEncryptDecrypt_AES256(t *testing.T) {
 	t.Parallel()
-	//RFC 8009 input-key value/HMAC-SHA384 key. Page 18
+	// RFC 8009 input-key value/HMAC-SHA384 key. Page 18.
 	protocolBaseKey, _ := hex.DecodeString("6d404d37faf79f9df0d33568d320669800eb4836472ea8a026d16b7182460c52")
 	testUsage := uint32(2)
 
@@ -317,6 +337,7 @@ func TestEncryptDecrypt_AES256(t *testing.T) {
 	}
 
 	var e crypto.Aes256CtsHmacSha384192
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			plaintext, _ := hex.DecodeString(test.plaintext)
@@ -326,10 +347,12 @@ func TestEncryptDecrypt_AES256(t *testing.T) {
 			ciphertext, _ := hex.DecodeString(test.ciphertext)
 
 			confPlaintext := append(confounder, plaintext...)
+
 			_, encryptedData, err := e.EncryptData(ke, confPlaintext)
 			if err != nil {
 				t.Fatalf("EncryptData failed: %v", err)
 			}
+
 			assert.Equal(t, test.aesOutput, hex.EncodeToString(encryptedData), "AES output not as expected")
 
 			decryptedData, err := e.DecryptData(ke, aesOutput)
@@ -351,14 +374,17 @@ func TestEncryptDecrypt_AES256(t *testing.T) {
 			if err != nil {
 				t.Fatalf("DecryptMessage failed: %v", err)
 			}
+
 			assert.Equal(t, plaintext, decryptedMessage, "Round-trip encrypt/decrypt failed")
 
 			ivz := make([]byte, e.GetConfounderByteSize())
 			integrityInput := append(ivz, aesOutput...)
+
 			mac, err := common.GetIntegrityHash(integrityInput, protocolBaseKey, testUsage, e)
 			if err != nil {
 				t.Fatalf("GetIntegrityHash failed: %v", err)
 			}
+
 			assert.Equal(t, test.hmacOutput, hex.EncodeToString(mac), "HMAC output not as expected")
 		})
 	}
@@ -366,6 +392,7 @@ func TestEncryptDecrypt_AES256(t *testing.T) {
 
 func TestChecksum_AES128(t *testing.T) {
 	t.Parallel()
+
 	protocolBaseKey, _ := hex.DecodeString("3705d96080c17728a0e800eab6e0d23c")
 	testUsage := uint32(2)
 
@@ -373,6 +400,7 @@ func TestChecksum_AES128(t *testing.T) {
 	expectedChecksum := "d78367186643d67b411cba9139fc1dee"
 
 	var e crypto.Aes128CtsHmacSha256128
+
 	checksum, err := e.GetChecksumHash(protocolBaseKey, plaintext, testUsage)
 	if err != nil {
 		t.Fatalf("GetChecksumHash failed: %v", err)
@@ -383,6 +411,7 @@ func TestChecksum_AES128(t *testing.T) {
 
 func TestChecksum_AES256(t *testing.T) {
 	t.Parallel()
+
 	protocolBaseKey, _ := hex.DecodeString("6d404d37faf79f9df0d33568d3206698" +
 		"00eb4836472ea8a026d16b7182460c52")
 	testUsage := uint32(2)
@@ -391,6 +420,7 @@ func TestChecksum_AES256(t *testing.T) {
 	expectedChecksum := "45ee791567eefca37f4ac1e0222de80d43c3bfa06699672a"
 
 	var e crypto.Aes256CtsHmacSha384192
+
 	checksum, err := e.GetChecksumHash(protocolBaseKey, plaintext, testUsage)
 	if err != nil {
 		t.Fatalf("GetChecksumHash failed: %v", err)
@@ -399,7 +429,7 @@ func TestChecksum_AES256(t *testing.T) {
 	assert.Equal(t, expectedChecksum, hex.EncodeToString(checksum), "Checksum not as expected")
 }
 
-// End Test Vectors
+// End Test Vectors.
 
 func TestEncryptData_InvalidKeySize_AES128(t *testing.T) {
 	t.Parallel()
@@ -425,6 +455,7 @@ func TestEncryptData_InvalidKeySize_AES128(t *testing.T) {
 	}
 
 	var e crypto.Aes128CtsHmacSha256128
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			wrongKey := make([]byte, test.wrongKeySize)
@@ -462,6 +493,7 @@ func TestEncryptData_InvalidKeySize_AES256(t *testing.T) {
 	}
 
 	var e crypto.Aes256CtsHmacSha384192
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			wrongKey := make([]byte, test.wrongKeySize)
@@ -495,7 +527,7 @@ func TestDecryptMessage_InvalidKeySize_AES128(t *testing.T) {
 
 	var e crypto.Aes128CtsHmacSha256128
 
-	wrongKey := make([]byte, 24) // Wrong size
+	wrongKey := make([]byte, 24)
 	fakeCiphertext := make([]byte, 32)
 	testUsage := uint32(2)
 
@@ -523,6 +555,7 @@ func TestDecryptMessage_IntegrityVerificationFail_AES128(t *testing.T) {
 
 func TestEncryptMessage_ZeroUsage(t *testing.T) {
 	var e crypto.Aes128CtsHmacSha256128
+
 	key := make([]byte, 16)
 	message := []byte("test")
 	zeroUsage := uint32(0)
@@ -545,7 +578,7 @@ func TestDecryptData_InvalidKeySize_AES128(t *testing.T) {
 	}{
 		{
 			name:          "AES128 with wrong key size",
-			wrongKeySize:  24, // Wrong: should be 16
+			wrongKeySize:  24,
 			ciphertext:    "000102030405060708090a0b0c0d0e0f",
 			expectedError: "incorrect keysize: expected: 16 actual: 24",
 		},
@@ -558,6 +591,7 @@ func TestDecryptData_InvalidKeySize_AES128(t *testing.T) {
 	}
 
 	var e crypto.Aes128CtsHmacSha256128
+
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			wrongKey := make([]byte, test.wrongKeySize)

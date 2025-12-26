@@ -39,12 +39,13 @@ func NewSettings(settings ...func(*Settings)) *Settings {
 	for _, set := range settings {
 		set(s)
 	}
+
 	return s
 }
 
 // DisablePAFXFAST used to configure the client to not use PA_FX_FAST.
 //
-// s := NewSettings(DisablePAFXFAST(true))
+// s := NewSettings(DisablePAFXFAST(true)).
 func DisablePAFXFAST(b bool) func(*Settings) {
 	return func(s *Settings) {
 		s.disablePAFXFast = b
@@ -64,7 +65,7 @@ func (s *Settings) DisablePAFXFAST() bool {
 
 // AssumePreAuthentication used to configure the client to assume pre-authentication is required.
 //
-// s := NewSettings(AssumePreAuthentication(true))
+// s := NewSettings(AssumePreAuthentication(true)).
 func AssumePreAuthentication(b bool) func(*Settings) {
 	return func(s *Settings) {
 		s.assumePreAuthentication = b
@@ -78,7 +79,7 @@ func (s *Settings) AssumePreAuthentication() bool {
 
 // Logger used to configure client with a logger.
 //
-// s := NewSettings(kt, Logger(l))
+// s := NewSettings(kt, Logger(l)).
 func Logger(l *log.Logger) func(*Settings) {
 	return func(s *Settings) {
 		s.logger = l
@@ -103,10 +104,11 @@ func (s *Settings) JSON() (string, error) {
 		DisablePAFXFast:         s.disablePAFXFast,
 		AssumePreAuthentication: s.assumePreAuthentication,
 	}
+
 	b, err := json.MarshalIndent(js, "", "  ")
 	if err != nil {
 		return "", err
 	}
-	return string(b), nil
 
+	return string(b), nil
 }

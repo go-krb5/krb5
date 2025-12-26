@@ -9,7 +9,7 @@ import (
 )
 
 // Reference: https://www.ietf.org/rfc/rfc4120.txt
-// Section: 5.2.9
+// Section: 5.2.9.
 
 // EncryptedData implements RFC 4120 type: https://tools.ietf.org/html/rfc4120#section-5.2.9
 type EncryptedData struct {
@@ -19,7 +19,7 @@ type EncryptedData struct {
 }
 
 // EncryptionKey implements RFC 4120 type: https://tools.ietf.org/html/rfc4120#section-5.2.9
-// AKA KeyBlock
+// AKA KeyBlock.
 type EncryptionKey struct {
 	KeyType  int32  `asn1:"explicit,tag:0"`
 	KeyValue []byte `asn1:"explicit,tag:1" json:"-"`
@@ -43,6 +43,7 @@ func (a *EncryptedData) Marshal() ([]byte, error) {
 	if err != nil {
 		return edb, err
 	}
+
 	return edb, nil
 }
 
@@ -64,10 +65,13 @@ func GenerateEncryptionKey(etype etype.EType) (EncryptionKey, error) {
 		KeyType: etype.GetETypeID(),
 	}
 	b := make([]byte, etype.GetKeyByteSize(), etype.GetKeyByteSize())
+
 	_, err := rand.Read(b)
 	if err != nil {
 		return k, err
 	}
+
 	k.KeyValue = b
+
 	return k, nil
 }

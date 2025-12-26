@@ -20,9 +20,9 @@ const (
 	KRB_SAFE_CHKSUM                                = 15
 	KERB_NON_KERB_SALT                             = 16
 	KERB_NON_KERB_CKSUM_SALT                       = 17
-	//18.  Reserved for future use in Kerberos and related protocols.
+	// 18.  Reserved for future use in Kerberos and related protocols.
 	AD_KDC_ISSUED_CHKSUM = 19
-	//20-21.  Reserved for future use in Kerberos and related protocols.
+	// 20-21.  Reserved for future use in Kerberos and related protocols.
 	GSSAPI_ACCEPTOR_SEAL           = 22
 	GSSAPI_ACCEPTOR_SIGN           = 23
 	GSSAPI_INITIATOR_SEAL          = 24
@@ -34,9 +34,9 @@ const (
 	KEY_USAGE_ENC_CHALLENGE_CLIENT = 54
 	KEY_USAGE_ENC_CHALLENGE_KDC    = 55
 	KEY_USAGE_AS_REQ               = 56
-	//26-511.  Reserved for future use in Kerberos and related protocols.
-	//512-1023.  Reserved for uses internal to a Kerberos implementation.
-	//1024.  Encryption for application use in protocols that do not specify key usage values
-	//1025.  Checksums for application use in protocols that do not specify key usage values
-	//1026-2047.  Reserved for application use.
+	// 26-511.  Reserved for future use in Kerberos and related protocols.
+	// 512-1023.  Reserved for uses internal to a Kerberos implementation.
+	// 1024.  Encryption for application use in protocols that do not specify key usage values
+	// 1025.  Checksums for application use in protocols that do not specify key usage values
+	// 1026-2047.  Reserved for application use.
 )

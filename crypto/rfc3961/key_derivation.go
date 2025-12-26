@@ -24,19 +24,21 @@ const (
 func DeriveRandom(key, usage []byte, e etype.EType) ([]byte, error) {
 	n := e.GetCypherBlockBitLength()
 	k := e.GetKeySeedBitLength()
-	//Ensure the usage constant is at least the size of the cypher block size. Pass it through the nfold algorithm that will "stretch" it if needs be.
+	// Ensure the usage constant is at least the size of the cypher block size. Pass it through the nfold algorithm that will "stretch" it if needs be.
 	nFoldUsage := Nfold(usage, n)
-	//k-truncate implemented by creating a byte array the size of k (k is in bits hence /8)
+	// k-truncate implemented by creating a byte array the size of k (k is in bits hence /8).
 	out := make([]byte, k/8)
 	// Keep feeding the output back into the encryption function until it is no longer short than k.
 	_, K, err := e.EncryptData(key, nFoldUsage)
 	if err != nil {
 		return out, err
 	}
+
 	for i := copy(out, K); i < len(out); {
 		_, K, _ = e.EncryptData(key, K)
 		i = i + copy(out[i:], K)
 	}
+
 	return out, nil
 }
 
@@ -46,6 +48,7 @@ func DeriveKey(protocolKey, usage []byte, e etype.EType) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return e.RandomToKey(r), nil
 }
 
@@ -61,6 +64,7 @@ func DES3RandomToKey(b []byte) []byte {
 	r = append(r, r2...)
 	r3 := fixWeakKey(stretch56Bits(b[14:21]))
 	r = append(r, r3...)
+
 	return r
 }
 
@@ -68,31 +72,38 @@ func DES3RandomToKey(b []byte) []byte {
 func DES3StringToKey(secret, salt string, e etype.EType) ([]byte, error) {
 	s := secret + salt
 	tkey := e.RandomToKey(Nfold([]byte(s), e.GetKeySeedBitLength()))
+
 	return e.DeriveKey(tkey, []byte("kerberos"))
 }
 
-// PseudoRandom function as defined in RFC 3961
+// PseudoRandom function as defined in RFC 3961.
 func PseudoRandom(key, b []byte, e etype.EType) ([]byte, error) {
 	h := e.GetHashFunc()()
 	h.Write(b)
 	tmp := h.Sum(nil)[:e.GetMessageBlockByteSize()]
+
 	k, err := e.DeriveKey(key, []byte(prfconstant))
 	if err != nil {
 		return []byte{}, err
 	}
+
 	_, prf, err := e.EncryptData(k, tmp)
 	if err != nil {
 		return []byte{}, err
 	}
+
 	return prf, nil
 }
 
 func stretch56Bits(b []byte) []byte {
 	d := make([]byte, len(b), len(b))
 	copy(d, b)
+
 	var lb byte
+
 	for i, v := range d {
 		bv, nb := calcEvenParity(v)
+
 		d[i] = nb
 		if bv != 0 {
 			lb = lb | (1 << uint(i+1))
@@ -100,14 +111,16 @@ func stretch56Bits(b []byte) []byte {
 			lb = lb &^ (1 << uint(i+1))
 		}
 	}
+
 	_, lb = calcEvenParity(lb)
 	d = append(d, lb)
+
 	return d
 }
 
 func calcEvenParity(b byte) (uint8, uint8) {
 	lowestbit := b & 0x01
-	// c counter of 1s in the first 7 bits of the byte
+	// c counter of 1s in the first 7 bits of the byte.
 	var c int
 	// Iterate over the highest 7 bits (hence p starts at 1 not zero) and count the 1s.
 	for p := 1; p < 8; p++ {
@@ -116,13 +129,15 @@ func calcEvenParity(b byte) (uint8, uint8) {
 			c++
 		}
 	}
+
 	if c%2 == 0 {
-		//Even number of 1s so set parity to 1
+		// Even number of 1s so set parity to 1.
 		b = b | 1
 	} else {
-		//Odd number of 1s so set parity to 0
+		// Odd number of 1s so set parity to 0.
 		b = b &^ 1
 	}
+
 	return lowestbit, b
 }
 
@@ -130,6 +145,7 @@ func fixWeakKey(b []byte) []byte {
 	if weak(b) {
 		b[7] ^= 0xF0
 	}
+
 	return b
 }
 
@@ -155,15 +171,18 @@ func weak(b []byte) bool {
 		{0xE0, 0xFE, 0xE0, 0xFE, 0xF1, 0xFE, 0xF1, 0xFE},
 		{0xFE, 0xE0, 0xFE, 0xE0, 0xFE, 0xF1, 0xFE, 0xF1},
 	}
+
 	for _, k := range weakKeys {
 		if bytes.Equal(b, k) {
 			return true
 		}
 	}
+
 	for _, k := range semiWeakKeys {
 		if bytes.Equal(b, k) {
 			return true
 		}
 	}
+
 	return false
 }

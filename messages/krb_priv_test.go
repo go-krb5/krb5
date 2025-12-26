@@ -16,15 +16,19 @@ import (
 
 func TestUnmarshalKRBPriv(t *testing.T) {
 	t.Parallel()
+
 	var a KRBPriv
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5priv)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
 	assert.Equal(t, msgtype.KRB_PRIV, a.MsgType, "Message type not as expected")
 	assert.Equal(t, iana.PVNO, a.EncPart.KVNO, "EncPart KVNO not as expected")
@@ -34,16 +38,19 @@ func TestUnmarshalKRBPriv(t *testing.T) {
 
 func TestUnmarshalEncPrivPart(t *testing.T) {
 	t.Parallel()
+
 	var a EncKrbPrivPart
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_priv_part)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
-	//Parse the test time value into a time.Time type
+	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
 	assert.Equal(t, "krb5data", string(a.UserData), "User data not as expected")
@@ -58,15 +65,19 @@ func TestUnmarshalEncPrivPart(t *testing.T) {
 
 func TestUnmarshalEncPrivPart_optionalsNULL(t *testing.T) {
 	t.Parallel()
+
 	var a EncKrbPrivPart
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_priv_partOptionalsNULL)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	assert.Equal(t, "krb5data", string(a.UserData), "User data not as expected")
 	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType, "SAddress type not as expected")
 	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address), "Address not as expected for SAddress")
@@ -74,59 +85,74 @@ func TestUnmarshalEncPrivPart_optionalsNULL(t *testing.T) {
 
 func TestMarshalKRBPriv(t *testing.T) {
 	t.Parallel()
+
 	var a KRBPriv
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5priv)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	mb, err := a.Marshal()
 	if err != nil {
 		t.Fatalf("error marshaling KRBPriv: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "marshaled bytes not as expected")
 
 	be, err := hex.DecodeString(testdata.MarshaledKRB5enc_priv_part)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.DecryptedEncPart.Unmarshal(be)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	mb, err = a.Marshal()
 	if err != nil {
 		t.Fatalf("error marshaling KRBPriv: %v", err)
 	}
+
 	assert.Equal(t, b, mb, "marshaled bytes not as expected when it has decrypted encpart")
 }
 
 func TestKRBPriv_EncryptEncPart(t *testing.T) {
 	t.Parallel()
+
 	var a KRBPriv
+
 	b, err := hex.DecodeString(testdata.MarshaledKRB5priv)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	b, err = hex.DecodeString(testdata.MarshaledKRB5enc_priv_part)
 	if err != nil {
 		t.Fatalf("Test vector read error: %v", err)
 	}
+
 	err = a.DecryptedEncPart.Unmarshal(b)
 	if err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
+
 	key := types.EncryptionKey{
 		KeyType:  int32(18),
 		KeyValue: []byte("12345678901234567890123456789012"),
 	}
+
 	err = a.EncryptEncPart(key)
 	if err != nil {
 		t.Fatalf("error encrypting encpart: %v", err)

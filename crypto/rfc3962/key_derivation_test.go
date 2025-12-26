@@ -8,6 +8,7 @@ import (
 
 func TestS2KparamsToItertions(t *testing.T) {
 	t.Parallel()
+
 	invalidLengthParams := "four"
 
 	_, err := S2KparamsToItertions(invalidLengthParams)

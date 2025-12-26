@@ -16,16 +16,20 @@ func MarshalLengthBytes(l int) []byte {
 	if l <= 127 {
 		return []byte{byte(l)}
 	}
+
 	var b []byte
+
 	p := 1
 	for i := 1; i < 127; {
 		b = append([]byte{byte((l % (p * 256)) / p)}, b...)
 		p = p * 256
+
 		l = l - l%p
 		if l <= 0 {
 			break
 		}
 	}
+
 	return append([]byte{byte(128 + len(b))}, b...)
 }
 
@@ -34,14 +38,16 @@ func GetLengthFromASN(b []byte) int {
 	if int(b[1]) <= 127 {
 		return int(b[1])
 	}
-	// The bytes that indicate the length
+	// The bytes that indicate the length.
 	lb := b[2 : 2+int(b[1])-128]
 	base := 1
+
 	l := 0
 	for i := len(lb) - 1; i >= 0; i-- {
 		l += int(lb[i]) * base
 		base = base * 256
 	}
+
 	return l
 }
 
@@ -50,7 +56,7 @@ func GetNumberBytesInLengthHeader(b []byte) int {
 	if int(b[1]) <= 127 {
 		return 1
 	}
-	// The bytes that indicate the length
+	// The bytes that indicate the length.
 	return 1 + int(b[1]) - 128
 }
 
@@ -63,6 +69,7 @@ func AddASNAppTag(b []byte, tag int) []byte {
 		Bytes:      b,
 	}
 	ab, _ := asn1.Marshal(r, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+
 	return ab
 }
 
@@ -82,5 +89,5 @@ func AddASNAppTag(b []byte, tag int) []byte {
 	b = append(MarshalLengthBytes(len(b)), b...)
 	b = append([]byte{byte(96 + tag)}, b...)
 	return b
-}
+}.
 */

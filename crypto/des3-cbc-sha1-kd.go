@@ -13,9 +13,9 @@ import (
 	"github.com/go-krb5/krb5/iana/etypeID"
 )
 
-//RFC: 3961 Section 6.3
+//RFC: 3961 Section 6.3.
 
-// Des3CbcSha1Kd implements Kerberos encryption type des3-cbc-hmac-sha1-kd
+// Des3CbcSha1Kd implements Kerberos encryption type des3-cbc-hmac-sha1-kd.
 type Des3CbcSha1Kd struct {
 }
 
@@ -46,7 +46,7 @@ func (e Des3CbcSha1Kd) GetHashFunc() func() hash.Hash {
 
 // GetMessageBlockByteSize returns the block size for the etype's messages.
 func (e Des3CbcSha1Kd) GetMessageBlockByteSize() int {
-	//For traditional CBC mode with padding, it would be the underlying cipher's block size
+	// For traditional CBC mode with padding, it would be the underlying cipher's block size.
 	return des.BlockSize
 }
 
@@ -76,6 +76,7 @@ func (e Des3CbcSha1Kd) StringToKey(secret string, salt string, s2kparams string)
 	if s2kparams != "" {
 		return []byte{}, errors.New("s2kparams must be an empty string")
 	}
+
 	return rfc3961.DES3StringToKey(secret, salt, e)
 }
 
@@ -96,6 +97,7 @@ func (e Des3CbcSha1Kd) DeriveKey(protocolKey, usage []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return e.RandomToKey(r), nil
 }
 
@@ -135,5 +137,6 @@ func (e Des3CbcSha1Kd) VerifyChecksum(protocolKey, data, chksum []byte, usage ui
 	if err != nil {
 		return false
 	}
+
 	return hmac.Equal(chksum, c)
 }

@@ -43,16 +43,19 @@ func newOutput() *output {
 func (rw *output) Write(p []byte) (int, error) {
 	rw.Lock()
 	defer rw.Unlock()
+
 	return rw.buf.Write(p)
 }
 
 func (rw *output) Lines() []string {
 	rw.Lock()
 	defer rw.Unlock()
+
 	s := bufio.NewScanner(rw.buf)
 	for s.Scan() {
 		rw.lines = append(rw.lines, s.Text())
 	}
+
 	return rw.lines
 }
 
@@ -62,6 +65,7 @@ func login() error {
 		return fmt.Errorf("cannot open krb5.conf: %v", err)
 	}
 	defer file.Close()
+
 	fmt.Fprintf(file, testdata.KRB5_CONF)
 
 	cmd := exec.Command(kinitCmd, "testuser1@TEST.GOKRB5")
@@ -80,7 +84,9 @@ func login() error {
 		io.WriteString(stdinW, "passwordvalue")
 		stdinW.Close()
 	}()
+
 	errBuf := new(bytes.Buffer)
+
 	go func() {
 		io.Copy(errBuf, stderrR)
 		stderrR.Close()
@@ -90,19 +96,23 @@ func login() error {
 	if err != nil {
 		return fmt.Errorf("%s did not run successfully: %v stderr: %s", kinitCmd, err, errBuf.String())
 	}
+
 	return nil
 }
 
 func getServiceTkt() error {
 	cmd := exec.Command(kvnoCmd, spn)
+
 	err := cmd.Start()
 	if err != nil {
 		return fmt.Errorf("could not start %s command: %v", kvnoCmd, err)
 	}
+
 	err = cmd.Wait()
 	if err != nil {
 		return fmt.Errorf("%s did not run successfully: %v", kvnoCmd, err)
 	}
+
 	return nil
 }
 
@@ -128,6 +138,7 @@ func klist() ([]string, error) {
 func loadCCache() (*CCache, error) {
 	usr, _ := user.Current()
 	cpath := "/tmp/krb5cc_" + usr.Uid
+
 	return LoadCCache(cpath)
 }
 
@@ -138,10 +149,12 @@ func TestLoadCCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error logging in with kinit: %v", err)
 	}
+
 	c, err := loadCCache()
 	if err != nil {
 		t.Errorf("error loading CCache: %v", err)
 	}
+
 	pn := c.GetClientPrincipalName()
 	assert.Equal(t, "testuser1", pn.PrincipalNameString(), "principal not as expected")
 	assert.Equal(t, "TEST.GOKRB5", c.GetClientRealm(), "realm not as expected")
@@ -154,21 +167,29 @@ func TestCCacheEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error logging in with kinit: %v", err)
 	}
+
 	err = getServiceTkt()
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v", err)
 	}
+
 	clist, _ := klist()
+
 	t.Log("OS Creds Cache contents:")
+
 	for _, l := range clist {
 		t.Log(l)
 	}
+
 	c, err := loadCCache()
 	if err != nil {
 		t.Errorf("error loading CCache: %v", err)
 	}
+
 	creds := c.GetEntries()
+
 	var found bool
+
 	n := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, spn)
 	for _, cred := range creds {
 		if cred.Server.PrincipalName.Equal(n) {
@@ -176,6 +197,7 @@ func TestCCacheEntries(t *testing.T) {
 			break
 		}
 	}
+
 	if !found {
 		t.Errorf("Entry for %s not found in CCache", spn)
 	}

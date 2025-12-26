@@ -18,10 +18,14 @@ import (
 
 // KRBPriv implements RFC 4120 type: https://tools.ietf.org/html/rfc4120#section-5.7.1.
 type KRBPriv struct {
-	PVNO             int                 `asn1:"explicit,tag:0"`
-	MsgType          int                 `asn1:"explicit,tag:1"`
-	EncPart          types.EncryptedData `asn1:"explicit,tag:3"`
-	DecryptedEncPart EncKrbPrivPart      `asn1:"optional,omitempty"` // Not part of ASN1 bytes so marked as optional so unmarshalling works
+	PVNO int `asn1:"explicit,tag:0"`
+
+	MsgType int `asn1:"explicit,tag:1"`
+
+	EncPart types.EncryptedData `asn1:"explicit,tag:3"`
+
+	// Not part of ASN1 bytes so marked as optional so unmarshalling works.
+	DecryptedEncPart EncKrbPrivPart `asn1:"optional,omitempty"`
 }
 
 // EncKrbPrivPart is the encrypted part of KRB_PRIV.
@@ -49,10 +53,12 @@ func (k *KRBPriv) Unmarshal(b []byte) error {
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
+
 	expectedMsgType := msgtype.KRB_PRIV
 	if k.MsgType != expectedMsgType {
 		return krberror.NewErrorf(krberror.KRBMsgError, "message ID does not indicate a KRB_PRIV. Expected: %v; Actual: %v", expectedMsgType, k.MsgType)
 	}
+
 	return nil
 }
 
@@ -62,6 +68,7 @@ func (k *EncKrbPrivPart) Unmarshal(b []byte) error {
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncodingError, "KRB_PRIV unmarshal error")
 	}
+
 	return nil
 }
 
@@ -72,11 +79,14 @@ func (k *KRBPriv) Marshal() ([]byte, error) {
 		MsgType: k.MsgType,
 		EncPart: k.EncPart,
 	}
+
 	b, err := asn1.Marshal(tk, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return []byte{}, err
 	}
+
 	b = asn1tools.AddASNAppTag(b, asn1apptag.KRBPriv)
+
 	return b, nil
 }
 
@@ -87,11 +97,14 @@ func (k *KRBPriv) EncryptEncPart(key types.EncryptionKey) error {
 	if err != nil {
 		return err
 	}
+
 	b = asn1tools.AddASNAppTag(b, asn1apptag.EncKrbPrivPart)
+
 	k.EncPart, err = crypto.GetEncryptedData(b, key, keyusage.KRB_PRIV_ENCPART, 1)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -101,9 +114,11 @@ func (k *KRBPriv) DecryptEncPart(key types.EncryptionKey) error {
 	if err != nil {
 		return fmt.Errorf("error decrypting KRBPriv EncPart: %v", err)
 	}
+
 	err = k.DecryptedEncPart.Unmarshal(b)
 	if err != nil {
 		return fmt.Errorf("error unmarshaling encrypted part: %v", err)
 	}
+
 	return nil
 }
