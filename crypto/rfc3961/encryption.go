@@ -31,6 +31,11 @@ func DES3EncryptData(key, data []byte, e etype.EType) ([]byte, []byte, error) {
 	ct := make([]byte, len(data))
 	mode := cipher.NewCBCEncrypter(block, ivz)
 	mode.CryptBlocks(ct, data)
+
+	if len(ct) < e.GetMessageBlockByteSize() {
+		return nil, nil, fmt.Errorf("ciphertext too short: %v bytes", len(ct))
+	}
+
 	return ct[len(ct)-e.GetMessageBlockByteSize():], ct, nil
 }
 
