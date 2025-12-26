@@ -3,6 +3,8 @@
 [![GoDoc](https://godoc.org/github.com/go-krb5/krb5?status.svg)](https://godoc.org/github.com/go-krb5/krb5)
 [![Go Report Card](https://goreportcard.com/badge/github.com/go-krb5/krb5)](https://goreportcard.com/report/github.com/go-krb5/krb5)
 [![Version](https://img.shields.io/github/release/go-krb5/krb5.svg)](https://github.com/go-krb5/krb5/releases)
+[![codecov](https://codecov.io/github/go-krb5/krb5/graph/badge.svg?token=P1FN91DTLE)](https://codecov.io/github/go-krb5/krb5)
+![License](https://img.shields.io/github/license/go-krb5/krb5?logo=apache&color=blue)
 
 Kerberos 5 implementation in pure go. 
 
@@ -40,7 +42,7 @@ supported by the go maintainers (usually 3 minor versions) with a brief transiti
 for example if go 1.21.0 is released, we will likely still support go 1.17 until go 1.21.1 is released). These specific
 rules apply at the time of a published release.
 
-This library in our opinion handles a critical element of security in a dependent project and we aim to avoid backwards
+This library in our opinion handles a critical element of security in a dependent project, and we aim to avoid backwards
 compatibility at the cost of security wherever possible. We also consider this especially important in a language like
 go where their backwards compatibility when upgrading the compile tools is usually flawless.
 
@@ -61,8 +63,7 @@ which are not available in that version. The current intentionally supported ver
 
 ## To Do
 
-- [ ] Investigate mechanisms to have a encryption type registry to allow implementation of deprecated algorithms which
-      are not enabled by default.
+- [ ] Investigate mechanisms to have an encryption type registry to allow implementation of deprecated algorithms which are not enabled by default.
 - CI Workflows:
   - [ ] Unit Tests
   - [ ] Integration Tests
@@ -73,6 +74,7 @@ which are not available in that version. The current intentionally supported ver
 - [ ] Engage Community to assist in merging PR's and ensure they receive the adequate credit
 - [ ] Overhaul go docs
 - [ ] Error Cleanup and Overhaul
+- [ ] Improve Project Test Coverage
 
 ## Implementation
 
