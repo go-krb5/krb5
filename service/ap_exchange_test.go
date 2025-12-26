@@ -234,8 +234,6 @@ func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
 }
 
 func TestVerifyAPREQ_Replay(t *testing.T) {
-	t.Parallel()
-
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
