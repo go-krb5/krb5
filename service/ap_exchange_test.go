@@ -208,11 +208,10 @@ func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
 }
 
 func TestVerifyAPREQ_Replay(t *testing.T) {
-	t.Parallel()
 	cl := getClient()
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
-		NameString: []string{"HTTP", "host.test.gokrb5"},
+		NameString: []string{"HTTP", "host.test.gokrb5.replay"}, //using a unique suffix to avoid replay cache issues
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
