@@ -3,6 +3,7 @@
 [![GoDoc](https://godoc.org/github.com/go-krb5/krb5?status.svg)](https://godoc.org/github.com/go-krb5/krb5)
 [![Go Report Card](https://goreportcard.com/badge/github.com/go-krb5/krb5)](https://goreportcard.com/report/github.com/go-krb5/krb5)
 [![Version](https://img.shields.io/github/release/go-krb5/krb5.svg)](https://github.com/go-krb5/krb5/releases)
+![Go version](https://img.shields.io/badge/Go-1.25-brightgreen.svg)
 [![codecov](https://codecov.io/github/go-krb5/krb5/graph/badge.svg?token=P1FN91DTLE)](https://codecov.io/github/go-krb5/krb5)
 ![License](https://img.shields.io/github/license/go-krb5/krb5?logo=apache&color=blue)
 
@@ -10,9 +11,9 @@ Kerberos 5 implementation in pure go.
 
 ## Thanks
 
-This library literally could not exist without [Jonathan Turner](https://github.com/jcmturner). We are unaware of the circumstances but his
-activity on GitHub seems to have ceased which is a significant loss for the community. Ultimately this is his org, and
-we're just the current stewards.
+This library literally could not exist without [Jonathan Turner](https://github.com/jcmturner). We are unaware of the 
+circumstances but his activity on GitHub seems to have ceased which is a significant loss for the community. Ultimately
+this is his org, and we're just the current stewards.
 
 * [Jonathan Turner](https://github.com/jcmturner) for the [Original and Related Repositories](https://github.com/jcmturner/gokrb5)
 * Greg Hudson from the MIT Consortium for Kerberos and Internet Trust for providing useful advice.
@@ -63,12 +64,15 @@ which are not available in that version. The current intentionally supported ver
 
 ## To Do
 
-- [ ] Investigate mechanisms to have an encryption type registry to allow implementation of deprecated algorithms which are not enabled by default.
+- Encryption/Checksum Support:
+  - [ ] Investigate mechanisms to have an encryption type registry to allow implementation of deprecated algorithms
+        which are not enabled by default
+  - [ ] Implement most algorithms 
 - CI Workflows:
-  - [ ] Unit Tests
+  - [x] Unit Tests
   - [ ] Integration Tests
-  - [ ] Coverage
-  - [ ] Renovate
+  - [x] Coverage
+  - [x] Renovate
 - [ ] Document Breaking Changes
 - [ ] Setup Governance
 - [ ] Engage Community to assist in merging PR's and ensure they receive the adequate credit
@@ -82,20 +86,30 @@ The following section contains some implementation specific information.
 
 ### Encryption & Checksum Types
 
-|            Type            |        Implemented         | Encryption ID | Checksum ID |    Documentation     |
-|:--------------------------:|:--------------------------:|:-------------:|:-----------:|:--------------------:|
-|        des-cbc-crc         | No (deprecated, insecure)  |       1       |      x      | [RFC3961], [RFC6649] |
-|        des-cbc-md4         | No (deprecated, insecure)  |       2       |      x      | [RFC3961], [RFC6649] |
-|        des-cbc-md5         | No (deprecated, insecure)  |       3       |      x      | [RFC3961], [RFC6649] |
-|        des3-cbc-md5        | No (deprecated, insecure)  |       5       |      x      | [RFC3961], [RFC8429] |
-|       des3-cbc-sha1        | No (deprecated, insecure)  |       7       |     13      | [RFC3961], [RFC8429] |
-|       des3-cbc-sha1        |             No             |       8       |     13      |      [RFC3961]       |
-|      des3-cbc-sha1-kd      | Yes (deprecated, insecure) |      16       |     12      | [RFC3961], [RFC8429] |
-|  aes128-cts-hmac-sha1-96   |            Yes             |      17       |     15      |      [RFC3962]       |
-|  aes256-cts-hmac-sha1-96   |            Yes             |      18       |     16      |      [RFC3962]       |
-| aes128-cts-hmac-sha256-128 |            Yes             |      19       |     19      |      [RFC8009]       |
-| aes256-cts-hmac-sha384-192 |            Yes             |      20       |     20      |      [RFC8009]       |
-|          rc4-hmac          |            Yes             |      23       |    -138     |      [RFC4757]       |
+|             Type             |        Implemented         | Encryption ID | Checksum ID |    Documentation     |
+|:----------------------------:|:--------------------------:|:-------------:|:-----------:|:--------------------:|
+|         des-cbc-crc          | No (deprecated, insecure)  |       1       |      1      | [RFC3961], [RFC6649] |
+|         des-cbc-md4          | No (deprecated, insecure)  |       2       |      3      | [RFC3961], [RFC6649] |
+|         des-cbc-md5          | No (deprecated, insecure)  |       3       |      8      | [RFC3961], [RFC6649] |
+|         des3-cbc-md5         | No (deprecated, insecure)  |       5       |      8      | [RFC3961], [RFC8429] |
+|        des3-cbc-sha1         | No (deprecated, insecure)  |       7       |     13      | [RFC3961], [RFC8429] |
+|        des3-cbc-sha1         |             No             |       8       |     13      |      [RFC3961]       |
+|      dsaWithSHA1-CmsOID      |             No             |       9       |     10      |      [RFC3961]       |
+| md5WithRSAEncryption-CmsOID  |             No             |      10       |      7      |      [RFC3961]       |
+| sha1WithRSAEncryption-CmsOID |             No             |      11       |     14      |      [RFC3961]       |
+|        rc2CBC-EnvOID         |             No             |      12       |     N/A     |      [RFC3961]       |
+|     rsaEncryption-EnvOID     |             No             |      13       |     N/A     |      [RFC3961]       |
+|      rsaES-OAEP-ENV-OID      |             No             |      14       |     N/A     |      [RFC3961]       |
+|     des-ede3-cbc-Env-OID     |             No             |      15       |     N/A     |      [RFC3961]       |
+|       des3-cbc-sha1-kd       | Yes (deprecated, insecure) |      16       |     12      | [RFC3961], [RFC8429] |
+|   aes128-cts-hmac-sha1-96    |            Yes             |      17       |     15      |      [RFC3962]       |
+|   aes256-cts-hmac-sha1-96    |            Yes             |      18       |     16      |      [RFC3962]       |
+|  aes128-cts-hmac-sha256-128  |            Yes             |      19       |     19      |      [RFC8009]       |
+|  aes256-cts-hmac-sha384-192  |            Yes             |      20       |     20      |      [RFC8009]       |
+|           rc4-hmac           | Yes (deprecated, insecure) |      23       |    -138     | [RFC4757], [RFC8429] |
+|         rc4-hmac-exp         | No (deprecated, insecure)  |      24       |    -138     | [RFC4757], [RFC6649] |
+|     camellia128-cts-cmac     |             No             |      25       |     17      |      [RFC6803]       |
+|     camellia256-cts-cmac     |             No             |      25       |     18      |      [RFC6803]       |
 
 [RFC3961]: https://datatracker.ietf.org/doc/html/rfc3961
 [RFC3962]: https://datatracker.ietf.org/doc/html/rfc3962
@@ -103,6 +117,7 @@ The following section contains some implementation specific information.
 [RFC4757]: https://datatracker.ietf.org/doc/html/rfc4757
 [RFC6649]: https://datatracker.ietf.org/doc/html/rfc6649
 [RFC8429]: https://datatracker.ietf.org/doc/html/rfc8429
+[RFC6803]: https://datatracker.ietf.org/doc/html/rfc6803
 
 ### Tested Scenarios
 
