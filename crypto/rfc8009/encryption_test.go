@@ -11,7 +11,7 @@ import (
 	"github.com/go-krb5/krb5/crypto/rfc8009"
 )
 
-func TestStringToKey_AES128(t *testing.T) {
+func TestStringToKey(t *testing.T) {
 	t.Parallel()
 	r, _ := hex.DecodeString("10DF9DD783E5BC8ACEA1730E74355F61")
 	randomSalt := string(r)
@@ -21,170 +21,133 @@ func TestStringToKey_AES128(t *testing.T) {
 		iterations uint32
 		passphrase string
 		salt       string
-		saltp      string
-		baseKey    string
+		saltp128   string
+		baseKey128 string
+		saltp256   string
+		baseKey256 string
 	}{
 		{
 			name:       "RFC 8009 Appendix A - AES128",
 			iterations: 32768,
 			passphrase: "password",
 			salt:       randomSalt + "ATHENA.MIT.EDUraeburn",
-			saltp:      "6165733132382d6374732d686d61632d7368613235362d3132380010df9dd783e5bc8acea1730e74355f61415448454e412e4d49542e4544557261656275726e",
-			baseKey:    "089bca48b105ea6ea77ca5d2f39dc5e7",
+			saltp128:   "6165733132382d6374732d686d61632d7368613235362d3132380010df9dd783e5bc8acea1730e74355f61415448454e412e4d49542e4544557261656275726e",
+			baseKey128: "089bca48b105ea6ea77ca5d2f39dc5e7",
+			saltp256:   "6165733235362d6374732d686d61632d7368613338342d3139320010df9dd783e5bc8acea1730e74355f61415448454e412e4d49542e4544557261656275726e",
+			baseKey256: "45bd806dbf6a833a9cffc1c94589a222367a79bc21c413718906e9f578a78467",
 		},
 	}
 
-	var e crypto.Aes128CtsHmacSha256128
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			saltp := rfc8009.GetSaltP(test.salt, "aes128-cts-hmac-sha256-128")
-			assert.Equal(t, test.saltp, hex.EncodeToString([]byte(saltp)), "SaltP not as expected")
+		var e crypto.Aes128CtsHmacSha256128
+		t.Run("AES128", func(t *testing.T) {
+			t.Run(test.name, func(t *testing.T) {
+				saltp := rfc8009.GetSaltP(test.salt, "aes128-cts-hmac-sha256-128")
+				assert.Equal(t, test.saltp128, hex.EncodeToString([]byte(saltp)), "SaltP not as expected")
 
-			k, err := e.StringToKey(test.passphrase, test.salt, common.IterationsToS2Kparams(test.iterations))
-			if err != nil {
-				t.Fatalf("StringToKey failed: %v", err)
-			}
-			assert.Equal(t, test.baseKey, hex.EncodeToString(k), "Base key not as expected")
+				k, err := e.StringToKey(test.passphrase, test.salt, common.IterationsToS2Kparams(test.iterations))
+				if err != nil {
+					t.Fatalf("StringToKey failed: %v", err)
+				}
+				assert.Equal(t, test.baseKey128, hex.EncodeToString(k), "Base key not as expected")
+			})
+		})
+	}
+
+	for _, test := range tests {
+		var e crypto.Aes256CtsHmacSha384192
+		t.Run("AES256", func(t *testing.T) {
+			t.Run(test.name, func(t *testing.T) {
+				saltp := rfc8009.GetSaltP(test.salt, "aes256-cts-hmac-sha384-192")
+				assert.Equal(t, test.saltp256, hex.EncodeToString([]byte(saltp)), "SaltP not as expected")
+
+				k, err := e.StringToKey(test.passphrase, test.salt, common.IterationsToS2Kparams(test.iterations))
+				if err != nil {
+					t.Fatalf("StringToKey failed: %v", err)
+				}
+				assert.Equal(t, test.baseKey256, hex.EncodeToString(k), "Base key not as expected")
+			})
 		})
 	}
 }
 
-func TestStringToKey_AES256(t *testing.T) {
+func TestDeriveKey(t *testing.T) {
 	t.Parallel()
-	r, _ := hex.DecodeString("10DF9DD783E5BC8ACEA1730E74355F61")
-	randomSalt := string(r)
-
-	var tests = []struct {
-		name       string
-		iterations uint32
-		passphrase string
-		salt       string
-		saltp      string
-		baseKey    string
-	}{
-		{
-			name:       "RFC 8009 Appendix A - AES256",
-			iterations: 32768,
-			passphrase: "password",
-			salt:       randomSalt + "ATHENA.MIT.EDUraeburn",
-			saltp:      "6165733235362d6374732d686d61632d7368613338342d3139320010df9dd783e5bc8acea1730e74355f61415448454e412e4d49542e4544557261656275726e",
-			baseKey:    "45bd806dbf6a833a9cffc1c94589a222367a79bc21c413718906e9f578a78467",
-		},
-	}
-
-	var e crypto.Aes256CtsHmacSha384192
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			saltp := rfc8009.GetSaltP(test.salt, "aes256-cts-hmac-sha384-192")
-			assert.Equal(t, test.saltp, hex.EncodeToString([]byte(saltp)), "SaltP not as expected")
-
-			k, err := e.StringToKey(test.passphrase, test.salt, common.IterationsToS2Kparams(test.iterations))
-			if err != nil {
-				t.Fatalf("StringToKey failed: %v", err)
-			}
-			assert.Equal(t, test.baseKey, hex.EncodeToString(k), "Base key not as expected")
-		})
-	}
-}
-
-func TestDeriveKey_AES128(t *testing.T) {
-	t.Parallel()
-	protocolBaseKey, _ := hex.DecodeString("3705d96080c17728a0e800eab6e0d23c")
+	protocolBaseKey128, _ := hex.DecodeString("3705d96080c17728a0e800eab6e0d23c")
+	protocolBaseKey256, _ := hex.DecodeString("6d404d37faf79f9df0d33568d320669800eb4836472ea8a026d16b7182460c52")
 	testUsage := uint32(2)
 
 	var tests = []struct {
-		name     string
-		keyType  string // "Kc", "Ke", or "Ki"
-		expected string
+		name        string
+		keyType     string // "Kc", "Ke", or "Ki"
+		expected128 string
+		expected256 string
 	}{
 		{
-			name:     "Kc derivation for usage 2",
-			keyType:  "Kc",
-			expected: "b31a018a48f54776f403e9a396325dc3",
+			name:        "Kc derivation for usage 2",
+			keyType:     "Kc",
+			expected128: "b31a018a48f54776f403e9a396325dc3",
+			expected256: "ef5718be86cc84963d8bbb5031e9f5c4ba41f28faf69e73d",
 		},
 		{
-			name:     "Ke derivation for usage 2",
-			keyType:  "Ke",
-			expected: "9b197dd1e8c5609d6e67c3e37c62c72e",
+			name:        "Ke derivation for usage 2",
+			keyType:     "Ke",
+			expected128: "9b197dd1e8c5609d6e67c3e37c62c72e",
+			expected256: "56ab22bee63d82d7bc5227f6773f8ea7a5eb1c825160c38312980c442e5c7e49",
 		},
 		{
-			name:     "Ki derivation for usage 2",
-			keyType:  "Ki",
-			expected: "9fda0e56ab2d85e1569a688696c26a6c",
+			name:        "Ki derivation for usage 2",
+			keyType:     "Ki",
+			expected128: "9fda0e56ab2d85e1569a688696c26a6c",
+			expected256: "69b16514e3cd8e56b82010d5c73012b622c4d00ffc23ed1f",
 		},
 	}
 
-	var e crypto.Aes128CtsHmacSha256128
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var k []byte
-			var err error
+		var e crypto.Aes128CtsHmacSha256128
+		t.Run("AES128", func(t *testing.T) {
+			t.Run(test.name, func(t *testing.T) {
+				var k []byte
+				var err error
 
-			switch test.keyType {
-			case "Kc":
-				k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKc(testUsage))
-			case "Ke":
-				k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKe(testUsage))
-			case "Ki":
-				k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKi(testUsage))
-			}
+				switch test.keyType {
+				case "Kc":
+					k, err = e.DeriveKey(protocolBaseKey128, common.GetUsageKc(testUsage))
+				case "Ke":
+					k, err = e.DeriveKey(protocolBaseKey128, common.GetUsageKe(testUsage))
+				case "Ki":
+					k, err = e.DeriveKey(protocolBaseKey128, common.GetUsageKi(testUsage))
+				}
 
-			if err != nil {
-				t.Fatalf("Error deriving %s key: %v", test.keyType, err)
-			}
-			assert.Equal(t, test.expected, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
+				if err != nil {
+					t.Fatalf("Error deriving %s key: %v", test.keyType, err)
+				}
+				assert.Equal(t, test.expected128, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
+			})
 		})
 	}
-}
 
-func TestDeriveKey_AES256(t *testing.T) {
-	t.Parallel()
-	protocolBaseKey, _ := hex.DecodeString("6d404d37faf79f9df0d33568d3206698" +
-		"00eb4836472ea8a026d16b7182460c52")
-	testUsage := uint32(2)
-
-	var tests = []struct {
-		name     string
-		keyType  string // "Kc", "Ke", or "Ki"
-		expected string
-	}{
-		{
-			name:     "Kc derivation for usage 2",
-			keyType:  "Kc",
-			expected: "ef5718be86cc84963d8bbb5031e9f5c4ba41f28faf69e73d",
-		},
-		{
-			name:    "Ke derivation for usage 2",
-			keyType: "Ke",
-			expected: "56ab22bee63d82d7bc5227f6773f8ea7a5eb1c825160c3831298" +
-				"0c442e5c7e49",
-		},
-		{
-			name:     "Ki derivation for usage 2",
-			keyType:  "Ki",
-			expected: "69b16514e3cd8e56b82010d5c73012b622c4d00ffc23ed1f",
-		},
-	}
-
-	var e crypto.Aes256CtsHmacSha384192
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			var k []byte
-			var err error
+		var e crypto.Aes256CtsHmacSha384192
+		t.Run("AES256", func(t *testing.T) {
+			t.Run(test.name, func(t *testing.T) {
+				var k []byte
+				var err error
 
-			switch test.keyType {
-			case "Kc":
-				k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKc(testUsage))
-			case "Ke":
-				k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKe(testUsage))
-			case "Ki":
-				k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKi(testUsage))
-			}
+				switch test.keyType {
+				case "Kc":
+					k, err = e.DeriveKey(protocolBaseKey256, common.GetUsageKc(testUsage))
+				case "Ke":
+					k, err = e.DeriveKey(protocolBaseKey256, common.GetUsageKe(testUsage))
+				case "Ki":
+					k, err = e.DeriveKey(protocolBaseKey256, common.GetUsageKi(testUsage))
+				}
 
-			if err != nil {
-				t.Fatalf("Error deriving %s key: %v", test.keyType, err)
-			}
-			assert.Equal(t, test.expected, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
+				if err != nil {
+					t.Fatalf("Error deriving %s key: %v", test.keyType, err)
+				}
+				assert.Equal(t, test.expected256, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
+			})
 		})
 	}
 }
@@ -438,7 +401,7 @@ func TestChecksum_AES256(t *testing.T) {
 
 // End Test Vectors
 
-func TestEncryptData_InvalidKeySize(t *testing.T) {
+func TestEncryptData_InvalidKeySize_AES128(t *testing.T) {
 	t.Parallel()
 
 	var tests = []struct {
