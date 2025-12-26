@@ -1,0 +1,41 @@
+---
+codecov:
+  require_ci_to_pass: true
+
+comment:
+  layout: "reach, diff, flags, files"
+  behavior: default
+  require_changes: false
+
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  status:
+    project:
+      default: false
+      backend:
+        base: auto
+        threshold: 0.15%
+        flags:
+          - backend
+      frontend:
+        base: auto
+        threshold: 0.15%
+        flags:
+          - frontend
+
+flags: {}
+
+ignore:
+  - "**/coverage.txt"
+
+
+parsers:
+  gcov:
+    branch_detection:
+      conditional: true
+      loop: true
+      method: false
+      macro: false
+...
