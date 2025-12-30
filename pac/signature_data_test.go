@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/test/testdata"
@@ -45,9 +46,7 @@ func TestPAC_SignatureData_Unmarshal_KDC_Signature(t *testing.T) {
 	var k SignatureData
 
 	bz, err := k.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling test data: %v", err)
-	}
+	require.NoError(t, err)
 
 	sig, _ := hex.DecodeString("340be28b48765d0519ee9346cf53d822")
 	zeroed, _ := hex.DecodeString("76ffffff00000000000000000000000000000000")

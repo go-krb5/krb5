@@ -453,9 +453,7 @@ func TestLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	c, err := Load(cf.Name())
-	if err != nil {
-		t.Fatalf("Error loading config: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm, "[libdefaults] default_realm not as expected")
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm, "[libdefaults] dns_lookup_realm not as expected")
@@ -523,9 +521,7 @@ func TestLoad2(t *testing.T) {
 	t.Parallel()
 
 	c, err := NewFromString(krb5Conf2)
-	if err != nil {
-		t.Fatalf("Error loading config: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm, "[libdefaults] default_realm not as expected")
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm, "[libdefaults] dns_lookup_realm not as expected")
@@ -554,9 +550,7 @@ func TestLoadNoBlankLines(t *testing.T) {
 	t.Parallel()
 
 	c, err := NewFromString(krb5ConfNoBlankLines)
-	if err != nil {
-		t.Fatalf("Error loading config: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm, "[libdefaults] default_realm not as expected")
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm, "[libdefaults] dns_lookup_realm not as expected")
@@ -590,9 +584,7 @@ func TestLoadTabs(t *testing.T) {
 	require.NoError(t, err)
 
 	c, err := Load(cf.Name())
-	if err != nil {
-		t.Fatalf("Error loading config: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm, "[libdefaults] default_realm not as expected")
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm, "[libdefaults] dns_lookup_realm not as expected")
@@ -637,9 +629,7 @@ func TestParseDuration(t *testing.T) {
 	}
 	for _, test := range tests {
 		d, err := parseDuration(test.timeStr)
-		if err != nil {
-			t.Errorf("error parsing %s: %v", test.timeStr, err)
-		}
+		assert.NoError(t, err)
 
 		assert.Equal(t, test.duration, d, "Duration not as expected for: "+test.timeStr)
 	}

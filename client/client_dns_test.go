@@ -19,7 +19,9 @@ func TestClient_Login_DNSKDCs(t *testing.T) {
 	c.LibDefaults.DNSLookupKDC = true
 	c.Realms = []config.Realm{}
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 
 	require.NoError(t, kt.Unmarshal(b))

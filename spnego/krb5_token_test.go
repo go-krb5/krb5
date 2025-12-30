@@ -28,16 +28,11 @@ func TestKRB5Token_Unmarshal(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(KRB5TokenHex)
-	if err != nil {
-		t.Fatalf("Error decoding KRB5Token hex: %v", err)
-	}
+	require.NoError(t, err)
 
 	var mt KRB5Token
 
-	err = mt.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling KRB5Token: %v", err)
-	}
+	require.NoError(t, mt.Unmarshal(b))
 
 	assert.Equal(t, gssapi.OIDKRB5.OID(), mt.OID, "KRB5Token OID not as expected.")
 	assert.Equal(t, []byte{1, 0}, mt.tokID, "TokID not as expected")
@@ -50,9 +45,7 @@ func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(AuthChksum)
-	if err != nil {
-		t.Fatalf("Error decoding KRB5Token hex: %v", err)
-	}
+	require.NoError(t, err)
 
 	cb := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
 	assert.Equal(t, b, cb, "SPNEGO Authenticator checksum not as expected")
@@ -70,9 +63,7 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 	keyLen := 32
 
 	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
-	if err != nil {
-		t.Fatalf("Error creating authenticator: %v", err)
-	}
+	require.NoError(t, err)
 
 	require.NoError(t, a.GenerateSeqNumberAndSubKey(etypeID, keyLen))
 	assert.Equal(t, int32(32771), a.Cksum.CksumType, "Checksum type in authenticator for SPNEGO mechtoken not as expected.")
@@ -104,9 +95,7 @@ func TestKRB5Token_newAuthenticator(t *testing.T) {
 	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
 
 	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
-	if err != nil {
-		t.Fatalf("Error creating authenticator: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, int32(32771), a.Cksum.CksumType, "Checksum type in authenticator for SPNEGO mechtoken not as expected.")
 	assert.Equal(t, int32(0), a.SubKey.KeyType, "Subkey not of the expected type.")
@@ -132,9 +121,7 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	var tkt messages.Ticket
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
 	err = tkt.Unmarshal(b)
 	if err != nil {
@@ -152,14 +139,9 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	}
 
 	mb, err := mt.Marshal()
-	if err != nil {
-		t.Fatalf("Error unmarshalling KRB5Token: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = mt.Unmarshal(mb)
-	if err != nil {
-		t.Fatalf("Error unmarshalling KRB5Token: %v", err)
-	}
+	require.NoError(t, mt.Unmarshal(mb))
 
 	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, mt.OID, "KRB5Token OID not as expected.")
 	assert.Equal(t, []byte{1, 0}, mt.tokID, "TokID not as expected")

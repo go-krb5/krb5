@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -17,19 +18,14 @@ func TestUnmarshal_SPNEGO_Init(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testGSSAPIInit)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	var s SPNEGOToken
 
-	err = s.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling SPNEGO with NegTokenInit: %v", err)
-	}
+	require.NoError(t, s.Unmarshal(b))
 
-	assert.True(t, s.Init, "SPNEGO does not indicate it contains NegTokenInit as expected")
-	assert.False(t, s.Resp, "SPNEGO indicates is contains a NegTokenResp but it shouldn't")
+	assert.True(t, s.Init)
+	assert.False(t, s.Resp)
 	assert.Equal(t, 4, len(s.NegTokenInit.MechTypes))
 
 	expectMechTypes := []asn1.ObjectIdentifier{
@@ -38,90 +34,62 @@ func TestUnmarshal_SPNEGO_Init(t *testing.T) {
 		[]int{1, 2, 840, 48018, 1, 2, 2},
 		[]int{1, 3, 6, 1, 5, 2, 5},
 	}
-	assert.Equal(t, expectMechTypes, s.NegTokenInit.MechTypes, "MechTypes list in NegTokenInit not as expected")
-	assert.NotZero(t, len(s.NegTokenInit.MechTokenBytes), "MechToken is zero in length")
+	assert.Equal(t, expectMechTypes, s.NegTokenInit.MechTypes)
+	assert.NotZero(t, len(s.NegTokenInit.MechTokenBytes))
 }
 
 func TestUnMarshal_SPNEGO_Empty(t *testing.T) {
 	sp := new(SPNEGOToken)
 
-	// The following tests are intended to ensure we don't panic.
-	if err := sp.Unmarshal(nil); err == nil {
-		t.Fatal("should have errored, input is absent")
-	}
-
-	if err := sp.Unmarshal([]byte{}); err == nil {
-		t.Fatal("should have errored, input is empty")
-	}
-
-	if err := sp.Unmarshal([]byte{1}); err == nil {
-		t.Fatal("should have errored, input is too low")
-	}
+	assert.EqualError(t, sp.Unmarshal(nil), "provided byte array is empty")
+	assert.EqualError(t, sp.Unmarshal([]byte{}), "provided byte array is empty")
+	assert.EqualError(t, sp.Unmarshal([]byte{1}), "not a valid SPNEGO token: asn1: syntax error: truncated tag or length")
 }
 
 func TestUnmarshal_SPNEGO_RespTarg(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testGSSAPIResp)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	var s SPNEGOToken
 
-	err = s.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling SPNEGO with NegTokenResp/NegTokenTarg: %v", err)
-	}
+	require.NoError(t, s.Unmarshal(b))
 
-	assert.True(t, s.Resp, "SPNEGO does not indicate it contains NegTokenResp/Targ as expected")
-	assert.False(t, s.Init, "SPNEGO indicates is contains a NegTokenInit but it shouldn't")
-	assert.Equal(t, asn1.Enumerated(0), s.NegTokenResp.NegState, "Negotiation state not as expected.")
-	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, s.NegTokenResp.SupportedMech, "SupportedMech type not as expected.")
+	assert.True(t, s.Resp)
+	assert.False(t, s.Init)
+	assert.Equal(t, asn1.Enumerated(0), s.NegTokenResp.NegState)
+	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, s.NegTokenResp.SupportedMech)
 }
 
 func TestMarshal_SPNEGO_Init(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testGSSAPIInit)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	var s SPNEGOToken
 
-	err = s.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling SPNEGO with NegTokenInit: %v", err)
-	}
+	require.NoError(t, s.Unmarshal(b))
 
 	mb, err := s.Marshal()
-	if err != nil {
-		t.Fatalf("Error marshalling SPNEGO containing NegTokenInit: %v", err)
-	}
+	require.NoError(t, err)
 
-	assert.Equal(t, b, mb, "Marshaled bytes not as expected")
+	assert.Equal(t, b, mb)
 }
 
 func TestMarshal_SPNEGO_RespTarg(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testGSSAPIResp)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	var s SPNEGOToken
 
-	err = s.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling SPNEGO with NegTokenResp: %v", err)
-	}
+	require.NoError(t, s.Unmarshal(b))
 
 	mb, err := s.Marshal()
-	if err != nil {
-		t.Fatalf("Error marshalling SPNEGO containing NegTokenResp: %v", err)
-	}
+	require.NoError(t, err)
 
-	assert.Equal(t, b, mb, "Marshaled bytes not as expected")
+	assert.Equal(t, b, mb)
 }

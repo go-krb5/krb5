@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/msgtype"
@@ -17,14 +18,9 @@ func TestUnmarshalReply(t *testing.T) {
 	var a Reply
 
 	b, err := hex.DecodeString(testdata.MarshaledKpasswd_Rep)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	assert.Equal(t, 236, a.MessageLength, "message length not as expected")
 	assert.Equal(t, 1, a.Version, "message version not as expected")

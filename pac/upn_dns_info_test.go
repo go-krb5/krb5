@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/test/testdata"
 )
@@ -13,16 +14,11 @@ func TestUPN_DNSInfo_Unmarshal(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testdata.MarshaledPAC_UPN_DNS_Info)
-	if err != nil {
-		t.Fatal("Could not decode test data hex string")
-	}
+	require.NoError(t, err)
 
 	var k UPNDNSInfo
 
-	err = k.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshaling test data: %v", err)
-	}
+	require.NoError(t, k.Unmarshal(b))
 
 	assert.Equal(t, uint16(42), k.UPNLength, "UPN Length not as expected")
 	assert.Equal(t, uint16(16), k.UPNOffset, "UPN Offset not as expected")

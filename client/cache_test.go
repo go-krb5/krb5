@@ -35,7 +35,7 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 		}
 		go func(i int) {
 			e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key)
-			assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN, "SPN cache key not as expected")
+			assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN)
 			wg.Done()
 		}(i)
 	}
@@ -47,13 +47,13 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 
 		go func(i int) {
 			e, ok := c.getEntry(fmt.Sprintf("%d/test.cache", i))
-			assert.True(t, ok, "cache entry %d was not found", i)
-			assert.Equal(t, time.Unix(int64(0+i), 0).UTC(), e.AuthTime, "auth time not as expected")
-			assert.Equal(t, time.Unix(int64(10+i), 0).UTC(), e.StartTime, "start time not as expected")
-			assert.Equal(t, time.Unix(int64(20+i), 0).UTC(), e.EndTime, "end time not as expected")
-			assert.Equal(t, time.Unix(int64(30+i), 0).UTC(), e.RenewTill, "renew time not as expected")
-			assert.Equal(t, []string{fmt.Sprintf("%d", i), "test.cache"}, e.Ticket.SName.NameString, "ticket not correct")
-			assert.Equal(t, []byte{byte(i)}, e.SessionKey.KeyValue, "session key not correct")
+			assert.True(t, ok)
+			assert.Equal(t, time.Unix(int64(0+i), 0).UTC(), e.AuthTime)
+			assert.Equal(t, time.Unix(int64(10+i), 0).UTC(), e.StartTime)
+			assert.Equal(t, time.Unix(int64(20+i), 0).UTC(), e.EndTime)
+			assert.Equal(t, time.Unix(int64(30+i), 0).UTC(), e.RenewTill)
+			assert.Equal(t, []string{fmt.Sprintf("%d", i), "test.cache"}, e.Ticket.SName.NameString)
+			assert.Equal(t, []byte{byte(i)}, e.SessionKey.KeyValue)
 			wg.Done()
 		}(i)
 	}
@@ -61,7 +61,7 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 	wg.Wait()
 
 	_, ok := c.getEntry(fmt.Sprintf("%d/test.cache", cnt+1))
-	assert.False(t, ok, "entry found in cache when it shouldn't have been")
+	assert.False(t, ok)
 
 	// Remove just the even entries.
 	for i := 0; i < cnt; i += 2 {
@@ -81,16 +81,16 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 		go func(i int) {
 			if i%2 == 0 {
 				_, ok := c.getEntry(fmt.Sprintf("%d/test.cache", cnt+1))
-				assert.False(t, ok, "entry %d found in cache when it shouldn't have been", i)
+				assert.False(t, ok)
 			} else {
 				e, ok := c.getEntry(fmt.Sprintf("%d/test.cache", i))
-				assert.True(t, ok, "cache entry %d was not found", i)
-				assert.Equal(t, time.Unix(int64(0+i), 0).UTC(), e.AuthTime, "auth time not as expected")
-				assert.Equal(t, time.Unix(int64(10+i), 0).UTC(), e.StartTime, "start time not as expected")
-				assert.Equal(t, time.Unix(int64(20+i), 0).UTC(), e.EndTime, "end time not as expected")
-				assert.Equal(t, time.Unix(int64(30+i), 0).UTC(), e.RenewTill, "renew time not as expected")
-				assert.Equal(t, []string{fmt.Sprintf("%d", i), "test.cache"}, e.Ticket.SName.NameString, "ticket not correct")
-				assert.Equal(t, []byte{byte(i)}, e.SessionKey.KeyValue, "session key not correct")
+				assert.True(t, ok)
+				assert.Equal(t, time.Unix(int64(0+i), 0).UTC(), e.AuthTime)
+				assert.Equal(t, time.Unix(int64(10+i), 0).UTC(), e.StartTime)
+				assert.Equal(t, time.Unix(int64(20+i), 0).UTC(), e.EndTime)
+				assert.Equal(t, time.Unix(int64(30+i), 0).UTC(), e.RenewTill)
+				assert.Equal(t, []string{fmt.Sprintf("%d", i), "test.cache"}, e.Ticket.SName.NameString)
+				assert.Equal(t, []byte{byte(i)}, e.SessionKey.KeyValue)
 			}
 
 			wg.Done()
@@ -107,7 +107,7 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 
 		go func(i int) {
 			_, ok := c.getEntry(fmt.Sprintf("%d/test.cache", cnt+1))
-			assert.False(t, ok, "entry %d found in cache when it shouldn't have been", i)
+			assert.False(t, ok)
 			wg.Done()
 		}(i)
 	}
@@ -133,7 +133,7 @@ func TestCache_JSON(t *testing.T) {
 			KeyValue: []byte{byte(i)},
 		}
 		e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key)
-		assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN, "SPN cache key not as expected")
+		assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN)
 	}
 
 	expected := `[
@@ -161,9 +161,7 @@ func TestCache_JSON(t *testing.T) {
 ]`
 
 	j, err := c.JSON()
-	if err != nil {
-		t.Errorf("error getting json output of cache: %v", err)
-	}
+	assert.NoError(t, err)
 
-	assert.Equal(t, expected, j, "json output not as expected")
+	assert.Equal(t, expected, j)
 }

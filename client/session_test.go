@@ -23,7 +23,9 @@ import (
 func TestMultiThreadedClientSession(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -37,22 +39,14 @@ func TestMultiThreadedClientSession(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 	cl := NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("failed to log in: %v", err)
-	}
+	require.NotNil(t, cl.Login())
 
 	s, ok := cl.sessions.get("TEST.GOKRB5")
-	if !ok {
-		t.Fatal("error initially getting session")
-	}
+	require.True(t, ok)
 
 	go func() {
 		for {
-			err := cl.renewTGT(s)
-			if err != nil {
-				t.Logf("error renewing TGT: %v", err)
-			}
+			assert.NoError(t, cl.renewTGT(s))
 
 			time.Sleep(time.Millisecond * 100)
 		}
@@ -89,7 +83,9 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 		addr = testdata.KDC_IP_TEST_GOKRB5
 	}
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -98,10 +94,7 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 	c.LibDefaults.PreferredPreauthTypes = []int{int(etypeID.DES3_CBC_SHA1_KD)} // a preauth etype the KDC does not support. Test this does not cause renewal to fail.
 	cl := NewWithKeytab("testuser2", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Errorf("error on logging in: %v\n", err)
-	}
+	require.NotNil(t, cl.Login())
 
 	n := runtime.NumGoroutine()
 
@@ -109,31 +102,25 @@ func TestClient_AutoRenew_Goroutine(t *testing.T) {
 		time.Sleep(time.Second * 5)
 
 		_, endTime, _, _, err := cl.sessionTimes("TEST.GOKRB5")
-		if err != nil {
-			t.Errorf("could not get client's session: %v", err)
-		}
+		assert.NoError(t, err)
 
-		if time.Now().UTC().After(endTime) {
-			t.Fatalf("session auto update failed")
-		}
+		require.False(t, time.Now().UTC().After(endTime))
 
 		spn := "HTTP/host.test.gokrb5"
 
 		tkt, key, err := cl.GetServiceTicket(spn)
-		if err != nil {
-			t.Fatalf("error getting service ticket: %v\n", err)
-		}
+		require.NoError(t, err)
 
-		b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
+		b, err := hex.DecodeString(testdata.HTTP_KEYTAB)
+		require.NoError(t, err)
+
 		skt := keytab.New()
 		require.NoError(t, skt.Unmarshal(b))
 		require.NoError(t, tkt.DecryptEncPart(skt, nil))
 		assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 		assert.Equal(t, int32(18), key.KeyType)
 
-		if runtime.NumGoroutine() > n {
-			t.Fatalf("number of goroutines is increasing: should not be more than %d, is %d", n, runtime.NumGoroutine())
-		}
+		require.LessOrEqual(t, runtime.NumGoroutine(), n)
 	}
 }
 
@@ -155,9 +142,7 @@ func TestSessions_JSON(t *testing.T) {
 	}
 
 	j, err := s.JSON()
-	if err != nil {
-		t.Errorf("error getting json: %v", err)
-	}
+	assert.NoError(t, err)
 
 	expected := `[
   {

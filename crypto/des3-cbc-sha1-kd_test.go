@@ -30,8 +30,11 @@ func TestDes3CbcSha1Kd_DR_DK(t *testing.T) {
 	for _, test := range tests {
 		var e Des3CbcSha1Kd
 
-		key, _ := hex.DecodeString(test.key)
-		usage, _ := hex.DecodeString(test.usage)
+		key, err := hex.DecodeString(test.key)
+		require.NoError(t, err)
+
+		usage, err := hex.DecodeString(test.usage)
+		require.NoError(t, err)
 
 		derivedRandom, err := e.DeriveRandom(key, usage)
 		require.NoError(t, err)
@@ -59,10 +62,8 @@ func TestDes3CbcSha1Kd_StringToKey(t *testing.T) {
 
 	for _, test := range tests {
 		key, err := e.StringToKey(test.secret, test.salt, "")
-		if err != nil {
-			t.Errorf("error in StringToKey: %v", err)
-		}
+		assert.NoError(t, err)
 
-		assert.Equal(t, test.key, hex.EncodeToString(key), "StringToKey not as expected")
+		assert.Equal(t, test.key, hex.EncodeToString(key))
 	}
 }

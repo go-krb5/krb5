@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-krb5/x/identity"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestImplementsInterface(t *testing.T) {
@@ -19,14 +20,9 @@ func TestCredentials_Marshal(t *testing.T) {
 	var cred Credentials
 
 	b, err := cred.Marshal()
-	if err != nil {
-		t.Fatalf("could not marshal credetials: %v", err)
-	}
+	require.NoError(t, err)
 
 	var credum Credentials
 
-	err = credum.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("could not unmarshal credetials: %v", err)
-	}
+	require.NoError(t, credum.Unmarshal(b))
 }

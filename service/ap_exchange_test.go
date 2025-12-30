@@ -46,26 +46,23 @@ func TestVerifyAPREQ(t *testing.T) {
 		st.Add(time.Duration(24)*time.Hour),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
+
+	require.NoError(t, err)
 
 	APReq, err := messages.NewAPReq(
 		tkt,
 		sessionKey,
 		newTestAuthenticator(*cl.Credentials),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
+
+	require.NoError(t, err)
 
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h))
 
 	ok, _, err := VerifyAPREQ(&APReq, s)
-	if !ok || err != nil {
-		t.Fatalf("Validation of AP_REQ failed when it should not have: %v", err)
-	}
+	assert.True(t, ok)
+	assert.NoError(t, err)
 }
 
 func TestVerifyAPREQWithPrincipalOverride(t *testing.T) {
@@ -93,9 +90,8 @@ func TestVerifyAPREQWithPrincipalOverride(t *testing.T) {
 		st.Add(time.Duration(24)*time.Hour),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
+
+	require.NoError(t, err)
 
 	apReq, err := messages.NewAPReq(
 		tkt,
@@ -455,19 +451,20 @@ func TestVerifyAPREQ_ExpiredTicket(t *testing.T) {
 func newTestAuthenticator(creds credentials.Credentials) types.Authenticator {
 	auth, _ := types.NewAuthenticator(creds.Domain(), creds.CName())
 	auth.GenerateSeqNumberAndSubKey(18, 32)
-	// auth.Cksum = types.Checksum{
-	//	CksumType: chksumtype.GSSAPI,
-	//	Checksum:  newAuthenticatorChksum([]int{GSS_C_INTEG_FLAG, GSS_C_CONF_FLAG}),
-	// }.
+
 	return auth
 }
 
 func getClient(t *testing.T) *client.Client {
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
-	c, _ := config.NewFromString(testdata.KRB5_CONF)
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
+
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
 	return cl

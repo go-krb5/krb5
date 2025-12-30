@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/test"
@@ -145,15 +146,10 @@ func loadCCache() (*CCache, error) {
 func TestLoadCCache(t *testing.T) {
 	test.Privileged(t)
 
-	err := login()
-	if err != nil {
-		t.Fatalf("error logging in with kinit: %v", err)
-	}
+	require.NoError(t, login())
 
 	c, err := loadCCache()
-	if err != nil {
-		t.Errorf("error loading CCache: %v", err)
-	}
+	assert.NoError(t, err)
 
 	pn := c.GetClientPrincipalName()
 	assert.Equal(t, "testuser1", pn.PrincipalNameString(), "principal not as expected")
@@ -163,17 +159,11 @@ func TestLoadCCache(t *testing.T) {
 func TestCCacheEntries(t *testing.T) {
 	test.Privileged(t)
 
-	err := login()
-	if err != nil {
-		t.Fatalf("error logging in with kinit: %v", err)
-	}
+	require.NoError(t, login())
+	require.NoError(t, getServiceTkt())
 
-	err = getServiceTkt()
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v", err)
-	}
-
-	clist, _ := klist()
+	clist, err := klist()
+	require.NoError(t, err)
 
 	t.Log("OS Creds Cache contents:")
 
@@ -182,9 +172,7 @@ func TestCCacheEntries(t *testing.T) {
 	}
 
 	c, err := loadCCache()
-	if err != nil {
-		t.Errorf("error loading CCache: %v", err)
-	}
+	assert.NoError(t, err)
 
 	creds := c.GetEntries()
 
@@ -198,7 +186,5 @@ func TestCCacheEntries(t *testing.T) {
 		}
 	}
 
-	if !found {
-		t.Errorf("Entry for %s not found in CCache", spn)
-	}
+	assert.True(t, found)
 }

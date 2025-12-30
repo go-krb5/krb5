@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/msgtype"
@@ -18,14 +19,9 @@ func TestUnmarshalAPReq(t *testing.T) {
 	var a APReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ap_req)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
 	assert.Equal(t, msgtype.KRB_AP_REQ, a.MsgType, "MsgType is not as expected")
@@ -46,19 +42,12 @@ func TestMarshalAPReq(t *testing.T) {
 	var a APReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ap_req)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal of ticket errored: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb, "Marshal bytes of Authenticator not as expected")
 }

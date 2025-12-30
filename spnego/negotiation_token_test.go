@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -17,14 +18,10 @@ func TestUnmarshal_negTokenInit(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testNegTokenInit)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	isInit, nt, err := UnmarshalNegToken(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling negotiation token: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.IsType(t, NegTokenInit{}, nt, "Not the expected type NegTokenInit")
 	assert.True(t, isInit, "Boolean indicating type is negTokenInit is not true")
@@ -45,21 +42,15 @@ func TestMarshal_negTokenInit(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testNegTokenInit)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	_, nt, err := UnmarshalNegToken(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling negotiation token: %v", err)
-	}
+	require.NoError(t, err)
 
 	nInit := nt.(NegTokenInit)
 
 	mb, err := nInit.Marshal()
-	if err != nil {
-		t.Fatalf("Error marshalling negotiation init token: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb, "Marshalled bytes not as expected for NegTokenInit")
 }

@@ -4,33 +4,24 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/go-krb5/krb5/crypto/common"
-	"github.com/go-krb5/krb5/crypto/rfc3962"
 )
 
-// Test vectors from RFC 3962 Appendix B.
+// TestAes256CtsHmacSha196_StringToKey handles test vectors from RFC 3962 Appendix B.
 func TestAes256CtsHmacSha196_StringToKey(t *testing.T) {
 	t.Parallel()
 
-	b, _ := hex.DecodeString("1234567878563412")
+	b, err := hex.DecodeString("1234567878563412")
+	require.NoError(t, err)
 	s := string(b)
 
-	b, _ = hex.DecodeString("f09d849e")
+	b, err = hex.DecodeString("f09d849e")
+	require.NoError(t, err)
 	s2 := string(b)
 
 	e := &Aes256CtsHmacSha96{}
 
-	testCases := []struct {
-		name       string
-		iterations int64
-		phrase     string
-		salt       string
-		pbkdf2     string
-		key        string
-	}{
+	testCases := []RFC3962AppendixBTestCase{
 		{"Vector1", 1, "password", "ATHENA.MIT.EDUraeburn", "cdedb5281bb2f801565a1122b25635150ad1f7a04bb9f3a333ecc0e2e1f70837", "fe697b52bc0d3ce14432ba036a92e65bbb52280990a2fa27883998d72af30161"},
 		{"Vector2", 2, "password", "ATHENA.MIT.EDUraeburn", "01dbee7f4a9e243e988b62c73cda935da05378b93244ec8f48a99e61ad799d86", "a2e16d16b36069c135d5e9d2e25f896102685618b95914b467c67622225824ff"},
 		{"Vector3", 1200, "password", "ATHENA.MIT.EDUraeburn", "5c08eb61fdf71e4e4ec3cf6ba1f5512ba7e52ddbc5e5142f708a31e2e62b1e13", "55a6ac740ad17b4846941051e1e8b0a7548d93b0ab30a8bc3ff16280382b8c2a"},
@@ -44,12 +35,7 @@ func TestAes256CtsHmacSha196_StringToKey(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.pbkdf2, hex.EncodeToString(rfc3962.StringToPBKDF2(tc.phrase, tc.salt, tc.iterations, e)), "PBKDF2 not as expected")
-
-			k, err := e.StringToKey(tc.phrase, tc.salt, common.IterationsToS2Kparams(uint32(tc.iterations)))
-			require.NoError(t, err)
-
-			assert.Equal(t, tc.key, hex.EncodeToString(k), "String to Key not as expected")
+			HandleTestRFC3962AppendixB(t, e, tc)
 		})
 	}
 }

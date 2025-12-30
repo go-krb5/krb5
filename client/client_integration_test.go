@@ -37,7 +37,9 @@ func TestClient_SuccessfulLogin_Keytab(t *testing.T) {
 		addr = testdata.KDC_IP_TEST_GOKRB5
 	}
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -52,10 +54,7 @@ func TestClient_SuccessfulLogin_Keytab(t *testing.T) {
 		c.Realms[0].KDC = []string{addr + ":" + tst}
 		cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-		err := cl.Login()
-		if err != nil {
-			t.Errorf("error on logging in with KDC %s: %v\n", tst, err)
-		}
+		assert.NoError(t, cl.Login())
 	}
 }
 
@@ -78,17 +77,16 @@ func TestClient_SuccessfulLogin_Password(t *testing.T) {
 		c.Realms[0].KDC = []string{addr + ":" + tst}
 		cl := client.NewWithPassword("testuser1", "TEST.GOKRB5", "passwordvalue", c)
 
-		err := cl.Login()
-		if err != nil {
-			t.Errorf("error on logging in with KDC %s: %v\n", tst, err)
-		}
+		assert.NoError(t, cl.Login())
 	}
 }
 
 func TestClient_SuccessfulLogin_TCPOnly(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -103,16 +101,15 @@ func TestClient_SuccessfulLogin_TCPOnly(t *testing.T) {
 	c.LibDefaults.UDPPreferenceLimit = 1
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 }
 
 func TestClient_ASExchange_TGSExchange_EncTypes_Keytab(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -140,15 +137,10 @@ func TestClient_ASExchange_TGSExchange_EncTypes_Keytab(t *testing.T) {
 		c.LibDefaults.DefaultTGSEnctypeIDs = []int32{etypeID.ETypesByName[tst]}
 		cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-		err := cl.Login()
-		if err != nil {
-			t.Errorf("error on login using enctype %s: %v\n", tst, err)
-		}
+		assert.NoError(t, cl.Login())
 
 		tkt, key, err := cl.GetServiceTicket("HTTP/host.test.gokrb5")
-		if err != nil {
-			t.Errorf("error in TGS exchange using enctype %s: %v", tst, err)
-		}
+		assert.NoError(t, err)
 
 		assert.Equal(t, "TEST.GOKRB5", tkt.Realm, "Realm in ticket not as expected for %s test", tst)
 		assert.Equal(t, etypeID.ETypesByName[tst], key.KeyType, "Key is not for enctype %s", tst)
@@ -182,15 +174,10 @@ func TestClient_ASExchange_TGSExchange_EncTypes_Password(t *testing.T) {
 		c.LibDefaults.DefaultTGSEnctypeIDs = []int32{etypeID.ETypesByName[tst]}
 		cl := client.NewWithPassword("testuser1", "TEST.GOKRB5", "passwordvalue", c)
 
-		err := cl.Login()
-		if err != nil {
-			t.Errorf("error on login using enctype %s: %v\n", tst, err)
-		}
+		assert.NoError(t, cl.Login())
 
 		tkt, key, err := cl.GetServiceTicket("HTTP/host.test.gokrb5")
-		if err != nil {
-			t.Errorf("error in TGS exchange using enctype %s: %v", tst, err)
-		}
+		assert.NoError(t, err)
 
 		assert.Equal(t, "TEST.GOKRB5", tkt.Realm, "Realm in ticket not as expected for %s test", tst)
 		assert.Equal(t, etypeID.ETypesByName[tst], key.KeyType, "Key is not for enctype %s", tst)
@@ -200,7 +187,9 @@ func TestClient_ASExchange_TGSExchange_EncTypes_Password(t *testing.T) {
 func TestClient_FailedLogin(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5_WRONGPASSWD)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5_WRONGPASSWD)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -214,16 +203,15 @@ func TestClient_FailedLogin(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err == nil {
-		t.Fatal("login with incorrect password did not error")
-	}
+	require.NoError(t, cl.Login())
 }
 
 func TestClient_SuccessfulLogin_UserRequiringPreAuth(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -237,16 +225,15 @@ func TestClient_SuccessfulLogin_UserRequiringPreAuth(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 	cl := client.NewWithKeytab("testuser2", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 }
 
 func TestClient_SuccessfulLogin_UserRequiringPreAuth_TCPOnly(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -261,16 +248,15 @@ func TestClient_SuccessfulLogin_UserRequiringPreAuth_TCPOnly(t *testing.T) {
 	c.LibDefaults.UDPPreferenceLimit = 1
 	cl := client.NewWithKeytab("testuser2", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 }
 
 func TestClient_NetworkTimeout(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -278,16 +264,15 @@ func TestClient_NetworkTimeout(t *testing.T) {
 	c.Realms[0].KDC = []string{testdata.KDC_IP_TEST_GOKRB5_BADADDR + ":88"}
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err == nil {
-		t.Fatal("login with incorrect KDC address did not error")
-	}
+	require.NoError(t, cl.Login())
 }
 
 func TestClient_NetworkTryNextKDC(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -297,29 +282,25 @@ func TestClient_NetworkTryNextKDC(t *testing.T) {
 	if addr == "" {
 		addr = testdata.KDC_IP_TEST_GOKRB5
 	}
-	// Two out fo three times this should fail the first time.
-	// So will run login twice to expect at least once the first time it will be to a bad KDC.
+
 	c.Realms[0].KDC = []string{testdata.KDC_IP_TEST_GOKRB5_BADADDR + ":88",
 		testdata.KDC_IP_TEST_GOKRB5_BADADDR + ":88",
 		addr + ":" + testdata.KDC_PORT_TEST_GOKRB5,
 	}
+
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatal("login failed")
-	}
+	require.NoError(t, cl.Login())
 
-	err = cl.Login()
-	if err != nil {
-		t.Fatal("login failed")
-	}
+	require.NoError(t, cl.Login())
 }
 
 func TestClient_GetServiceTicket(t *testing.T) {
 	test.Integration(t)
 
-	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	b, err := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 	require.NoError(t, kt.Unmarshal(b))
 
@@ -333,24 +314,16 @@ func TestClient_GetServiceTicket(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	tkt, key, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 	assert.Equal(t, int32(18), key.KeyType)
 
-	// Check cache use - should get the same values back again.
 	tkt2, key2, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, tkt.EncPart.Cipher, tkt2.EncPart.Cipher)
 	assert.Equal(t, key.KeyValue, key2.KeyValue)
@@ -374,24 +347,16 @@ func TestClient_GetServiceTicket_CanonicalizeTrue(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	tkt, key, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 	assert.Equal(t, int32(18), key.KeyType)
 
-	// Check cache use - should get the same values back again.
 	tkt2, key2, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, tkt.EncPart.Cipher, tkt2.EncPart.Cipher)
 	assert.Equal(t, key.KeyValue, key2.KeyValue)
@@ -414,13 +379,10 @@ func TestClient_GetServiceTicket_InvalidSPN(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	spn := "host.test.gokrb5"
-	_, _, err = cl.GetServiceTicket(spn)
+	_, _, err := cl.GetServiceTicket(spn)
 	assert.NotNil(t, err, "Expected unknown principal error")
 	assert.True(t, strings.Contains(err.Error(), "KDC_ERR_S_PRINCIPAL_UNKNOWN"), "Error text not as expected")
 }
@@ -442,15 +404,10 @@ func TestClient_GetServiceTicket_OlderKDC(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5_OLD}
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	tkt, key, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 	assert.Equal(t, int32(18), key.KeyType)

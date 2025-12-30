@@ -4,13 +4,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/test"
 	"github.com/go-krb5/krb5/test/testdata"
 )
 
+// TestConfig_GetKDCsUsesConfiguredKDC is meant to cover the fix for https://github.com/jcmturner/gokrb5/issues/332,
 func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {
-	// This test is meant to cover the fix for https://github.com/jcmturner/gokrb5/issues/332
 	t.Parallel()
 
 	krb5ConfWithKDCAndDNSLookupKDC := `
@@ -24,40 +25,26 @@ func TestConfig_GetKDCsUsesConfiguredKDC(t *testing.T) {
 `
 
 	c, err := NewFromString(krb5ConfWithKDCAndDNSLookupKDC)
-	if err != nil {
-		t.Fatalf("Error loading config: %v", err)
-	}
+	require.NoError(t, err)
 
 	count, kdcs, err := c.GetKDCs("TEST.GOKRB5", false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if count != 1 {
-		t.Fatalf("expected 1 but received %d", count)
-	}
-
-	if kdcs[1] != "kdc2b.test.krb5:88" {
-		t.Fatalf("expected kdc2b.test.krb5:88 but received %s", kdcs[1])
-	}
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	require.Equal(t, "kdc2b.test.krb5:88", kdcs[1])
 }
 
 func TestResolveKDC(t *testing.T) {
 	test.Privileged(t)
 
 	c, err := NewFromString(testdata.KRB5_CONF)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// KDCs when they're not provided and we should be looking them up.
 	c.LibDefaults.DNSLookupKDC = true
 	c.Realms = make([]Realm, 0)
 
 	count, res, err := c.GetKDCs(c.LibDefaults.DefaultRealm, true)
-	if err != nil {
-		t.Errorf("error resolving KDC via DNS TCP: %v", err)
-	}
+	assert.NoError(t, err)
 
 	assert.Equal(t, 5, count, "Number of SRV records not as expected: %v", res)
 	assert.Equal(t, count, len(res), "Map size does not match: %v", res)
@@ -85,16 +72,12 @@ func TestResolveKDC(t *testing.T) {
 
 func TestResolveKDCNoDNS(t *testing.T) {
 	c, err := NewFromString(testdata.KRB5_CONF)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	c.LibDefaults.DNSLookupKDC = false
 
 	_, res, err := c.GetKDCs(c.LibDefaults.DefaultRealm, true)
-	if err != nil {
-		t.Errorf("error resolving KDCs from config: %v", err)
-	}
+	assert.NoError(t, err)
 
 	expected := []string{
 		"127.0.0.1:88",

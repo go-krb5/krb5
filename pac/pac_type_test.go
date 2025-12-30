@@ -3,7 +3,6 @@ package pac
 import (
 	"bytes"
 	"encoding/hex"
-	"fmt"
 	"log"
 	"testing"
 
@@ -19,16 +18,11 @@ func TestPACTypeVerify(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testdata.MarshaledPAC_AD_WIN2K_PAC)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
 	var pac PACType
 
-	err = pac.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshaling test data: %v", err)
-	}
+	require.NoError(t, pac.Unmarshal(b))
 
 	b, _ = hex.DecodeString(testdata.KEYTAB_SYSHTTP_TEST_GOKRB5)
 	kt := keytab.New()
@@ -37,20 +31,14 @@ func TestPACTypeVerify(t *testing.T) {
 	pn, _ := types.ParseSPNString("sysHTTP")
 
 	key, _, err := kt.GetEncryptionKey(pn, "TEST.GOKRB5", 2, 18)
-	if err != nil {
-		t.Fatalf("Error getting key: %v", err)
-	}
+	require.NoError(t, err)
 
 	w := bytes.NewBufferString("")
 	l := log.New(w, "", 0)
 
-	err = pac.ProcessPACInfoBuffers(key, l)
-	if err != nil {
-		t.Fatalf("Processing reference pac error: %v", err)
-	}
+	require.NoError(t, pac.ProcessPACInfoBuffers(key, l))
 
 	pacInvalidServerSig := pac
-	// Check the signature to force failure.
 	pacInvalidServerSig.ServerChecksum.Signature[0] ^= 0xFF
 	pacInvalidNilKerbValidationInfo := pac
 	pacInvalidNilKerbValidationInfo.KerbValidationInfo = nil
@@ -70,8 +58,10 @@ func TestPACTypeVerify(t *testing.T) {
 		{pacInvalidNilKdcSig},
 		{pacInvalidClientInfo},
 	}
-	for i, s := range pacs {
-		v, _ := s.pac.verify(key)
-		assert.False(t, v, fmt.Sprintf("Validation should have failed for test %v", i))
+
+	for _, s := range pacs {
+		v, err := s.pac.verify(key)
+		assert.False(t, v)
+		assert.Error(t, err)
 	}
 }
