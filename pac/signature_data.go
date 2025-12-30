@@ -33,7 +33,7 @@ func (k *SignatureData) Unmarshal(b []byte) (rb []byte, err error) {
 
 	k.SignatureType, err = r.Uint32()
 	if err != nil {
-		return
+		return rb, err
 	}
 
 	var c int
@@ -53,7 +53,7 @@ func (k *SignatureData) Unmarshal(b []byte) (rb []byte, err error) {
 
 	k.Signature, err = r.ReadBytes(c)
 	if err != nil {
-		return
+		return rb, err
 	}
 
 	// When the KDC is not an Read Only Domain Controller (RODC), this field does not exist.

@@ -28,27 +28,27 @@ func (k *UPNDNSInfo) Unmarshal(b []byte) (err error) {
 
 	k.UPNLength, err = r.Uint16()
 	if err != nil {
-		return
+		return err
 	}
 
 	k.UPNOffset, err = r.Uint16()
 	if err != nil {
-		return
+		return err
 	}
 
 	k.DNSDomainNameLength, err = r.Uint16()
 	if err != nil {
-		return
+		return err
 	}
 
 	k.DNSDomainNameOffset, err = r.Uint16()
 	if err != nil {
-		return
+		return err
 	}
 
 	k.Flags, err = r.Uint32()
 	if err != nil {
-		return
+		return err
 	}
 
 	ub := mstypes.NewReader(bytes.NewReader(b[k.UPNOffset : k.UPNOffset+k.UPNLength]))

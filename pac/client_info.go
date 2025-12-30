@@ -25,12 +25,12 @@ func (k *ClientInfo) Unmarshal(b []byte) (err error) {
 
 	k.ClientID, err = r.FileTime()
 	if err != nil {
-		return
+		return err
 	}
 
 	k.NameLength, err = r.Uint16()
 	if err != nil {
-		return
+		return err
 	}
 
 	k.Name, err = r.UTF16String(int(k.NameLength))

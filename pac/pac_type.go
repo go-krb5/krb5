@@ -62,12 +62,12 @@ func (pac *PACType) Unmarshal(b []byte) (err error) {
 
 	pac.CBuffers, err = r.Uint32()
 	if err != nil {
-		return
+		return err
 	}
 
 	pac.Version, err = r.Uint32()
 	if err != nil {
-		return
+		return err
 	}
 
 	buf := make([]InfoBuffer, pac.CBuffers)

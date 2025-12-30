@@ -31,7 +31,7 @@ func (c *NTLMSupplementalCred) Unmarshal(b []byte) (err error) {
 
 	c.Version, err = r.Uint32()
 	if err != nil {
-		return
+		return err
 	}
 
 	if c.Version != 0 {
@@ -41,7 +41,7 @@ func (c *NTLMSupplementalCred) Unmarshal(b []byte) (err error) {
 
 	c.Flags, err = r.Uint32()
 	if err != nil {
-		return
+		return err
 	}
 
 	if isFlagSet(c.Flags, NTLMSupCredLMOWF) {

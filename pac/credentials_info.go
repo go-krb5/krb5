@@ -35,7 +35,7 @@ func (c *CredentialsInfo) Unmarshal(b []byte, k types.EncryptionKey) (err error)
 
 	c.Version, err = r.Uint32()
 	if err != nil {
-		return
+		return err
 	}
 
 	if c.Version != 0 {
@@ -45,7 +45,7 @@ func (c *CredentialsInfo) Unmarshal(b []byte, k types.EncryptionKey) (err error)
 
 	c.EType, err = r.Uint32()
 	if err != nil {
-		return
+		return err
 	}
 
 	c.PACCredentialDataEncrypted, err = r.ReadBytes(len(b) - 8)

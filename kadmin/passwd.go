@@ -47,7 +47,7 @@ func ChangePasswdMsg(cname types.PrincipalName, realm, password string, tkt mess
 	// Generate AP_REQ.
 	APreq, err := messages.NewAPReq(tkt, sessionKey, auth)
 	if err != nil {
-		return
+		return r, k, err
 	}
 
 	// Form the KRBPriv encpart data.

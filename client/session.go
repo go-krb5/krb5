@@ -304,13 +304,12 @@ func (cl *Client) ensureValidSession(realm string) error {
 func (cl *Client) sessionTGT(realm string) (tgt messages.Ticket, sessionKey types.EncryptionKey, err error) {
 	err = cl.ensureValidSession(realm)
 	if err != nil {
-		return
+		return tgt, sessionKey, err
 	}
 
 	s, ok := cl.sessions.get(realm)
 	if !ok {
-		err = fmt.Errorf("could not find TGT session for %s", realm)
-		return
+		return tgt, sessionKey, fmt.Errorf("could not find TGT session for %s", realm)
 	}
 
 	_, tgt, sessionKey = s.tgtDetails()

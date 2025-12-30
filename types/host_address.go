@@ -67,7 +67,7 @@ func (h *HostAddress) GetAddress() (string, error) {
 func LocalHostAddresses() (ha HostAddresses, err error) {
 	ifs, err := net.Interfaces()
 	if err != nil {
-		return
+		return ha, err
 	}
 
 	for _, iface := range ifs {

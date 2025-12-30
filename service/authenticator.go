@@ -104,7 +104,7 @@ func (a KRB5BasicAuthenticator) Mechanism() string {
 func parseBasicHeaderValue(s string) (domain, username, password string, err error) {
 	b, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		return
+		return domain, username, password, err
 	}
 
 	v := string(b)
