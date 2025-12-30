@@ -95,6 +95,9 @@ func (m *Reply) Unmarshal(b []byte) error {
 		}
 	} else {
 		m.IsKRBError = true
+
+		// TODO: Figure out the reason for ignoring the error and document it. It's probably because the error is
+		// already indicated by the struct values.
 		_ = m.KRBError.Unmarshal(b[6:m.MessageLength])
 		m.ResultCode, m.Result = parseResponse(m.KRBError.EData)
 	}

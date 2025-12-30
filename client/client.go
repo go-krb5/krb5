@@ -343,11 +343,11 @@ func (cl *Client) Diagnostics(w io.Writer) error {
 		fmt.Fprintf(w, "TCP KDCs: %s\n", string(b))
 	}
 
-	if len(errs) < 1 {
-		return nil
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "\n"))
 	}
 
-	return errors.New(strings.Join(errs, "\n"))
+	return nil
 }
 
 // Print writes the details of the client to the io.Writer provided.

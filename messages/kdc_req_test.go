@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/addrtype"
@@ -424,15 +425,10 @@ func TestMarshalKDCReqBody(t *testing.T) {
 		t.Fatalf("Test vector read error: %v", err)
 	}
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Marshal and re-unmarshal the result nd then compare.
+	require.NoError(t, a.Unmarshal(b))
+
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb, "Marshal bytes of KDCReqBody not as expected")
 }

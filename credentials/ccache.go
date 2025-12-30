@@ -370,6 +370,7 @@ func readBytes(b []byte, p *int, s int, e *binary.ByteOrder) []byte {
 	return r
 }
 
+// TODO: Investigate why this is used and determine if it's necessary and safe.
 func isNativeEndianLittle() bool {
 	var (
 		x  = 0x012345678
