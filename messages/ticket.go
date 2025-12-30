@@ -61,7 +61,7 @@ type TransitedEncoding struct {
 
 // NewTicket creates a new Ticket instance.
 func NewTicket(cname types.PrincipalName, crealm string, sname types.PrincipalName, srealm string, flags asn1.BitString, sktab *keytab.Keytab, eTypeID int32, kvno int, authTime, startTime, endTime, renewTill time.Time) (Ticket, types.EncryptionKey, error) {
-	etype, err := crypto.GetEtype(eTypeID)
+	etype, err := crypto.GetEType(eTypeID)
 	if err != nil {
 		return Ticket{}, types.EncryptionKey{}, krberror.Errorf(err, krberror.EncryptingError, "error getting etype for new ticket")
 	}

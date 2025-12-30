@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana/etypeID"
 )
 
@@ -800,10 +801,19 @@ func parseETypes(s []string, w bool) []int32 {
 			}
 		}
 
-		i := etypeID.EtypeSupported(et)
-		if i != 0 {
-			eti = append(eti, i)
+		i, ok := etypeID.ETypesByName[et]
+		if !ok {
+			continue
 		}
+
+		// The crypto registry, not this package, decides what is supported: an application that unregisters an
+		// encryption type must not have it advertised to the KDC, and one that registers an additional
+		// implementation must be able to name it here.
+		if _, err := crypto.GetEType(i); err != nil {
+			continue
+		}
+
+		eti = append(eti, i)
 	}
 
 	return eti

@@ -119,7 +119,7 @@ func NewSecurityLayerSession(key types.EncryptionKey, layer SecurityLayer, isIni
 		return nil, fmt.Errorf("invalid maximum buffer size: %d", maxBufferSize)
 	}
 
-	et, err := crypto.GetEtype(key.KeyType)
+	et, err := crypto.GetEType(key.KeyType)
 	if err != nil {
 		return nil, fmt.Errorf("could not get the encryption type of the session key: %w", err)
 	}

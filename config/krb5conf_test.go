@@ -7,6 +7,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-krb5/krb5/crypto"
+	"github.com/go-krb5/krb5/iana/etypeID"
 )
 
 const (
@@ -105,8 +108,7 @@ const (
     ],
     "DefaultTGSEnctypeIDs": [
       18,
-      17,
-      23
+      17
     ],
     "DefaultTktEnctypeIDs": [
       18,
@@ -139,8 +141,7 @@ const (
     ],
     "PermittedEnctypeIDs": [
       18,
-      17,
-      23
+      17
     ],
     "PreferredPreauthTypes": [
       17,
@@ -675,4 +676,52 @@ func TestJSON(t *testing.T) {
 	assert.Equal(t, krb5ConfJson, j)
 
 	t.Log(j)
+}
+
+// TestParseETypesShouldFollowCryptoRegistry asserts the crypto registry, not a list fixed at compile time, decides
+// which encryption types reach the KDC. An application that unregisters one must not have it advertised, and one that
+// registers an additional implementation must be able to name it in krb5.conf.
+func TestParseETypesShouldFollowCryptoRegistry(t *testing.T) {
+	// The registry is process wide so this test cannot run in parallel with anything that reads it.
+	t.Run("ShouldExcludeUnregistered", func(t *testing.T) {
+		crypto.DeleteEType(etypeID.AES128_CTS_HMAC_SHA1_96)
+
+		t.Cleanup(func() {
+			require.NoError(t, crypto.AddEType(etypeID.AES128_CTS_HMAC_SHA1_96, &crypto.Aes128CtsHmacSha96{}))
+		})
+
+		have := parseETypes([]string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, false)
+		assert.Equal(t, []int32{etypeID.AES256_CTS_HMAC_SHA1_96}, have)
+	})
+
+	t.Run("ShouldIncludeNewlyRegistered", func(t *testing.T) {
+		require.NoError(t, crypto.AddEType(etypeID.CAMELLIA256_CTS_CMAC, &crypto.Aes256CtsHmacSha96{}))
+
+		t.Cleanup(func() {
+			crypto.DeleteEType(etypeID.CAMELLIA256_CTS_CMAC)
+		})
+
+		have := parseETypes([]string{"camellia256-cts-cmac"}, false)
+		assert.Equal(t, []int32{etypeID.CAMELLIA256_CTS_CMAC}, have)
+	})
+
+	t.Run("ShouldExcludeDeprecatedByDefault", func(t *testing.T) {
+		have := parseETypes([]string{"aes256-cts-hmac-sha1-96", "des3-cbc-sha1-kd", "arcfour-hmac-md5"}, false)
+		assert.Equal(t, []int32{etypeID.AES256_CTS_HMAC_SHA1_96}, have)
+	})
+
+	t.Run("ShouldExcludeWeakUnlessAllowed", func(t *testing.T) {
+		require.NoError(t, crypto.AddEType(etypeID.DES_CBC_MD5, &crypto.Aes256CtsHmacSha96{}))
+
+		t.Cleanup(func() {
+			crypto.DeleteEType(etypeID.DES_CBC_MD5)
+		})
+
+		assert.Empty(t, parseETypes([]string{"des-cbc-md5"}, false))
+		assert.Equal(t, []int32{etypeID.DES_CBC_MD5}, parseETypes([]string{"des-cbc-md5"}, true))
+	})
+
+	t.Run("ShouldExcludeUnknownName", func(t *testing.T) {
+		assert.Empty(t, parseETypes([]string{"not-an-enctype"}, true))
+	})
 }

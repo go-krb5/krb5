@@ -12,11 +12,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
 )
+
+// TestMain registers the RFC 8429 deprecated encryption types, which crypto does not register by default. The keytab
+// tests reproduce ktutil output that includes an rc4-hmac entry.
+func TestMain(m *testing.M) {
+	crypto.RegisterDeprecatedRC4HMAC()
+
+	os.Exit(m.Run())
+}
 
 func TestUnmarshal(t *testing.T) {
 	t.Parallel()
