@@ -25,15 +25,15 @@ func TestUnmarshalAPReq(t *testing.T) {
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_AP_REQ, a.MsgType)
-	assert.Equal(t, "fedcba98", hex.EncodeToString(a.APOptions.Bytes), "AP Options not as expected")
+	assert.Equal(t, "fedcba98", hex.EncodeToString(a.APOptions.Bytes))
 	assert.Equal(t, iana.PVNO, a.Ticket.TktVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.Ticket.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.Ticket.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString), "Ticket SName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.Ticket.SName.NameString)
 	assert.Equal(t, testdata.TEST_ETYPE, a.Ticket.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.Ticket.EncPart.KVNO)
-	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.Ticket.EncPart.Cipher, "Ticket encPart cipher not as expected")
+	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.Ticket.EncPart.Cipher)
 }
 
 func TestMarshalAPReq(t *testing.T) {

@@ -2,11 +2,11 @@ package messages
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/iana"
@@ -32,39 +32,34 @@ func TestUnmarshalASRep(t *testing.T) {
 	var a ASRep
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_rep)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_AS_REP, a.MsgType)
-	assert.Equal(t, 2, len(a.PAData), "Number of PAData items in the sequence not as expected")
+	assert.Equal(t, 2, len(a.PAData))
 
-	for i, pa := range a.PAData {
-		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType, fmt.Sprintf("PAData type for entry %d not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue, fmt.Sprintf("PAData valye for entry %d not as expected", i+1))
+	for _, pa := range a.PAData {
+		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType)
+		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue)
 	}
 
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, iana.PVNO, a.Ticket.TktVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.Ticket.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.Ticket.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString), "SName in ticket does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.Ticket.SName.NameString)
 	assert.Equal(t, testdata.TEST_ETYPE, a.Ticket.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.Ticket.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher))
 	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher))
 }
 
 func TestUnmarshalASRep_optionalsNULL(t *testing.T) {
@@ -73,33 +68,28 @@ func TestUnmarshalASRep_optionalsNULL(t *testing.T) {
 	var a ASRep
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_repOptionalsNULL)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_AS_REP, a.MsgType)
-	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
+	assert.Equal(t, 0, len(a.PAData))
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, iana.PVNO, a.Ticket.TktVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.Ticket.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.Ticket.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString), "SName in ticket does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.Ticket.SName.NameString)
 	assert.Equal(t, testdata.TEST_ETYPE, a.Ticket.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.Ticket.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher))
 	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher))
 }
 
 func TestMarshalASRep(t *testing.T) {
@@ -108,19 +98,12 @@ func TestMarshalASRep(t *testing.T) {
 	var a ASRep
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_rep)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal errored: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 }
@@ -131,39 +114,34 @@ func TestUnmarshalTGSRep(t *testing.T) {
 	var a TGSRep
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_rep)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_TGS_REP, a.MsgType)
-	assert.Equal(t, 2, len(a.PAData), "Number of PAData items in the sequence not as expected")
+	assert.Equal(t, 2, len(a.PAData))
 
-	for i, pa := range a.PAData {
-		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType, fmt.Sprintf("PAData type for entry %d not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue, fmt.Sprintf("PAData valye for entry %d not as expected", i+1))
+	for _, pa := range a.PAData {
+		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType)
+		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue)
 	}
 
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, iana.PVNO, a.Ticket.TktVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.Ticket.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.Ticket.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString), "SName in ticket does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.Ticket.SName.NameString)
 	assert.Equal(t, testdata.TEST_ETYPE, a.Ticket.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.Ticket.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher))
 	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher))
 }
 
 func TestUnmarshalTGSRep_optionalsNULL(t *testing.T) {
@@ -172,33 +150,28 @@ func TestUnmarshalTGSRep_optionalsNULL(t *testing.T) {
 	var a TGSRep
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_repOptionalsNULL)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_TGS_REP, a.MsgType)
-	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
+	assert.Equal(t, 0, len(a.PAData))
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, iana.PVNO, a.Ticket.TktVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.Ticket.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.Ticket.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString), "SName in ticket does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.Ticket.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.Ticket.SName.NameString)
 	assert.Equal(t, testdata.TEST_ETYPE, a.Ticket.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.Ticket.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.Ticket.EncPart.Cipher))
 	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
-	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher), "Ticket encrypted part cipher not as expected")
+	assert.Equal(t, testdata.TEST_CIPHERTEXT, string(a.EncPart.Cipher))
 }
 
 func TestMarshalTGSRep(t *testing.T) {
@@ -207,19 +180,12 @@ func TestMarshalTGSRep(t *testing.T) {
 	var a TGSRep
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_rep)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal errored: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 }
@@ -230,29 +196,25 @@ func TestUnmarshalEncKDCRepPart(t *testing.T) {
 	var a EncKDCRepPart
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_kdc_rep_part)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, int32(1), a.Key.KeyType, "Key type not as expected")
-	assert.Equal(t, []byte("12345678"), a.Key.KeyValue, "Key value not as expected")
-	assert.Equal(t, 2, len(a.LastReqs), "Number of last request entries not as expected")
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
-	for i, r := range a.LastReqs {
-		assert.Equal(t, int32(-5), r.LRType, fmt.Sprintf("Last request typ not as expected for last request entry %d", i+1))
-		assert.Equal(t, tt, r.LRValue, fmt.Sprintf("Last request time value not as expected for last request entry %d", i+1))
+	assert.Equal(t, int32(1), a.Key.KeyType)
+	assert.Equal(t, []byte("12345678"), a.Key.KeyValue)
+	assert.Equal(t, 2, len(a.LastReqs))
+
+	for _, r := range a.LastReqs {
+		assert.Equal(t, int32(-5), r.LRType)
+		assert.Equal(t, tt, r.LRValue)
 	}
 
 	assert.Equal(t, testdata.TEST_NONCE, a.Nonce)
 	assert.Equal(t, tt, a.KeyExpiration)
-	assert.Equal(t, "fedcba98", hex.EncodeToString(a.Flags.Bytes), "Flags not as expected")
+	assert.Equal(t, "fedcba98", hex.EncodeToString(a.Flags.Bytes))
 	assert.Equal(t, tt, a.AuthTime)
 	assert.Equal(t, tt, a.StartTime)
 	assert.Equal(t, tt, a.EndTime)
@@ -260,11 +222,11 @@ func TestUnmarshalEncKDCRepPart(t *testing.T) {
 	assert.Equal(t, testdata.TEST_REALM, a.SRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.SName.NameType)
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.SName.NameString)
-	assert.Equal(t, 2, len(a.CAddr), "Number of client addresses not as expected")
+	assert.Equal(t, 2, len(a.CAddr))
 
-	for i, addr := range a.CAddr {
-		assert.Equal(t, int32(2), addr.AddrType, fmt.Sprintf("Host address type not as expected for address item %d", i+1))
-		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address), fmt.Sprintf("Host address not as expected for address item %d", i+1))
+	for _, addr := range a.CAddr {
+		assert.Equal(t, int32(2), addr.AddrType)
+		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address))
 	}
 }
 
@@ -274,29 +236,24 @@ func TestUnmarshalEncKDCRepPart_optionalsNULL(t *testing.T) {
 	var a EncKDCRepPart
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_kdc_rep_partOptionalsNULL)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, int32(1), a.Key.KeyType, "Key type not as expected")
-	assert.Equal(t, []byte("12345678"), a.Key.KeyValue, "Key value not as expected")
-	assert.Equal(t, 2, len(a.LastReqs), "Number of last request entries not as expected")
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
-	for i, r := range a.LastReqs {
-		assert.Equal(t, int32(-5), r.LRType, fmt.Sprintf("Last request typ not as expected for last request entry %d", i+1))
-		assert.Equal(t, tt, r.LRValue, fmt.Sprintf("Last request time value not as expected for last request entry %d", i+1))
+	assert.Equal(t, int32(1), a.Key.KeyType)
+	assert.Equal(t, []byte("12345678"), a.Key.KeyValue)
+	assert.Equal(t, 2, len(a.LastReqs))
+
+	for _, r := range a.LastReqs {
+		assert.Equal(t, int32(-5), r.LRType)
+		assert.Equal(t, tt, r.LRValue)
 	}
 
 	assert.Equal(t, testdata.TEST_NONCE, a.Nonce)
-	assert.Equal(t, "fe5cba98", hex.EncodeToString(a.Flags.Bytes), "Flags not as expected")
-	assert.Equal(t, tt, a.AuthTime)
+	assert.Equal(t, "fe5cba98", hex.EncodeToString(a.Flags.Bytes))
 	assert.Equal(t, tt, a.EndTime)
 	assert.Equal(t, testdata.TEST_REALM, a.SRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.SName.NameType)
@@ -308,45 +265,40 @@ func TestUnmarshalASRepDecodeAndDecrypt(t *testing.T) {
 
 	var asRep ASRep
 
-	b, _ := hex.DecodeString(testuser1EType18ASREP)
+	b, err := hex.DecodeString(testuser1EType18ASREP)
+	require.NoError(t, err)
 
-	err := asRep.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("AS REP Unmarshal error: %v\n", err)
-	}
+	require.NoError(t, asRep.Unmarshal(b))
 
 	assert.Equal(t, 5, asRep.PVNO)
 	assert.Equal(t, 11, asRep.MsgType)
 	assert.Equal(t, testRealm, asRep.CRealm)
-	assert.Equal(t, int32(1), asRep.CName.NameType, "CName NameType not as expected")
+	assert.Equal(t, int32(1), asRep.CName.NameType)
 	assert.Equal(t, testUser, asRep.CName.NameString[0])
-	assert.Equal(t, int32(19), asRep.PAData[0].PADataType, "PADataType not as expected")
+	assert.Equal(t, int32(19), asRep.PAData[0].PADataType)
 	assert.Equal(t, 5, asRep.Ticket.TktVNO)
 	assert.Equal(t, testRealm, asRep.Ticket.Realm)
-	assert.Equal(t, int32(2), asRep.Ticket.SName.NameType, "Ticket service nametype not as expected")
+	assert.Equal(t, int32(2), asRep.Ticket.SName.NameType)
 	assert.Equal(t, "krbtgt", asRep.Ticket.SName.NameString[0])
 	assert.Equal(t, testRealm, asRep.Ticket.SName.NameString[1])
 	assert.Equal(t, etypeID.ETypesByName["aes256-cts-hmac-sha1-96"], asRep.Ticket.EncPart.EType)
 	assert.Equal(t, 1, asRep.Ticket.EncPart.KVNO)
 	assert.Equal(t, etypeID.ETypesByName["aes256-cts-hmac-sha1-96"], asRep.EncPart.EType)
 	assert.Equal(t, 0, asRep.EncPart.KVNO)
-	// t.Log("Finished testing unecrypted parts of AS REP").
-	ktb, _ := hex.DecodeString(testuser1EType18Keytab)
+
+	ktb, err := hex.DecodeString(testuser1EType18Keytab)
+	require.NoError(t, err)
+
 	kt := keytab.New()
 
-	err = kt.Unmarshal(ktb)
-	if err != nil {
-		t.Fatalf("keytab parse error: %v\n", err)
-	}
+	require.NoError(t, kt.Unmarshal(ktb))
 
 	cred := credentials.New(testUser, testRealm)
 
 	_, err = asRep.DecryptEncPart(cred.WithKeytab(kt))
-	if err != nil {
-		t.Fatalf("Decryption of AS_REP EncPart failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	assert.Equal(t, int32(18), asRep.DecryptedEncPart.Key.KeyType, "KeyType in decrypted EncPart not as expected")
+	assert.Equal(t, int32(18), asRep.DecryptedEncPart.Key.KeyType)
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.LastReqs[0].LRValue)
 	assert.Equal(t, 2069991465, asRep.DecryptedEncPart.Nonce)
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.KeyExpiration)
@@ -355,7 +307,7 @@ func TestUnmarshalASRepDecodeAndDecrypt(t *testing.T) {
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.EndTime)
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.RenewTill)
 	assert.Equal(t, testRealm, asRep.DecryptedEncPart.SRealm)
-	assert.Equal(t, int32(2), asRep.DecryptedEncPart.SName.NameType, "Name type for AS_REP not as expected")
+	assert.Equal(t, int32(2), asRep.DecryptedEncPart.SName.NameType)
 	assert.Equal(t, []string{"krbtgt", testRealm}, asRep.DecryptedEncPart.SName.NameString)
 }
 
@@ -364,22 +316,20 @@ func TestUnmarshalASRepDecodeAndDecrypt_withPassword(t *testing.T) {
 
 	var asRep ASRep
 
-	b, _ := hex.DecodeString(testuser1EType18ASREP)
+	b, err := hex.DecodeString(testuser1EType18ASREP)
+	require.NoError(t, err)
 
-	err := asRep.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("AS REP Unmarshal error: %v\n", err)
-	}
+	require.NoError(t, asRep.Unmarshal(b))
 
 	assert.Equal(t, 5, asRep.PVNO)
 	assert.Equal(t, 11, asRep.MsgType)
 	assert.Equal(t, testRealm, asRep.CRealm)
-	assert.Equal(t, int32(1), asRep.CName.NameType, "CName NameType not as expected")
+	assert.Equal(t, int32(1), asRep.CName.NameType)
 	assert.Equal(t, testUser, asRep.CName.NameString[0])
-	assert.Equal(t, int32(19), asRep.PAData[0].PADataType, "PADataType not as expected")
+	assert.Equal(t, int32(19), asRep.PAData[0].PADataType)
 	assert.Equal(t, 5, asRep.Ticket.TktVNO)
 	assert.Equal(t, testRealm, asRep.Ticket.Realm)
-	assert.Equal(t, int32(2), asRep.Ticket.SName.NameType, "Ticket service nametype not as expected")
+	assert.Equal(t, int32(2), asRep.Ticket.SName.NameType)
 	assert.Equal(t, "krbtgt", asRep.Ticket.SName.NameString[0])
 	assert.Equal(t, testRealm, asRep.Ticket.SName.NameString[1])
 	assert.Equal(t, etypeID.AES256_CTS_HMAC_SHA1_96, asRep.Ticket.EncPart.EType)
@@ -390,11 +340,9 @@ func TestUnmarshalASRepDecodeAndDecrypt_withPassword(t *testing.T) {
 	cred := credentials.New(testUser, testRealm)
 
 	_, err = asRep.DecryptEncPart(cred.WithPassword(testUserPassword))
-	if err != nil {
-		t.Fatalf("Decryption of AS_REP EncPart failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	assert.Equal(t, int32(18), asRep.DecryptedEncPart.Key.KeyType, "KeyType in decrypted EncPart not as expected")
+	assert.Equal(t, int32(18), asRep.DecryptedEncPart.Key.KeyType)
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.LastReqs[0].LRValue)
 	assert.Equal(t, 2069991465, asRep.DecryptedEncPart.Nonce)
 	assert.IsType(t, time.Time{}, asRep.DecryptedEncPart.KeyExpiration)

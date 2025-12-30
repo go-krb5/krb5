@@ -59,14 +59,10 @@ func TestUnmarshal_negTokenResp(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testNegTokenResp)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	isInit, nt, err := UnmarshalNegToken(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling negotiation token: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.IsType(t, NegTokenResp{}, nt)
 	assert.False(t, isInit)
@@ -80,21 +76,15 @@ func TestMarshal_negTokenResp(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testNegTokenResp)
-	if err != nil {
-		t.Fatalf("Error converting hex string test data to bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	_, nt, err := UnmarshalNegToken(b)
-	if err != nil {
-		t.Fatalf("Error unmarshalling negotiation token: %v", err)
-	}
+	require.NoError(t, err)
 
 	nResp := nt.(NegTokenResp)
 
 	mb, err := nResp.Marshal()
-	if err != nil {
-		t.Fatalf("Error marshalling negotiation init token: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 }
@@ -103,18 +93,11 @@ func TestUnmarshal_negTokenInitWithReqFlags(t *testing.T) {
 	mhex := "a01e301ca00d300b06092a864886f712010202a10403020176a2050403010203"
 
 	mb, err := hex.DecodeString(mhex)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	var m NegTokenInit
 
-	err = m.Unmarshal(mb)
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, m.Unmarshal(mb))
 
-	if len(m.MechTokenBytes) != 3 {
-		t.Errorf("unmarshal did not return the correct number of mechToken bytes")
-	}
+	assert.Equal(t, 3, len(m.MechTokenBytes))
 }

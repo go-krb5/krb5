@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/test/testdata"
 )
@@ -14,16 +15,11 @@ func TestPAC_ClientInfo_Unmarshal(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testdata.MarshaledPAC_Client_Info)
-	if err != nil {
-		t.Fatal("Could not decode test data hex string")
-	}
+	require.NoError(t, err)
 
 	var k ClientInfo
 
-	err = k.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshaling test data: %v", err)
-	}
+	require.NoError(t, k.Unmarshal(b))
 
 	assert.Equal(t, time.Date(2017, 5, 6, 15, 53, 11, 000000000, time.UTC), k.ClientID.Time())
 	assert.Equal(t, uint16(18), k.NameLength)

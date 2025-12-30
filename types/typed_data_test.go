@@ -2,10 +2,10 @@ package types
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana/patype"
 	"github.com/go-krb5/krb5/test/testdata"
@@ -17,19 +17,14 @@ func TestUnmarshalTypedData(t *testing.T) {
 	var a TypedDataSequence
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5typed_data)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, 2, len(a), "Number of typed data elements not as expected")
+	assert.Equal(t, 2, len(a))
 
-	for i, d := range a {
-		assert.Equal(t, patype.PA_SAM_RESPONSE, d.DataType, fmt.Sprintf("Data type of element %d not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), d.DataValue, fmt.Sprintf("Data value of element %d not as expected", i+1))
+	for _, d := range a {
+		assert.Equal(t, patype.PA_SAM_RESPONSE, d.DataType)
+		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), d.DataValue)
 	}
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-krb5/x/rpc/mstypes"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/test/testdata"
 )
@@ -15,35 +16,30 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	t.Parallel()
 
 	b, err := hex.DecodeString(testdata.MarshaledPAC_Kerb_Validation_Info_MS)
-	if err != nil {
-		t.Fatal("Could not decode test data hex string")
-	}
+	require.NoError(t, err)
 
 	var k KerbValidationInfo
 
-	err = k.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshaling KerbValidationInfo: %v", err)
-	}
+	require.NoError(t, k.Unmarshal(b))
 
-	assert.Equal(t, time.Date(2006, 4, 28, 1, 42, 50, 925640100, time.UTC), k.LogOnTime.Time(), "LogOnTime not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time(), "LogOffTime not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time(), "KickOffTime not as expected")
-	assert.Equal(t, time.Date(2006, 3, 18, 10, 44, 54, 837147900, time.UTC), k.PasswordLastSet.Time(), "PasswordLastSet not as expected")
-	assert.Equal(t, time.Date(2006, 3, 19, 10, 44, 54, 837147900, time.UTC), k.PasswordCanChange.Time(), "PasswordCanChange not as expected")
+	assert.Equal(t, time.Date(2006, 4, 28, 1, 42, 50, 925640100, time.UTC), k.LogOnTime.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time())
+	assert.Equal(t, time.Date(2006, 3, 18, 10, 44, 54, 837147900, time.UTC), k.PasswordLastSet.Time())
+	assert.Equal(t, time.Date(2006, 3, 19, 10, 44, 54, 837147900, time.UTC), k.PasswordCanChange.Time())
 
 	assert.Equal(t, "lzhu", k.EffectiveName.Value)
-	assert.Equal(t, "Liqiang(Larry) Zhu", k.FullName.String(), "EffectiveName not as expected")
-	assert.Equal(t, "ntds2.bat", k.LogonScript.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k.ProfilePath.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k.HomeDirectory.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k.HomeDirectoryDrive.String(), "EffectiveName not as expected")
+	assert.Equal(t, "Liqiang(Larry) Zhu", k.FullName.String())
+	assert.Equal(t, "ntds2.bat", k.LogonScript.String())
+	assert.Equal(t, "", k.ProfilePath.String())
+	assert.Equal(t, "", k.HomeDirectory.String())
+	assert.Equal(t, "", k.HomeDirectoryDrive.String())
 
-	assert.Equal(t, uint16(4180), k.LogonCount, "LogonCount not as expected")
-	assert.Equal(t, uint16(0), k.BadPasswordCount, "BadPasswordCount not as expected")
-	assert.Equal(t, uint32(2914711), k.UserID, "UserID not as expected")
-	assert.Equal(t, uint32(513), k.PrimaryGroupID, "PrimaryGroupID not as expected")
-	assert.Equal(t, uint32(26), k.GroupCount, "GroupCount not as expected")
+	assert.Equal(t, uint16(4180), k.LogonCount)
+	assert.Equal(t, uint16(0), k.BadPasswordCount)
+	assert.Equal(t, uint32(2914711), k.UserID)
+	assert.Equal(t, uint32(513), k.PrimaryGroupID)
+	assert.Equal(t, uint32(26), k.GroupCount)
 
 	gids := []mstypes.GroupMembership{
 		{RelativeID: 3392609, Attributes: 7},
@@ -75,23 +71,23 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	}
 	assert.Equal(t, gids, k.GroupIDs)
 
-	assert.Equal(t, uint32(32), k.UserFlags, "UserFlags not as expected")
+	assert.Equal(t, uint32(32), k.UserFlags)
 
 	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k.UserSessionKey)
 
 	assert.Equal(t, "NTDEV-DC-05", k.LogonServer.Value)
 	assert.Equal(t, "NTDEV", k.LogonDomainName.Value)
 
-	assert.Equal(t, "S-1-5-21-397955417-626881126-188441444", k.LogonDomainID.String(), "LogonDomainID not as expected")
+	assert.Equal(t, "S-1-5-21-397955417-626881126-188441444", k.LogonDomainID.String())
 
-	assert.Equal(t, uint32(16), k.UserAccountControl, "UserAccountControl not as expected")
-	assert.Equal(t, uint32(0), k.SubAuthStatus, "SubAuthStatus not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastSuccessfulILogon.Time(), "LastSuccessfulILogon not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastFailedILogon.Time(), "LastSuccessfulILogon not as expected")
-	assert.Equal(t, uint32(0), k.FailedILogonCount, "FailedILogonCount not as expected")
+	assert.Equal(t, uint32(16), k.UserAccountControl)
+	assert.Equal(t, uint32(0), k.SubAuthStatus)
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastSuccessfulILogon.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastFailedILogon.Time())
+	assert.Equal(t, uint32(0), k.FailedILogonCount)
 
-	assert.Equal(t, uint32(13), k.SIDCount, "SIDCount not as expected")
-	assert.Equal(t, int(k.SIDCount), len(k.ExtraSIDs), "SIDCount and size of ExtraSIDs list are not the same")
+	assert.Equal(t, uint32(13), k.SIDCount)
+	assert.Equal(t, int(k.SIDCount), len(k.ExtraSIDs))
 
 	var es = []struct {
 		sid  string
@@ -111,43 +107,38 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 		{"S-1-5-21-397955417-626881126-188441444-3248111", uint32(536870919)},
 	}
 	for i, s := range es {
-		assert.Equal(t, s.sid, k.ExtraSIDs[i].SID.String(), "ExtraSID SID value not as epxected")
+		assert.Equal(t, s.sid, k.ExtraSIDs[i].SID.String())
 		assert.Equal(t, s.attr, k.ExtraSIDs[i].Attributes)
 	}
 
-	assert.Equal(t, uint8(0), k.ResourceGroupDomainSID.SubAuthorityCount, "ResourceGroupDomainSID not as expected")
-	assert.Equal(t, 0, len(k.ResourceGroupIDs), "ResourceGroupIDs not as expected")
+	assert.Equal(t, uint8(0), k.ResourceGroupDomainSID.SubAuthorityCount)
+	assert.Equal(t, 0, len(k.ResourceGroupIDs))
 
 	b, err = hex.DecodeString(testdata.MarshaledPAC_Kerb_Validation_Info)
-	if err != nil {
-		t.Fatal("Could not decode test data hex string")
-	}
+	require.NoError(t, err)
 
 	var k2 KerbValidationInfo
 
-	err = k2.Unmarshal(b)
-	if err != nil {
-		t.Fatal("Could not unmarshal KerbValidationInfo")
-	}
+	require.NoError(t, k2.Unmarshal(b))
 
-	assert.Equal(t, time.Date(2017, 5, 6, 15, 53, 11, 825766900, time.UTC), k2.LogOnTime.Time(), "LogOnTime not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k2.LogOffTime.Time(), "LogOffTime not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k2.KickOffTime.Time(), "KickOffTime not as expected")
-	assert.Equal(t, time.Date(2017, 5, 6, 7, 23, 8, 968750000, time.UTC), k2.PasswordLastSet.Time(), "PasswordLastSet not as expected")
-	assert.Equal(t, time.Date(2017, 5, 7, 7, 23, 8, 968750000, time.UTC), k2.PasswordCanChange.Time(), "PasswordCanChange not as expected")
+	assert.Equal(t, time.Date(2017, 5, 6, 15, 53, 11, 825766900, time.UTC), k2.LogOnTime.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k2.LogOffTime.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k2.KickOffTime.Time())
+	assert.Equal(t, time.Date(2017, 5, 6, 7, 23, 8, 968750000, time.UTC), k2.PasswordLastSet.Time())
+	assert.Equal(t, time.Date(2017, 5, 7, 7, 23, 8, 968750000, time.UTC), k2.PasswordCanChange.Time())
 
-	assert.Equal(t, "testuser1", k2.EffectiveName.String(), "EffectiveName not as expected")
-	assert.Equal(t, "Test1 User1", k2.FullName.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k2.LogonScript.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k2.ProfilePath.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k2.HomeDirectory.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k2.HomeDirectoryDrive.String(), "EffectiveName not as expected")
+	assert.Equal(t, "testuser1", k2.EffectiveName.String())
+	assert.Equal(t, "Test1 User1", k2.FullName.String())
+	assert.Equal(t, "", k2.LogonScript.String())
+	assert.Equal(t, "", k2.ProfilePath.String())
+	assert.Equal(t, "", k2.HomeDirectory.String())
+	assert.Equal(t, "", k2.HomeDirectoryDrive.String())
 
-	assert.Equal(t, uint16(216), k2.LogonCount, "LogonCount not as expected")
-	assert.Equal(t, uint16(0), k2.BadPasswordCount, "BadPasswordCount not as expected")
-	assert.Equal(t, uint32(1105), k2.UserID, "UserID not as expected")
-	assert.Equal(t, uint32(513), k2.PrimaryGroupID, "PrimaryGroupID not as expected")
-	assert.Equal(t, uint32(5), k2.GroupCount, "GroupCount not as expected")
+	assert.Equal(t, uint16(216), k2.LogonCount)
+	assert.Equal(t, uint16(0), k2.BadPasswordCount)
+	assert.Equal(t, uint32(1105), k2.UserID)
+	assert.Equal(t, uint32(513), k2.PrimaryGroupID)
+	assert.Equal(t, uint32(5), k2.GroupCount)
 
 	gids = []mstypes.GroupMembership{
 		{RelativeID: 513, Attributes: 7},
@@ -158,23 +149,23 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	}
 	assert.Equal(t, gids, k2.GroupIDs)
 
-	assert.Equal(t, uint32(32), k2.UserFlags, "UserFlags not as expected")
+	assert.Equal(t, uint32(32), k2.UserFlags)
 
 	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k2.UserSessionKey)
 
 	assert.Equal(t, "ADDC", k2.LogonServer.Value)
 	assert.Equal(t, "TEST", k2.LogonDomainName.Value)
 
-	assert.Equal(t, "S-1-5-21-3167651404-3865080224-2280184895", k2.LogonDomainID.String(), "LogonDomainID not as expected")
+	assert.Equal(t, "S-1-5-21-3167651404-3865080224-2280184895", k2.LogonDomainID.String())
 
-	assert.Equal(t, uint32(528), k2.UserAccountControl, "UserAccountControl not as expected")
-	assert.Equal(t, uint32(0), k2.SubAuthStatus, "SubAuthStatus not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k2.LastSuccessfulILogon.Time(), "LastSuccessfulILogon not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k2.LastFailedILogon.Time(), "LastSuccessfulILogon not as expected")
-	assert.Equal(t, uint32(0), k2.FailedILogonCount, "FailedILogonCount not as expected")
+	assert.Equal(t, uint32(528), k2.UserAccountControl)
+	assert.Equal(t, uint32(0), k2.SubAuthStatus)
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k2.LastSuccessfulILogon.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k2.LastFailedILogon.Time())
+	assert.Equal(t, uint32(0), k2.FailedILogonCount)
 
-	assert.Equal(t, uint32(2), k2.SIDCount, "SIDCount not as expected")
-	assert.Equal(t, int(k2.SIDCount), len(k2.ExtraSIDs), "SIDCount and size of ExtraSIDs list are not the same")
+	assert.Equal(t, uint32(2), k2.SIDCount)
+	assert.Equal(t, int(k2.SIDCount), len(k2.ExtraSIDs))
 
 	var es2 = []struct {
 		sid  string
@@ -184,45 +175,40 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 		{"S-1-5-21-3167651404-3865080224-2280184895-1111", uint32(536870919)},
 	}
 	for i, s := range es2 {
-		assert.Equal(t, s.sid, k2.ExtraSIDs[i].SID.String(), "ExtraSID SID value not as epxected")
+		assert.Equal(t, s.sid, k2.ExtraSIDs[i].SID.String())
 		assert.Equal(t, s.attr, k2.ExtraSIDs[i].Attributes)
 	}
 
-	assert.Equal(t, uint8(0), k2.ResourceGroupDomainSID.SubAuthorityCount, "ResourceGroupDomainSID not as expected")
-	assert.Equal(t, 0, len(k2.ResourceGroupIDs), "ResourceGroupIDs not as expected")
+	assert.Equal(t, uint8(0), k2.ResourceGroupDomainSID.SubAuthorityCount)
+	assert.Equal(t, 0, len(k2.ResourceGroupIDs))
 }
 
 func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 	b, err := hex.DecodeString(testdata.MarshaledPAC_Kerb_Validation_Info_Trust)
-	if err != nil {
-		t.Fatal("Could not decode test data hex string")
-	}
+	require.NoError(t, err)
 
 	var k KerbValidationInfo
 
-	err = k.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Error unmarshaling KerbValidationInfo: %v", err)
-	}
+	require.NoError(t, k.Unmarshal(b))
 
-	assert.Equal(t, time.Date(2017, 10, 14, 12, 03, 41, 52409900, time.UTC), k.LogOnTime.Time(), "LogOnTime not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time(), "LogOffTime not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time(), "KickOffTime not as expected")
-	assert.Equal(t, time.Date(2017, 10, 10, 20, 42, 56, 220282300, time.UTC), k.PasswordLastSet.Time(), "PasswordLastSet not as expected")
-	assert.Equal(t, time.Date(2017, 10, 11, 20, 42, 56, 220282300, time.UTC), k.PasswordCanChange.Time(), "PasswordCanChange not as expected")
+	assert.Equal(t, time.Date(2017, 10, 14, 12, 03, 41, 52409900, time.UTC), k.LogOnTime.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time())
+	assert.Equal(t, time.Date(2017, 10, 10, 20, 42, 56, 220282300, time.UTC), k.PasswordLastSet.Time())
+	assert.Equal(t, time.Date(2017, 10, 11, 20, 42, 56, 220282300, time.UTC), k.PasswordCanChange.Time())
 
-	assert.Equal(t, "testuser1", k.EffectiveName.String(), "EffectiveName not as expected")
-	assert.Equal(t, "Test1 User1", k.FullName.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k.LogonScript.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k.ProfilePath.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k.HomeDirectory.String(), "EffectiveName not as expected")
-	assert.Equal(t, "", k.HomeDirectoryDrive.String(), "EffectiveName not as expected")
+	assert.Equal(t, "testuser1", k.EffectiveName.String())
+	assert.Equal(t, "Test1 User1", k.FullName.String())
+	assert.Equal(t, "", k.LogonScript.String())
+	assert.Equal(t, "", k.ProfilePath.String())
+	assert.Equal(t, "", k.HomeDirectory.String())
+	assert.Equal(t, "", k.HomeDirectoryDrive.String())
 
-	assert.Equal(t, uint16(46), k.LogonCount, "LogonCount not as expected")
-	assert.Equal(t, uint16(0), k.BadPasswordCount, "BadPasswordCount not as expected")
-	assert.Equal(t, uint32(1106), k.UserID, "UserID not as expected")
-	assert.Equal(t, uint32(513), k.PrimaryGroupID, "PrimaryGroupID not as expected")
-	assert.Equal(t, uint32(3), k.GroupCount, "GroupCount not as expected")
+	assert.Equal(t, uint16(46), k.LogonCount)
+	assert.Equal(t, uint16(0), k.BadPasswordCount)
+	assert.Equal(t, uint32(1106), k.UserID)
+	assert.Equal(t, uint32(513), k.PrimaryGroupID)
+	assert.Equal(t, uint32(3), k.GroupCount)
 
 	gids := []mstypes.GroupMembership{
 		{RelativeID: 1110, Attributes: 7},
@@ -231,23 +217,23 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 	}
 	assert.Equal(t, gids, k.GroupIDs)
 
-	assert.Equal(t, uint32(544), k.UserFlags, "UserFlags not as expected")
+	assert.Equal(t, uint32(544), k.UserFlags)
 
 	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k.UserSessionKey)
 
 	assert.Equal(t, "UDC", k.LogonServer.Value)
 	assert.Equal(t, "USER", k.LogonDomainName.Value)
 
-	assert.Equal(t, "S-1-5-21-2284869408-3503417140-1141177250", k.LogonDomainID.String(), "LogonDomainID not as expected")
+	assert.Equal(t, "S-1-5-21-2284869408-3503417140-1141177250", k.LogonDomainID.String())
 
-	assert.Equal(t, uint32(528), k.UserAccountControl, "UserAccountControl not as expected")
-	assert.Equal(t, uint32(0), k.SubAuthStatus, "SubAuthStatus not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastSuccessfulILogon.Time(), "LastSuccessfulILogon not as expected")
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastFailedILogon.Time(), "LastSuccessfulILogon not as expected")
-	assert.Equal(t, uint32(0), k.FailedILogonCount, "FailedILogonCount not as expected")
+	assert.Equal(t, uint32(528), k.UserAccountControl)
+	assert.Equal(t, uint32(0), k.SubAuthStatus)
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastSuccessfulILogon.Time())
+	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastFailedILogon.Time())
+	assert.Equal(t, uint32(0), k.FailedILogonCount)
 
-	assert.Equal(t, uint32(1), k.SIDCount, "SIDCount not as expected")
-	assert.Equal(t, int(k.SIDCount), len(k.ExtraSIDs), "SIDCount and size of ExtraSIDs list are not the same")
+	assert.Equal(t, uint32(1), k.SIDCount)
+	assert.Equal(t, int(k.SIDCount), len(k.ExtraSIDs))
 
 	var es = []struct {
 		sid  string
@@ -256,13 +242,13 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 		{"S-1-18-1", uint32(7)},
 	}
 	for i, s := range es {
-		assert.Equal(t, s.sid, k.ExtraSIDs[i].SID.String(), "ExtraSID SID value not as epxected")
+		assert.Equal(t, s.sid, k.ExtraSIDs[i].SID.String())
 		assert.Equal(t, s.attr, k.ExtraSIDs[i].Attributes)
 	}
 
-	assert.Equal(t, uint8(4), k.ResourceGroupDomainSID.SubAuthorityCount, "ResourceGroupDomainSID not as expected")
-	assert.Equal(t, "S-1-5-21-3062750306-1230139592-1973306805", k.ResourceGroupDomainSID.String(), "ResourceGroupDomainSID value not as expected")
-	assert.Equal(t, 2, len(k.ResourceGroupIDs), "ResourceGroupIDs not as expected")
+	assert.Equal(t, uint8(4), k.ResourceGroupDomainSID.SubAuthorityCount)
+	assert.Equal(t, "S-1-5-21-3062750306-1230139592-1973306805", k.ResourceGroupDomainSID.String())
+	assert.Equal(t, 2, len(k.ResourceGroupIDs))
 
 	rgids := []mstypes.GroupMembership{
 		{RelativeID: 1107, Attributes: 536870919},
@@ -276,5 +262,5 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 		"S-1-18-1",
 		"S-1-5-21-3062750306-1230139592-1973306805-1107",
 		"S-1-5-21-3062750306-1230139592-1973306805-1108"}
-	assert.Equal(t, groupSids, k.GetGroupMembershipSIDs(), "GroupMembershipSIDs not as expected")
+	assert.Equal(t, groupSids, k.GetGroupMembershipSIDs())
 }

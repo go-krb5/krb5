@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/crypto/common"
@@ -45,14 +46,12 @@ func TestStringToKey(t *testing.T) {
 		t.Run("AES128", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				saltp := rfc8009.GetSaltP(test.salt, "aes128-cts-hmac-sha256-128")
-				assert.Equal(t, test.saltp128, hex.EncodeToString([]byte(saltp)), "SaltP not as expected")
+				assert.Equal(t, test.saltp128, hex.EncodeToString([]byte(saltp)))
 
 				k, err := e.StringToKey(test.passphrase, test.salt, common.IterationsToS2Kparams(test.iterations))
-				if err != nil {
-					t.Fatalf("StringToKey failed: %v", err)
-				}
+				require.NoError(t, err)
 
-				assert.Equal(t, test.baseKey128, hex.EncodeToString(k), "Base key not as expected")
+				assert.Equal(t, test.baseKey128, hex.EncodeToString(k))
 			})
 		})
 	}
@@ -63,14 +62,12 @@ func TestStringToKey(t *testing.T) {
 		t.Run("AES256", func(t *testing.T) {
 			t.Run(test.name, func(t *testing.T) {
 				saltp := rfc8009.GetSaltP(test.salt, "aes256-cts-hmac-sha384-192")
-				assert.Equal(t, test.saltp256, hex.EncodeToString([]byte(saltp)), "SaltP not as expected")
+				assert.Equal(t, test.saltp256, hex.EncodeToString([]byte(saltp)))
 
 				k, err := e.StringToKey(test.passphrase, test.salt, common.IterationsToS2Kparams(test.iterations))
-				if err != nil {
-					t.Fatalf("StringToKey failed: %v", err)
-				}
+				require.NoError(t, err)
 
-				assert.Equal(t, test.baseKey256, hex.EncodeToString(k), "Base key not as expected")
+				assert.Equal(t, test.baseKey256, hex.EncodeToString(k))
 			})
 		})
 	}
@@ -128,9 +125,7 @@ func TestDeriveKey(t *testing.T) {
 					k, err = e.DeriveKey(protocolBaseKey128, common.GetUsageKi(testUsage))
 				}
 
-				if err != nil {
-					t.Fatalf("Error deriving %s key: %v", test.keyType, err)
-				}
+				require.NoError(t, err)
 
 				assert.Equal(t, test.expected128, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
 			})
@@ -156,9 +151,7 @@ func TestDeriveKey(t *testing.T) {
 					k, err = e.DeriveKey(protocolBaseKey256, common.GetUsageKi(testUsage))
 				}
 
-				if err != nil {
-					t.Fatalf("Error deriving %s key: %v", test.keyType, err)
-				}
+				require.NoError(t, err)
 
 				assert.Equal(t, test.expected256, hex.EncodeToString(k), "%s derived key not as expected", test.keyType)
 			})
@@ -237,31 +230,23 @@ func TestEncryptDecrypt_AES128(t *testing.T) {
 			confPlaintext := append(confounder, plaintext...)
 
 			_, encryptedData, err := e.EncryptData(ke, confPlaintext)
-			if err != nil {
-				t.Fatalf("EncryptData failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			assert.Equal(t, test.aesOutput, hex.EncodeToString(encryptedData), "AES output not as expected")
+			assert.Equal(t, test.aesOutput, hex.EncodeToString(encryptedData))
 
 			decryptedData, err := e.DecryptData(ke, aesOutput)
-			if err != nil {
-				t.Fatalf("DecryptData failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decryptedPlaintext := decryptedData[e.GetConfounderByteSize():]
-			assert.Equal(t, test.plaintext, hex.EncodeToString(decryptedPlaintext), "Decrypted plaintext not as expected")
+			assert.Equal(t, test.plaintext, hex.EncodeToString(decryptedPlaintext))
 
 			assert.True(t, e.VerifyIntegrity(protocolBaseKey, ciphertext, ciphertext, testUsage), "Integrity verification failed")
 
 			_, encryptedMessage, err := e.EncryptMessage(protocolBaseKey, plaintext, testUsage)
-			if err != nil {
-				t.Fatalf("EncryptMessage failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decryptedMessage, err := e.DecryptMessage(protocolBaseKey, encryptedMessage, testUsage)
-			if err != nil {
-				t.Fatalf("DecryptMessage failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, plaintext, decryptedMessage)
 
@@ -269,11 +254,9 @@ func TestEncryptDecrypt_AES128(t *testing.T) {
 			integrityInput := append(ivz, aesOutput...)
 
 			mac, err := common.GetIntegrityHash(integrityInput, protocolBaseKey, testUsage, e)
-			if err != nil {
-				t.Fatalf("GetIntegrityHash failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			assert.Equal(t, test.hmacOutput, hex.EncodeToString(mac), "HMAC output not as expected")
+			assert.Equal(t, test.hmacOutput, hex.EncodeToString(mac))
 		})
 	}
 }
@@ -340,40 +323,41 @@ func TestEncryptDecrypt_AES256(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			plaintext, _ := hex.DecodeString(test.plaintext)
-			confounder, _ := hex.DecodeString(test.confounder)
-			ke, _ := hex.DecodeString(test.ke)
-			aesOutput, _ := hex.DecodeString(test.aesOutput)
-			ciphertext, _ := hex.DecodeString(test.ciphertext)
+			plaintext, err := hex.DecodeString(test.plaintext)
+			require.NoError(t, err)
+
+			confounder, err := hex.DecodeString(test.confounder)
+			require.NoError(t, err)
+
+			ke, err := hex.DecodeString(test.ke)
+			require.NoError(t, err)
+
+			aesOutput, err := hex.DecodeString(test.aesOutput)
+			require.NoError(t, err)
+
+			ciphertext, err := hex.DecodeString(test.ciphertext)
+			require.NoError(t, err)
 
 			confPlaintext := append(confounder, plaintext...)
 
 			_, encryptedData, err := e.EncryptData(ke, confPlaintext)
-			if err != nil {
-				t.Fatalf("EncryptData failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			assert.Equal(t, test.aesOutput, hex.EncodeToString(encryptedData), "AES output not as expected")
+			assert.Equal(t, test.aesOutput, hex.EncodeToString(encryptedData))
 
 			decryptedData, err := e.DecryptData(ke, aesOutput)
-			if err != nil {
-				t.Fatalf("DecryptData failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decryptedPlaintext := decryptedData[e.GetConfounderByteSize():]
-			assert.Equal(t, test.plaintext, hex.EncodeToString(decryptedPlaintext), "Decrypted plaintext not as expected")
+			assert.Equal(t, test.plaintext, hex.EncodeToString(decryptedPlaintext))
 
 			assert.True(t, e.VerifyIntegrity(protocolBaseKey, ciphertext, ciphertext, testUsage), "Integrity verification failed")
 
 			_, encryptedMessage, err := e.EncryptMessage(protocolBaseKey, plaintext, testUsage)
-			if err != nil {
-				t.Fatalf("EncryptMessage failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decryptedMessage, err := e.DecryptMessage(protocolBaseKey, encryptedMessage, testUsage)
-			if err != nil {
-				t.Fatalf("DecryptMessage failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, plaintext, decryptedMessage)
 
@@ -381,11 +365,9 @@ func TestEncryptDecrypt_AES256(t *testing.T) {
 			integrityInput := append(ivz, aesOutput...)
 
 			mac, err := common.GetIntegrityHash(integrityInput, protocolBaseKey, testUsage, e)
-			if err != nil {
-				t.Fatalf("GetIntegrityHash failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			assert.Equal(t, test.hmacOutput, hex.EncodeToString(mac), "HMAC output not as expected")
+			assert.Equal(t, test.hmacOutput, hex.EncodeToString(mac))
 		})
 	}
 }
@@ -402,11 +384,9 @@ func TestChecksum_AES128(t *testing.T) {
 	var e crypto.Aes128CtsHmacSha256128
 
 	checksum, err := e.GetChecksumHash(protocolBaseKey, plaintext, testUsage)
-	if err != nil {
-		t.Fatalf("GetChecksumHash failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	assert.Equal(t, expectedChecksum, hex.EncodeToString(checksum), "Checksum not as expected")
+	assert.Equal(t, expectedChecksum, hex.EncodeToString(checksum))
 }
 
 func TestChecksum_AES256(t *testing.T) {
@@ -422,14 +402,10 @@ func TestChecksum_AES256(t *testing.T) {
 	var e crypto.Aes256CtsHmacSha384192
 
 	checksum, err := e.GetChecksumHash(protocolBaseKey, plaintext, testUsage)
-	if err != nil {
-		t.Fatalf("GetChecksumHash failed: %v", err)
-	}
+	require.NoError(t, err)
 
-	assert.Equal(t, expectedChecksum, hex.EncodeToString(checksum), "Checksum not as expected")
+	assert.Equal(t, expectedChecksum, hex.EncodeToString(checksum))
 }
-
-// End Test Vectors.
 
 func TestEncryptData_InvalidKeySize_AES128(t *testing.T) {
 	t.Parallel()
@@ -599,8 +575,8 @@ func TestDecryptData_InvalidKeySize_AES128(t *testing.T) {
 
 			_, err := e.DecryptData(wrongKey, ciphertext)
 
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), test.expectedError, "Error message not as expected")
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), test.expectedError)
 		})
 	}
 }

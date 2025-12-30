@@ -48,10 +48,7 @@ func TestClient_SetSPNEGOHeader(t *testing.T) {
 	l := log.New(os.Stderr, "SPNEGO Client:", log.LstdFlags)
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c, client.Logger(l))
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on AS_REQ: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	urls := []string{
 		"http://cname.test.gokrb5",
@@ -64,24 +61,17 @@ func TestClient_SetSPNEGOHeader(t *testing.T) {
 	}
 	for _, url := range urls {
 		for _, p := range paths {
-			r, _ := http.NewRequest("GET", url+p, nil)
+			r, _ := http.NewRequest(http.MethodGet, url+p, nil)
 
 			httpResp, err := http.DefaultClient.Do(r)
-			if err != nil {
-				t.Fatalf("%s request error: %v", url+p, err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 
-			err = SetSPNEGOHeader(cl, r, "")
-			if err != nil {
-				t.Fatalf("error setting client SPNEGO header: %v", err)
-			}
+			require.NoError(t, SetSPNEGOHeader(cl, r, ""))
 
 			httpResp, err = http.DefaultClient.Do(r)
-			if err != nil {
-				t.Fatalf("%s request error: %v\n", url+p, err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 		}
@@ -106,24 +96,20 @@ func TestSPNEGOHTTPClient(t *testing.T) {
 	l := log.New(os.Stderr, "SPNEGO Client:", log.LstdFlags)
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c, client.Logger(l))
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on AS_REQ: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	urls := []string{
 		"http://cname.test.gokrb5",
 		"http://host.test.gokrb5",
 	}
-	// This path issues a redirect which the http client will automatically follow.
-	// It should cause a replay issue if the negInit token is sent in the first instance.
+
 	paths := []string{
-		"/modgssapi", "/modgssapi", // This issues a redirect which the http client will automatically follow. Could cause a replay issue.
+		"/modgssapi", "/modgssapi",
 		"/redirect",
 	}
 	for _, url := range urls {
 		for _, p := range paths {
-			r, _ := http.NewRequest("GET", url+p, nil)
+			r, _ := http.NewRequest(http.MethodGet, url+p, nil)
 			httpCl := http.DefaultClient
 			httpCl.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 				t.Logf("http client redirect: %+v", *req)
@@ -132,9 +118,7 @@ func TestSPNEGOHTTPClient(t *testing.T) {
 			spnegoCl := NewClient(cl, httpCl, "")
 
 			httpResp, err := spnegoCl.Do(r)
-			if err != nil {
-				t.Fatalf("%s request error: %v", url+p, err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 		}
@@ -145,15 +129,13 @@ func TestService_SPNEGOKRB_NoAuthHeader(t *testing.T) {
 	s := httpServer(t)
 	defer s.Close()
 
-	r, _ := http.NewRequest("GET", s.URL, nil)
+	r, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 
 	httpResp, err := http.DefaultClient.Do(r)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
-	assert.Equal(t, "Negotiate", httpResp.Header.Get("WWW-Authenticate"), "Negotiation header not set by server.")
+	assert.Equal(t, "Negotiate", httpResp.Header.Get("WWW-Authenticate"))
 }
 
 func TestService_SPNEGOKRB_ValidUser(t *testing.T) {
@@ -162,19 +144,14 @@ func TestService_SPNEGOKRB_ValidUser(t *testing.T) {
 	s := httpServer(t)
 	defer s.Close()
 
-	r, _ := http.NewRequest("GET", s.URL, nil)
+	r, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 
 	cl := getClient(t)
 
-	err := SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
-	if err != nil {
-		t.Fatalf("error setting client's SPNEGO header: %v", err)
-	}
+	require.NoError(t, SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5"))
 
 	httpResp, err := http.DefaultClient.Do(r)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
@@ -185,30 +162,22 @@ func TestService_SPNEGOKRB_ValidUser_RawKRB5Token(t *testing.T) {
 	s := httpServer(t)
 	defer s.Close()
 
-	r, _ := http.NewRequest("GET", s.URL, nil)
+	r, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 
 	cl := getClient(t)
 	sc := SPNEGOClient(cl, "HTTP/host.test.gokrb5")
 
-	err := sc.AcquireCred()
-	if err != nil {
-		t.Fatalf("could not acquire client credential: %v", err)
-	}
+	require.NoError(t, sc.AcquireCred())
 
 	st, err := sc.InitSecContext()
-	if err != nil {
-		t.Fatalf("could not initialize context: %v", err)
-	}
+	require.NoError(t, err)
 
-	// Use the raw KRB5 context token.
 	nb := st.(*SPNEGOToken).NegTokenInit.MechTokenBytes
 	hs := "Negotiate " + base64.StdEncoding.EncodeToString(nb)
 	r.Header.Set(HTTPHeaderAuthRequest, hs)
 
 	httpResp, err := http.DefaultClient.Do(r)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
@@ -219,60 +188,39 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 	s := httpServerWithoutSessionManager(t)
 	defer s.Close()
 
-	r1, _ := http.NewRequest("GET", s.URL, nil)
+	r1, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 
 	cl := getClient(t)
 
-	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5")
-	if err != nil {
-		t.Fatalf("error setting client's SPNEGO header: %v", err)
-	}
+	require.NoError(t, SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5"))
 
-	// First request with this ticket should be accepted.
 	httpResp, err := http.DefaultClient.Do(r1)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 
-	// Use ticket again should be rejected.
 	httpResp, err = http.DefaultClient.Do(r1)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 
-	// Form a 2nd ticket.
-	r2, _ := http.NewRequest("GET", s.URL, nil)
+	r2, err := http.NewRequest(http.MethodGet, s.URL, nil)
+	require.NoError(t, err)
 
-	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5")
-	if err != nil {
-		t.Fatalf("error setting client's SPNEGO header: %v", err)
-	}
+	require.NoError(t, SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5"))
 
-	// First use of 2nd ticket should be accepted.
 	httpResp, err = http.DefaultClient.Do(r2)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 
-	// Using the 1st ticket again should still be rejected.
 	httpResp, err = http.DefaultClient.Do(r1)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 
-	// Using the 2nd again should be rejected as replay.
 	httpResp, err = http.DefaultClient.Do(r2)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 }
@@ -283,27 +231,22 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 	s := httpServerWithoutSessionManager(t)
 	defer s.Close()
 
-	r1, _ := http.NewRequest("GET", s.URL, nil)
+	r1, err := http.NewRequest(http.MethodGet, s.URL, nil)
+	require.NoError(t, err)
 
 	cl := getClient(t)
 
-	err := SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5")
-	if err != nil {
-		t.Fatalf("error setting client's SPNEGO header: %v", err)
-	}
+	require.NoError(t, SetSPNEGOHeader(cl, r1, "HTTP/host.test.gokrb5"))
 
 	r1h := r1.Header.Get(HTTPHeaderAuthRequest)
 
-	r2, _ := http.NewRequest("GET", s.URL, nil)
+	r2, err := http.NewRequest(http.MethodGet, s.URL, nil)
+	require.NoError(t, err)
 
-	err = SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5")
-	if err != nil {
-		t.Fatalf("error setting client's SPNEGO header: %v", err)
-	}
+	require.NoError(t, SetSPNEGOHeader(cl, r2, "HTTP/host.test.gokrb5"))
 
 	r2h := r2.Header.Get(HTTPHeaderAuthRequest)
 
-	// Concurrent 1st requests should be OK.
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -312,17 +255,20 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 
 	wg.Wait()
 
-	// A number of concurrent requests with the same ticket should be rejected due to replay.
 	var wg2 sync.WaitGroup
 
 	noReq := 10
 	wg2.Add(noReq * 2)
 
 	for i := 0; i < noReq; i++ {
-		rr1, _ := http.NewRequest("GET", s.URL, nil)
+		rr1, err := http.NewRequest(http.MethodGet, s.URL, nil)
+		require.NoError(t, err)
+
 		rr1.Header.Set(HTTPHeaderAuthRequest, r1h)
 
-		rr2, _ := http.NewRequest("GET", s.URL, nil)
+		rr2, err := http.NewRequest(http.MethodGet, s.URL, nil)
+		require.NoError(t, err)
+
 		rr2.Header.Set(HTTPHeaderAuthRequest, r2h)
 
 		go httpGet(rr1, &wg2)
@@ -342,9 +288,7 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	bodyWriter := multipart.NewWriter(bodyBuf)
 
 	fileWriter, err := bodyWriter.CreateFormFile("uploadfile", "testfile.bin")
-	if err != nil {
-		t.Fatalf("error writing to buffer: %v", err)
-	}
+	require.NoError(t, err)
 
 	data := make([]byte, 10240)
 	_, err = rand.Read(data)
@@ -353,13 +297,13 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	br := bytes.NewReader(data)
 
 	_, err = io.Copy(fileWriter, br)
-	if err != nil {
-		t.Fatalf("error copying bytes: %v", err)
-	}
+	require.NoError(t, err)
 
 	bodyWriter.Close()
 
-	r, _ := http.NewRequest("POST", s.URL, bodyBuf)
+	r, err := http.NewRequest(http.MethodPost, s.URL, bodyBuf)
+	require.NoError(t, err)
+
 	r.Header.Set("Content-Type", bodyWriter.FormDataContentType())
 
 	cl := getClient(t)
@@ -369,17 +313,9 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	spnegoCl := NewClient(cl, httpCl, "HTTP/host.test.gokrb5")
 
 	httpResp, err := spnegoCl.Do(r)
-	if err != nil {
-		t.Fatalf("Request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
-	if httpResp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(httpResp.Body)
-		bodyString := string(bodyBytes)
-
-		httpResp.Body.Close()
-		t.Errorf("unexpected code from http server (%d): %s", httpResp.StatusCode, bodyString)
-	}
+	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
 
 func httpGet(r *http.Request, wg *sync.WaitGroup) {

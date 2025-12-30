@@ -1,6 +1,10 @@
 package rfc3961
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestFixWeakKey(t *testing.T) {
 	var weakKeys = []struct {
@@ -26,8 +30,7 @@ func TestFixWeakKey(t *testing.T) {
 	}
 	for i, k := range weakKeys {
 		b := fixWeakKey(k.key)
-		if b[7] != weakKeys[i].lastbyte {
-			t.Errorf("key not fixed correctly %X - %X", b, weakKeys[i].lastbyte)
-		}
+
+		assert.Equal(t, weakKeys[i].lastbyte, b[7])
 	}
 }

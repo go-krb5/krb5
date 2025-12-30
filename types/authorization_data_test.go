@@ -2,10 +2,10 @@ package types
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana/adtype"
 	"github.com/go-krb5/krb5/iana/nametype"
@@ -18,20 +18,15 @@ func TestUnmarshalAuthorizationData(t *testing.T) {
 	var a AuthorizationData
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5authorization_data)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, 2, len(a), "Number of authorization data entries not as expected")
+	assert.Equal(t, 2, len(a))
 
-	for i, entry := range a {
-		assert.Equal(t, adtype.ADIfRelevant, entry.ADType, fmt.Sprintf("Authorization data type of entry %d not as expected", i+1))
-		assert.Equal(t, []byte("foobar"), entry.ADData, fmt.Sprintf("Authorization data of entry %d not as expected", i+1))
+	for _, entry := range a {
+		assert.Equal(t, adtype.ADIfRelevant, entry.ADType)
+		assert.Equal(t, []byte("foobar"), entry.ADData)
 	}
 }
 
@@ -41,24 +36,19 @@ func TestUnmarshalAuthorizationData_kdcissued(t *testing.T) {
 	var a ADKDCIssued
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ad_kdcissued)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, int32(1), a.ADChecksum.CksumType, "Checksum type not as expected")
-	assert.Equal(t, []byte("1234"), a.ADChecksum.Checksum, "Checksum not as expected")
+	assert.Equal(t, int32(1), a.ADChecksum.CksumType)
+	assert.Equal(t, []byte("1234"), a.ADChecksum.Checksum)
 	assert.Equal(t, testdata.TEST_REALM, a.IRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.Isname.NameType)
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.Isname.NameString)
-	assert.Equal(t, 2, len(a.Elements), "Number of authorization data elements not as expected")
+	assert.Equal(t, 2, len(a.Elements))
 
-	for i, ele := range a.Elements {
-		assert.Equal(t, adtype.ADIfRelevant, ele.ADType, fmt.Sprintf("Authorization data type of element %d not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_AUTHORIZATION_DATA_VALUE), ele.ADData, fmt.Sprintf("Authorization data of element %d not as expected", i+1))
+	for _, ele := range a.Elements {
+		assert.Equal(t, adtype.ADIfRelevant, ele.ADType)
+		assert.Equal(t, []byte(testdata.TEST_AUTHORIZATION_DATA_VALUE), ele.ADData)
 	}
 }

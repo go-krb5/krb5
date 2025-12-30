@@ -76,8 +76,7 @@ func login() error {
 	cmd.Stdin = stdinR
 	cmd.Stderr = stderrW
 
-	err = cmd.Start()
-	if err != nil {
+	if err = cmd.Start(); err != nil {
 		return fmt.Errorf("could not start %s command: %v", kinitCmd, err)
 	}
 
@@ -93,43 +92,38 @@ func login() error {
 		_ = stderrR.Close()
 	}()
 
-	err = cmd.Wait()
-	if err != nil {
+	if err = cmd.Wait(); err != nil {
 		return fmt.Errorf("%s did not run successfully: %v stderr: %s", kinitCmd, err, errBuf.String())
 	}
 
 	return nil
 }
 
-func getServiceTkt() error {
+func getServiceTkt() (err error) {
 	cmd := exec.Command(kvnoCmd, spn)
 
-	err := cmd.Start()
-	if err != nil {
+	if err = cmd.Start(); err != nil {
 		return fmt.Errorf("could not start %s command: %v", kvnoCmd, err)
 	}
 
-	err = cmd.Wait()
-	if err != nil {
+	if err = cmd.Wait(); err != nil {
 		return fmt.Errorf("%s did not run successfully: %v", kvnoCmd, err)
 	}
 
 	return nil
 }
 
-func klist() ([]string, error) {
+func klist() (lines []string, err error) {
 	cmd := exec.Command(klistCmd, "-Aef")
 
 	stdout := newOutput()
 	cmd.Stdout = stdout
 
-	err := cmd.Start()
-	if err != nil {
+	if err = cmd.Start(); err != nil {
 		return []string{}, fmt.Errorf("could not start %s command: %v", klistCmd, err)
 	}
 
-	err = cmd.Wait()
-	if err != nil {
+	if err = cmd.Wait(); err != nil {
 		return []string{}, fmt.Errorf("%s did not run successfully: %v", klistCmd, err)
 	}
 
@@ -152,8 +146,8 @@ func TestLoadCCache(t *testing.T) {
 	assert.NoError(t, err)
 
 	pn := c.GetClientPrincipalName()
-	assert.Equal(t, "testuser1", pn.PrincipalNameString(), "principal not as expected")
-	assert.Equal(t, "TEST.GOKRB5", c.GetClientRealm(), "realm not as expected")
+	assert.Equal(t, "testuser1", pn.PrincipalNameString())
+	assert.Equal(t, "TEST.GOKRB5", c.GetClientRealm())
 }
 
 func TestCCacheEntries(t *testing.T) {

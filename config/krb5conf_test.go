@@ -464,7 +464,7 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName)
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes)
 
-	assert.Equal(t, 3, len(c.Realms), "Number of realms not as expected")
+	assert.Equal(t, 3, len(c.Realms))
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm)
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer)
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer)
@@ -487,9 +487,7 @@ func TestLoadWithV4Lines(t *testing.T) {
 	require.NoError(t, err)
 
 	c, err := Load(cf.Name())
-	if err == nil {
-		t.Fatalf("error should not be nil for config that includes v4 lines")
-	}
+	require.EqualError(t, err, "v4 configurations are not supported")
 
 	if _, ok := err.(UnsupportedDirective); !ok {
 		t.Fatalf("error should be of type UnsupportedDirective: %v", err)
@@ -498,13 +496,13 @@ func TestLoadWithV4Lines(t *testing.T) {
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupKDC)
-	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
+	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime)
 	assert.Equal(t, true, c.LibDefaults.Forwardable)
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName)
 	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName)
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes)
 
-	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
+	assert.Equal(t, 2, len(c.Realms))
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm)
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer)
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer)
@@ -526,13 +524,13 @@ func TestLoad2(t *testing.T) {
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupKDC)
-	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
+	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime)
 	assert.Equal(t, true, c.LibDefaults.Forwardable)
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName)
 	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName)
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes)
 
-	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
+	assert.Equal(t, 2, len(c.Realms))
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm)
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer)
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer)
@@ -555,13 +553,13 @@ func TestLoadNoBlankLines(t *testing.T) {
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupKDC)
-	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
+	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime)
 	assert.Equal(t, true, c.LibDefaults.Forwardable)
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName)
 	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName)
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes)
 
-	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
+	assert.Equal(t, 2, len(c.Realms))
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm)
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer)
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer)
@@ -589,13 +587,13 @@ func TestLoadTabs(t *testing.T) {
 	assert.Equal(t, "TEST.GOKRB5", c.LibDefaults.DefaultRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupRealm)
 	assert.Equal(t, false, c.LibDefaults.DNSLookupKDC)
-	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime, "[libdefaults] Ticket lifetime not as expected")
+	assert.Equal(t, time.Duration(10)*time.Hour, c.LibDefaults.TicketLifetime)
 	assert.Equal(t, true, c.LibDefaults.Forwardable)
 	assert.Equal(t, "FILE:/etc/krb5.keytab", c.LibDefaults.DefaultKeytabName)
 	assert.Equal(t, "FILE:/home/krb5/client.keytab", c.LibDefaults.DefaultClientKeytabName)
 	assert.Equal(t, []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96"}, c.LibDefaults.DefaultTktEnctypes)
 
-	assert.Equal(t, 2, len(c.Realms), "Number of realms not as expected")
+	assert.Equal(t, 2, len(c.Realms))
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm)
 	assert.Equal(t, []string{"10.80.88.88:749"}, c.Realms[0].AdminServer)
 	assert.Equal(t, []string{"10.80.88.88:464"}, c.Realms[0].KPasswdServer)
@@ -639,9 +637,7 @@ func TestResolveRealm(t *testing.T) {
 	t.Parallel()
 
 	c, err := NewFromString(krb5Conf)
-	if err != nil {
-		t.Fatalf("Error loading config: %v", err)
-	}
+	require.NoError(t, err)
 
 	tests := []struct {
 		domainName string
@@ -656,9 +652,8 @@ func TestResolveRealm(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.domainName, func(t *testing.T) {
-			if got := c.ResolveRealm(tt.domainName); got != tt.want {
-				t.Errorf("config.ResolveRealm() = %v, want %v", got, tt.want)
-			}
+			have := c.ResolveRealm(tt.domainName)
+			assert.Equal(t, tt.want, have)
 		})
 	}
 }
@@ -667,16 +662,12 @@ func TestJSON(t *testing.T) {
 	t.Parallel()
 
 	c, err := NewFromString(krb5Conf)
-	if err != nil {
-		t.Fatalf("Error loading config: %v", err)
-	}
+	require.NoError(t, err)
 
 	c.LibDefaults.K5LoginDirectory = "/home/test"
 
 	j, err := c.JSON()
-	if err != nil {
-		t.Errorf("error marshaling krb config to JSON: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, krb5ConfJson, j)
 

@@ -39,12 +39,12 @@ func TestAes128CtsHmacSha196_StringToKey(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.pbkdf2, hex.EncodeToString(rfc3962.StringToPBKDF2(tc.phrase, tc.salt, tc.iterations, e)), "PBKDF2 not as expected")
+			assert.Equal(t, tc.pbkdf2, hex.EncodeToString(rfc3962.StringToPBKDF2(tc.phrase, tc.salt, tc.iterations, e)))
 
 			k, err := e.StringToKey(tc.phrase, tc.salt, common.IterationsToS2Kparams(uint32(tc.iterations)))
 			require.NoError(t, err)
 
-			assert.Equal(t, tc.key, hex.EncodeToString(k), "String to Key not as expected")
+			assert.Equal(t, tc.key, hex.EncodeToString(k))
 		})
 	}
 }

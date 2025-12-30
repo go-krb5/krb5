@@ -22,13 +22,13 @@ func TestParse(t *testing.T) {
 
 	require.NoError(t, c.Unmarshal(b))
 
-	assert.Equal(t, uint8(4), c.Version, "Version not as expected")
-	assert.Equal(t, 1, len(c.Header.fields), "Number of header fields not as expected")
-	assert.Equal(t, uint16(1), c.Header.fields[0].tag, "Header tag not as expected")
-	assert.Equal(t, uint16(8), c.Header.fields[0].length, "Length of header not as expected")
+	assert.Equal(t, uint8(4), c.Version)
+	assert.Equal(t, 1, len(c.Header.fields))
+	assert.Equal(t, uint16(1), c.Header.fields[0].tag)
+	assert.Equal(t, uint16(8), c.Header.fields[0].length)
 	assert.Equal(t, "TEST.GOKRB5", c.DefaultPrincipal.Realm)
-	assert.Equal(t, "testuser1", c.DefaultPrincipal.PrincipalName.PrincipalNameString(), "Default client principaal name not as expected")
-	assert.Equal(t, 3, len(c.Credentials), "Number of credentials not as expected")
+	assert.Equal(t, "testuser1", c.DefaultPrincipal.PrincipalName.PrincipalNameString())
+	assert.Equal(t, 3, len(c.Credentials))
 
 	tgtpn := types.PrincipalName{
 		NameType:   nametype.KRB_NT_SRV_INST,
@@ -57,7 +57,7 @@ func TestCCache_GetClientPrincipalName(t *testing.T) {
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"testuser1"},
 	}
-	assert.Equal(t, pn, c.GetClientPrincipalName(), "Client PrincipalName not as expected")
+	assert.Equal(t, pn, c.GetClientPrincipalName())
 }
 
 func TestCCache_GetClientCredentials(t *testing.T) {
@@ -76,9 +76,9 @@ func TestCCache_GetClientCredentials(t *testing.T) {
 	}
 
 	cred := c.GetClientCredentials()
-	assert.Equal(t, "TEST.GOKRB5", cred.Domain(), "Client realm in credential not as expected")
-	assert.Equal(t, pn, cred.CName(), "Client Principal Name not as expected")
-	assert.Equal(t, "testuser1", cred.UserName(), "Username not as expected")
+	assert.Equal(t, "TEST.GOKRB5", cred.Domain())
+	assert.Equal(t, pn, cred.CName())
+	assert.Equal(t, "testuser1", cred.UserName())
 }
 
 func TestCCache_GetClientRealm(t *testing.T) {
@@ -91,7 +91,7 @@ func TestCCache_GetClientRealm(t *testing.T) {
 
 	require.NoError(t, c.Unmarshal(b))
 
-	assert.Equal(t, "TEST.GOKRB5", c.GetClientRealm(), "Client realm not as expected")
+	assert.Equal(t, "TEST.GOKRB5", c.GetClientRealm())
 }
 
 func TestCCache_GetEntry(t *testing.T) {
@@ -125,5 +125,5 @@ func TestCCache_GetEntries(t *testing.T) {
 	require.NoError(t, c.Unmarshal(b))
 
 	creds := c.GetEntries()
-	assert.Equal(t, 2, len(creds), "Number of credentials entries not as expected")
+	assert.Equal(t, 2, len(creds))
 }

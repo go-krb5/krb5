@@ -83,7 +83,7 @@ func TestUnmarshal_Challenge(t *testing.T) {
 
 	err := wt.Unmarshal(challenge, true)
 	assert.Nil(t, err)
-	assert.Equal(t, getChallengeReference(), &wt, "Token not decoded as expected.")
+	assert.Equal(t, getChallengeReference(), &wt)
 }
 
 func TestUnmarshalFailure_Challenge(t *testing.T) {
@@ -97,10 +97,10 @@ func TestUnmarshalFailure_Challenge(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, wt.Payload)
 	assert.Nil(t, wt.CheckSum)
-	assert.Equal(t, byte(0x00), wt.Flags, "Token fields should not have been initialised")
-	assert.Equal(t, uint16(0), wt.EC, "Token fields should not have been initialised")
-	assert.Equal(t, uint16(0), wt.RRC, "Token fields should not have been initialised")
-	assert.Equal(t, uint64(0), wt.SndSeqNum, "Token fields should not have been initialised")
+	assert.Equal(t, byte(0x00), wt.Flags)
+	assert.Equal(t, uint16(0), wt.EC)
+	assert.Equal(t, uint16(0), wt.RRC)
+	assert.Equal(t, uint64(0), wt.SndSeqNum)
 }
 
 func TestUnmarshal_ChallengeReply(t *testing.T) {
@@ -112,7 +112,7 @@ func TestUnmarshal_ChallengeReply(t *testing.T) {
 
 	err := wt.Unmarshal(response, false)
 	assert.Nil(t, err)
-	assert.Equal(t, getResponseReference(), &wt, "Token not decoded as expected.")
+	assert.Equal(t, getResponseReference(), &wt)
 }
 
 func TestUnmarshalFailure_ChallengeReply(t *testing.T) {
@@ -126,10 +126,10 @@ func TestUnmarshalFailure_ChallengeReply(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, wt.Payload)
 	assert.Nil(t, wt.CheckSum)
-	assert.Equal(t, byte(0x00), wt.Flags, "Token fields should not have been initialised")
-	assert.Equal(t, uint16(0), wt.EC, "Token fields should not have been initialised")
-	assert.Equal(t, uint16(0), wt.RRC, "Token fields should not have been initialised")
-	assert.Equal(t, uint64(0), wt.SndSeqNum, "Token fields should not have been initialised")
+	assert.Equal(t, byte(0x00), wt.Flags)
+	assert.Equal(t, uint16(0), wt.EC)
+	assert.Equal(t, uint16(0), wt.RRC)
+	assert.Equal(t, uint64(0), wt.SndSeqNum)
 }
 
 func TestChallengeChecksumVerification(t *testing.T) {
@@ -216,5 +216,5 @@ func TestNewInitiatorTokenSignatureAndMarshalling(t *testing.T) {
 
 	token, tErr := NewInitiatorWrapToken([]byte{0x01, 0x01, 0x00, 0x00}, getSessionKey())
 	assert.Nil(t, tErr)
-	assert.Equal(t, getResponseReference(), token, "Token failed to be marshalled to the expected bytes.")
+	assert.Equal(t, getResponseReference(), token)
 }

@@ -2,7 +2,6 @@ package service
 
 import (
 	"encoding/hex"
-	"strings"
 	"testing"
 	"time"
 
@@ -52,7 +51,7 @@ func TestVerifyAPREQ(t *testing.T) {
 	APReq, err := messages.NewAPReq(
 		tkt,
 		sessionKey,
-		newTestAuthenticator(*cl.Credentials),
+		newTestAuthenticator(t, *cl.Credentials),
 	)
 
 	require.NoError(t, err)
@@ -96,23 +95,16 @@ func TestVerifyAPREQWithPrincipalOverride(t *testing.T) {
 	apReq, err := messages.NewAPReq(
 		tkt,
 		sessionKey,
-		newTestAuthenticator(*cl.Credentials),
+		newTestAuthenticator(t, *cl.Credentials),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
+	require.NoError(t, err)
 
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h), KeytabPrincipal("foo"))
 
 	ok, _, err := VerifyAPREQ(&apReq, s)
-	if ok || err == nil {
-		t.Fatalf("Validation of AP_REQ should have failed")
-	}
-
-	if !strings.Contains(err.Error(), "Looking for \"foo\" realm") {
-		t.Fatalf("Looking for wrong entity: %s", err.Error())
-	}
+	require.EqualError(t, err, "[Root cause: Decrypting_Error] Decrypting_Error: error decrypting encpart of service ticket provided: KRB Error: (45) KRB_AP_ERR_NOKEY Service key not available - Could not get key from keytab: matching key not found in keytab. Looking for \"foo\" realm: TEST.GOKRB5 kvno: 1 etype: 18")
+	require.False(t, ok)
 }
 
 func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH(t *testing.T) {
@@ -140,11 +132,9 @@ func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH(t *testing.T) {
 		st.Add(time.Duration(24)*time.Hour),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
+	require.NoError(t, err)
 
-	a := newTestAuthenticator(*cl.Credentials)
+	a := newTestAuthenticator(t, *cl.Credentials)
 	a.CName = types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"BADMATCH"},
@@ -155,20 +145,17 @@ func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH(t *testing.T) {
 		sessionKey,
 		a,
 	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
+	require.NoError(t, err)
 
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h))
 
 	ok, _, err := VerifyAPREQ(&APReq, s)
-	if ok || err == nil {
-		t.Fatal("Validation of AP_REQ passed when it should not have")
-	}
+	require.EqualError(t, err, "KRB Error: (36) KRB_AP_ERR_BADMATCH Ticket and authenticator don't match - CName in Authenticator does not match that in service ticket")
+	require.False(t, ok)
 
 	if _, ok := err.(messages.KRBError); ok {
-		assert.Equal(t, errorcode.KRB_AP_ERR_BADMATCH, err.(messages.KRBError).ErrorCode, "Error code not as expected")
+		assert.Equal(t, errorcode.KRB_AP_ERR_BADMATCH, err.(messages.KRBError).ErrorCode)
 	} else {
 		t.Fatalf("Error is not a KRBError: %v", err)
 	}
@@ -199,11 +186,10 @@ func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
 		st.Add(time.Duration(24)*time.Hour),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
 
-	a := newTestAuthenticator(*cl.Credentials)
+	require.NoError(t, err)
+
+	a := newTestAuthenticator(t, *cl.Credentials)
 	a.CTime = a.CTime.Add(time.Duration(-10) * time.Minute)
 
 	APReq, err := messages.NewAPReq(
@@ -211,20 +197,20 @@ func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
 		sessionKey,
 		a,
 	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
 
-	h, _ := types.GetHostAddress("127.0.0.1:1234")
+	require.NoError(t, err)
+
+	h, err := types.GetHostAddress("127.0.0.1:1234")
+	require.NoError(t, err)
+
 	s := NewSettings(kt, ClientAddress(h))
 
 	ok, _, err := VerifyAPREQ(&APReq, s)
-	if ok || err == nil {
-		t.Fatal("Validation of AP_REQ passed when it should not have")
-	}
+	require.False(t, ok)
+	require.EqualError(t, err, "KRB Error: (37) KRB_AP_ERR_SKEW Clock skew too great - clock skew with client too large. greater than 5m0s seconds")
 
 	if _, ok := err.(messages.KRBError); ok {
-		assert.Equal(t, errorcode.KRB_AP_ERR_SKEW, err.(messages.KRBError).ErrorCode, "Error code not as expected")
+		assert.Equal(t, errorcode.KRB_AP_ERR_SKEW, err.(messages.KRBError).ErrorCode)
 	} else {
 		t.Fatalf("Error is not a KRBError: %v", err)
 	}
@@ -253,34 +239,28 @@ func TestVerifyAPREQ_Replay(t *testing.T) {
 		st.Add(time.Duration(24)*time.Hour),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
+	require.NoError(t, err)
 
 	APReq, err := messages.NewAPReq(
 		tkt,
 		sessionKey,
-		newTestAuthenticator(*cl.Credentials),
+		newTestAuthenticator(t, *cl.Credentials),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
+	require.NoError(t, err)
 
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h))
 
 	ok, _, err := VerifyAPREQ(&APReq, s)
-	if !ok || err != nil {
-		t.Fatalf("Validation of AP_REQ failed when it should not have: %v", err)
-	}
-	// Replay.
+	require.NoError(t, err)
+	assert.True(t, ok)
+
 	ok, _, err = VerifyAPREQ(&APReq, s)
-	if ok || err == nil {
-		t.Fatal("Validation of AP_REQ passed when it should not have")
-	}
+	require.False(t, ok)
+	require.EqualError(t, err, "KRB Error: (34) KRB_AP_ERR_REPEAT Request is a replay - replay detected")
 
 	assert.IsType(t, messages.KRBError{}, err)
-	assert.Equal(t, errorcode.KRB_AP_ERR_REPEAT, err.(messages.KRBError).ErrorCode, "Error code not as expected")
+	assert.Equal(t, errorcode.KRB_AP_ERR_REPEAT, err.(messages.KRBError).ErrorCode)
 }
 
 func TestVerifyAPREQ_FutureTicket(t *testing.T) {
@@ -308,31 +288,26 @@ func TestVerifyAPREQ_FutureTicket(t *testing.T) {
 		st.Add(time.Duration(24)*time.Hour),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
+	require.NoError(t, err)
 
-	a := newTestAuthenticator(*cl.Credentials)
+	a := newTestAuthenticator(t, *cl.Credentials)
 
 	APReq, err := messages.NewAPReq(
 		tkt,
 		sessionKey,
 		a,
 	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
+	require.NoError(t, err)
 
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h))
 
 	ok, _, err := VerifyAPREQ(&APReq, s)
-	if ok || err == nil {
-		t.Fatal("Validation of AP_REQ passed when it should not have")
-	}
+	require.False(t, ok)
+	require.EqualError(t, err, "KRB Error: (33) KRB_AP_ERR_TKT_NYV Ticket not yet valid - service ticket provided is not yet valid")
 
 	if _, ok := err.(messages.KRBError); ok {
-		assert.Equal(t, errorcode.KRB_AP_ERR_TKT_NYV, err.(messages.KRBError).ErrorCode, "Error code not as expected")
+		assert.Equal(t, errorcode.KRB_AP_ERR_TKT_NYV, err.(messages.KRBError).ErrorCode)
 	} else {
 		t.Fatalf("Error is not a KRBError: %v", err)
 	}
@@ -365,29 +340,24 @@ func TestVerifyAPREQ_InvalidTicket(t *testing.T) {
 		st.Add(time.Duration(24)*time.Hour),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
+	require.NoError(t, err)
 
 	APReq, err := messages.NewAPReq(
 		tkt,
 		sessionKey,
-		newTestAuthenticator(*cl.Credentials),
+		newTestAuthenticator(t, *cl.Credentials),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
+	require.NoError(t, err)
 
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h))
 
 	ok, _, err := VerifyAPREQ(&APReq, s)
-	if ok || err == nil {
-		t.Fatal("Validation of AP_REQ passed when it should not have")
-	}
+	require.False(t, ok)
+	require.EqualError(t, err, "KRB Error: (33) KRB_AP_ERR_TKT_NYV Ticket not yet valid - service ticket provided is not yet valid")
 
 	if _, ok := err.(messages.KRBError); ok {
-		assert.Equal(t, errorcode.KRB_AP_ERR_TKT_NYV, err.(messages.KRBError).ErrorCode, "Error code not as expected")
+		assert.Equal(t, errorcode.KRB_AP_ERR_TKT_NYV, err.(messages.KRBError).ErrorCode)
 	} else {
 		t.Fatalf("Error is not a KRBError: %v", err)
 	}
@@ -418,39 +388,30 @@ func TestVerifyAPREQ_ExpiredTicket(t *testing.T) {
 		st.Add(time.Duration(-30)*time.Minute),
 		st.Add(time.Duration(48)*time.Hour),
 	)
-	if err != nil {
-		t.Fatalf("Error getting test ticket: %v", err)
-	}
+	require.NoError(t, err)
 
-	a := newTestAuthenticator(*cl.Credentials)
+	a := newTestAuthenticator(t, *cl.Credentials)
 
-	APReq, err := messages.NewAPReq(
-		tkt,
-		sessionKey,
-		a,
-	)
-	if err != nil {
-		t.Fatalf("Error getting test AP_REQ: %v", err)
-	}
+	APReq, err := messages.NewAPReq(tkt, sessionKey, a)
+	require.NoError(t, err)
 
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h))
 
 	ok, _, err := VerifyAPREQ(&APReq, s)
-	if ok || err == nil {
-		t.Fatal("Validation of AP_REQ passed when it should not have")
-	}
+	require.False(t, ok)
+	require.EqualError(t, err, "KRB Error: (32) KRB_AP_ERR_TKT_EXPIRED Ticket expired - service ticket provided has expired")
 
 	if _, ok := err.(messages.KRBError); ok {
-		assert.Equal(t, errorcode.KRB_AP_ERR_TKT_EXPIRED, err.(messages.KRBError).ErrorCode, "Error code not as expected")
+		assert.Equal(t, errorcode.KRB_AP_ERR_TKT_EXPIRED, err.(messages.KRBError).ErrorCode)
 	} else {
 		t.Fatalf("Error is not a KRBError: %v", err)
 	}
 }
 
-func newTestAuthenticator(creds credentials.Credentials) types.Authenticator {
+func newTestAuthenticator(t *testing.T, creds credentials.Credentials) types.Authenticator {
 	auth, _ := types.NewAuthenticator(creds.Domain(), creds.CName())
-	auth.GenerateSeqNumberAndSubKey(18, 32)
+	require.NoError(t, auth.GenerateSeqNumberAndSubKey(18, 32))
 
 	return auth
 }

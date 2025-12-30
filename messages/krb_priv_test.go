@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/addrtype"
@@ -20,20 +21,15 @@ func TestUnmarshalKRBPriv(t *testing.T) {
 	var a KRBPriv
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5priv)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_PRIV, a.MsgType)
 	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
 	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
-	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.EncPart.Cipher, "Cipher text of EncPart not as expected")
+	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.EncPart.Cipher)
 }
 
 func TestUnmarshalEncPrivPart(t *testing.T) {
@@ -42,25 +38,21 @@ func TestUnmarshalEncPrivPart(t *testing.T) {
 	var a EncKrbPrivPart
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_priv_part)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, "krb5data", string(a.UserData), "User data not as expected")
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
+
+	assert.Equal(t, "krb5data", string(a.UserData))
 	assert.Equal(t, tt, a.Timestamp)
 	assert.Equal(t, 123456, a.Usec)
-	assert.Equal(t, int64(17), a.SequenceNumber, "Sequence number not as expected")
+	assert.Equal(t, int64(17), a.SequenceNumber)
 	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType)
-	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address), "Address not as expected for SAddress")
+	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address))
 	assert.Equal(t, addrtype.IPv4, a.RAddress.AddrType)
-	assert.Equal(t, "12d00023", hex.EncodeToString(a.RAddress.Address), "Address not as expected for RAddress")
+	assert.Equal(t, "12d00023", hex.EncodeToString(a.RAddress.Address))
 }
 
 func TestUnmarshalEncPrivPart_optionalsNULL(t *testing.T) {
@@ -69,18 +61,13 @@ func TestUnmarshalEncPrivPart_optionalsNULL(t *testing.T) {
 	var a EncKrbPrivPart
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5enc_priv_partOptionalsNULL)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, "krb5data", string(a.UserData), "User data not as expected")
+	assert.Equal(t, "krb5data", string(a.UserData))
 	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType)
-	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address), "Address not as expected for SAddress")
+	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address))
 }
 
 func TestMarshalKRBPriv(t *testing.T) {
@@ -89,36 +76,22 @@ func TestMarshalKRBPriv(t *testing.T) {
 	var a KRBPriv
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5priv)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("error marshaling KRBPriv: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 
 	be, err := hex.DecodeString(testdata.MarshaledKRB5enc_priv_part)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.DecryptedEncPart.Unmarshal(be)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.DecryptedEncPart.Unmarshal(be))
 
 	mb, err = a.Marshal()
-	if err != nil {
-		t.Fatalf("error marshaling KRBPriv: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 }
@@ -129,32 +102,19 @@ func TestKRBPriv_EncryptEncPart(t *testing.T) {
 	var a KRBPriv
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5priv)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	b, err = hex.DecodeString(testdata.MarshaledKRB5enc_priv_part)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.DecryptedEncPart.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.DecryptedEncPart.Unmarshal(b))
 
 	key := types.EncryptionKey{
 		KeyType:  int32(18),
 		KeyValue: []byte("12345678901234567890123456789012"),
 	}
 
-	err = a.EncryptEncPart(key)
-	if err != nil {
-		t.Fatalf("error encrypting encpart: %v", err)
-	}
+	require.NoError(t, a.EncryptEncPart(key))
 }

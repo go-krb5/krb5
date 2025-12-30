@@ -39,12 +39,12 @@ func TestDes3CbcSha1Kd_DR_DK(t *testing.T) {
 		derivedRandom, err := e.DeriveRandom(key, usage)
 		require.NoError(t, err)
 
-		assert.Equal(t, test.dr, hex.EncodeToString(derivedRandom), "DR not as expected")
+		assert.Equal(t, test.dr, hex.EncodeToString(derivedRandom))
 
 		derivedKey, err := e.DeriveKey(key, usage)
 		require.NoError(t, err)
 
-		assert.Equal(t, test.dk, hex.EncodeToString(derivedKey), "DK not as expected")
+		assert.Equal(t, test.dk, hex.EncodeToString(derivedKey))
 	}
 }
 

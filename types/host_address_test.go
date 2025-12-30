@@ -23,7 +23,7 @@ func TestGetHostAddress(t *testing.T) {
 		h, err := GetHostAddress(test.str + ":1234")
 		assert.NoError(t, err)
 
-		assert.Equal(t, test.ipType, h.AddrType, "wrong address type for %s", test.str)
-		assert.Equal(t, test.hex, hex.EncodeToString(h.Address), "wrong address bytes for %s", test.str)
+		assert.Equal(t, test.ipType, h.AddrType)
+		assert.Equal(t, test.hex, hex.EncodeToString(h.Address))
 	}
 }

@@ -2,7 +2,6 @@ package messages
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 	"time"
 
@@ -23,51 +22,47 @@ func TestUnmarshalKDCReqBody(t *testing.T) {
 	var a KDCReqBody
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5kdc_req_body)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, "fedcba90", hex.EncodeToString(a.KDCOptions.Bytes), "Request body flags not as expected")
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
+
+	assert.Equal(t, "fedcba90", hex.EncodeToString(a.KDCOptions.Bytes))
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "Request body CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, testdata.TEST_REALM, a.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.SName.NameString), "Request body SName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.SName.NameString)
 	assert.Equal(t, tt, a.From)
 	assert.Equal(t, tt, a.Till)
 	assert.Equal(t, tt, a.RTime)
 	assert.Equal(t, testdata.TEST_NONCE, a.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.EType)
-	assert.Equal(t, 2, len(a.Addresses), "Number of client addresses not as expected")
+	assert.Equal(t, 2, len(a.Addresses))
 
-	for i, addr := range a.Addresses {
-		assert.Equal(t, addrtype.IPv4, addr.AddrType, fmt.Sprintf("Host address type not as expected for address item %d", i+1))
-		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address), fmt.Sprintf("Host address not as expected for address item %d", i+1))
+	for _, addr := range a.Addresses {
+		assert.Equal(t, addrtype.IPv4, addr.AddrType)
+		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address))
 	}
 
 	assert.Equal(t, testdata.TEST_ETYPE, a.EncAuthData.EType)
 	assert.Equal(t, iana.PVNO, a.EncAuthData.KVNO)
-	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.EncAuthData.Cipher, "Ciphertext of request body encrypted authorization data not as expected")
-	assert.Equal(t, 2, len(a.AdditionalTickets), "Number of additional tickets not as expected")
+	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.EncAuthData.Cipher)
+	assert.Equal(t, 2, len(a.AdditionalTickets))
 
-	for i, tkt := range a.AdditionalTickets {
-		assert.Equal(t, iana.PVNO, tkt.TktVNO, fmt.Sprintf("Additional ticket (%v) ticket-vno not as expected", i+1))
-		assert.Equal(t, testdata.TEST_REALM, tkt.Realm, fmt.Sprintf("Additional ticket (%v) realm not as expected", i+1))
-		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType, fmt.Sprintf("Additional ticket (%v) SName NameType not as expected", i+1))
-		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString), fmt.Sprintf("Additional ticket (%v) SName does not have the expected number of NameStrings", i+1))
-		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString, fmt.Sprintf("Additional ticket (%v) SName name string entries not as expected", i+1))
-		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType, fmt.Sprintf("Additional ticket (%v) encPart etype not as expected", i+1))
-		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO, fmt.Sprintf("Additional ticket (%v) encPart KVNO not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher, fmt.Sprintf("Additional ticket (%v) encPart cipher not as expected", i+1))
+	for _, tkt := range a.AdditionalTickets {
+		assert.Equal(t, iana.PVNO, tkt.TktVNO)
+		assert.Equal(t, testdata.TEST_REALM, tkt.Realm)
+		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType)
+		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString))
+		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString)
+		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType)
+		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO)
+		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher)
 	}
 }
 
@@ -77,35 +72,31 @@ func TestUnmarshalKDCReqBody_optionalsNULLexceptsecond_ticket(t *testing.T) {
 	var a KDCReqBody
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5kdc_req_bodyOptionalsNULLexceptsecond_ticket)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, "fedcba98", hex.EncodeToString(a.KDCOptions.Bytes), "Request body flags not as expected")
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
+
+	assert.Equal(t, "fedcba98", hex.EncodeToString(a.KDCOptions.Bytes))
 	assert.Equal(t, testdata.TEST_REALM, a.Realm)
 	assert.Equal(t, tt, a.Till)
 	assert.Equal(t, testdata.TEST_NONCE, a.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.EType)
-	assert.Equal(t, 0, len(a.Addresses), "Number of client addresses not empty")
-	assert.Equal(t, 0, len(a.EncAuthData.Cipher), "Ciphertext of request body encrypted authorization data not empty")
-	assert.Equal(t, 2, len(a.AdditionalTickets), "Number of additional tickets not as expected")
+	assert.Equal(t, 0, len(a.Addresses))
+	assert.Equal(t, 0, len(a.EncAuthData.Cipher))
+	assert.Equal(t, 2, len(a.AdditionalTickets))
 
-	for i, tkt := range a.AdditionalTickets {
-		assert.Equal(t, iana.PVNO, tkt.TktVNO, fmt.Sprintf("Additional ticket (%v) ticket-vno not as expected", i+1))
-		assert.Equal(t, testdata.TEST_REALM, tkt.Realm, fmt.Sprintf("Additional ticket (%v) realm not as expected", i+1))
-		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType, fmt.Sprintf("Additional ticket (%v) SName NameType not as expected", i+1))
-		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString), fmt.Sprintf("Additional ticket (%v) SName does not have the expected number of NameStrings", i+1))
-		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString, fmt.Sprintf("Additional ticket (%v) SName name string entries not as expected", i+1))
-		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType, fmt.Sprintf("Additional ticket (%v) encPart etype not as expected", i+1))
-		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO, fmt.Sprintf("Additional ticket (%v) encPart KVNO not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher, fmt.Sprintf("Additional ticket (%v) encPart cipher not as expected", i+1))
+	for _, tkt := range a.AdditionalTickets {
+		assert.Equal(t, iana.PVNO, tkt.TktVNO)
+		assert.Equal(t, testdata.TEST_REALM, tkt.Realm)
+		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType)
+		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString))
+		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString)
+		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType)
+		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO)
+		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher)
 	}
 }
 
@@ -115,28 +106,24 @@ func TestUnmarshalKDCReqBody_optionalsNULLexceptserver(t *testing.T) {
 	var a KDCReqBody
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5kdc_req_bodyOptionalsNULLexceptserver)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
 
-	assert.Equal(t, "fedcba90", hex.EncodeToString(a.KDCOptions.Bytes), "Request body flags not as expected")
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
+
+	assert.Equal(t, "fedcba90", hex.EncodeToString(a.KDCOptions.Bytes))
 	assert.Equal(t, testdata.TEST_REALM, a.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.SName.NameString), "Request body SName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.SName.NameString)
 	assert.Equal(t, tt, a.Till)
 	assert.Equal(t, testdata.TEST_NONCE, a.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.EType)
-	assert.Equal(t, 0, len(a.Addresses), "Number of client addresses not empty")
-	assert.Equal(t, 0, len(a.EncAuthData.Cipher), "Ciphertext of request body encrypted authorization data not empty")
-	assert.Equal(t, 0, len(a.AdditionalTickets), "Number of additional tickets not empty")
+	assert.Equal(t, 0, len(a.Addresses))
+	assert.Equal(t, 0, len(a.EncAuthData.Cipher))
+	assert.Equal(t, 0, len(a.AdditionalTickets))
 }
 
 func TestUnmarshalASReq(t *testing.T) {
@@ -145,60 +132,56 @@ func TestUnmarshalASReq(t *testing.T) {
 	var a ASReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_req)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
+
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_AS_REQ, a.MsgType)
-	assert.Equal(t, 2, len(a.PAData), "Number of PAData items in the sequence not as expected")
+	assert.Equal(t, 2, len(a.PAData))
 
-	for i, pa := range a.PAData {
-		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType, fmt.Sprintf("PAData type for entry %d not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue, fmt.Sprintf("PAData valye for entry %d not as expected", i+1))
+	for _, pa := range a.PAData {
+		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType)
+		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue)
 	}
 
-	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes), "Request body flags not as expected")
+	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes))
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.ReqBody.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.CName.NameString), "Request body CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.ReqBody.CName.NameString)
 	assert.Equal(t, testdata.TEST_REALM, a.ReqBody.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.ReqBody.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString), "Request body SName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.ReqBody.SName.NameString)
 	assert.Equal(t, tt, a.ReqBody.From)
 	assert.Equal(t, tt, a.ReqBody.Till)
 	assert.Equal(t, tt, a.ReqBody.RTime)
 	assert.Equal(t, testdata.TEST_NONCE, a.ReqBody.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.ReqBody.EType)
-	assert.Equal(t, 2, len(a.ReqBody.Addresses), "Number of client addresses not as expected")
+	assert.Equal(t, 2, len(a.ReqBody.Addresses))
 
-	for i, addr := range a.ReqBody.Addresses {
-		assert.Equal(t, addrtype.IPv4, addr.AddrType, fmt.Sprintf("Host address type not as expected for address item %d", i+1))
-		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address), fmt.Sprintf("Host address not as expected for address item %d", i+1))
+	for _, addr := range a.ReqBody.Addresses {
+		assert.Equal(t, addrtype.IPv4, addr.AddrType)
+		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address))
 	}
 
 	assert.Equal(t, testdata.TEST_ETYPE, a.ReqBody.EncAuthData.EType)
 	assert.Equal(t, iana.PVNO, a.ReqBody.EncAuthData.KVNO)
-	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.ReqBody.EncAuthData.Cipher, "Ciphertext of request body encrypted authorization data not as expected")
-	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets), "Number of additional tickets not as expected")
+	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.ReqBody.EncAuthData.Cipher)
+	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets))
 
-	for i, tkt := range a.ReqBody.AdditionalTickets {
-		assert.Equal(t, iana.PVNO, tkt.TktVNO, fmt.Sprintf("Additional ticket (%v) ticket-vno not as expected", i+1))
-		assert.Equal(t, testdata.TEST_REALM, tkt.Realm, fmt.Sprintf("Additional ticket (%v) realm not as expected", i+1))
-		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType, fmt.Sprintf("Additional ticket (%v) SName NameType not as expected", i+1))
-		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString), fmt.Sprintf("Additional ticket (%v) SName does not have the expected number of NameStrings", i+1))
-		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString, fmt.Sprintf("Additional ticket (%v) SName name string entries not as expected", i+1))
-		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType, fmt.Sprintf("Additional ticket (%v) encPart etype not as expected", i+1))
-		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO, fmt.Sprintf("Additional ticket (%v) encPart KVNO not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher, fmt.Sprintf("Additional ticket (%v) encPart cipher not as expected", i+1))
+	for _, tkt := range a.ReqBody.AdditionalTickets {
+		assert.Equal(t, iana.PVNO, tkt.TktVNO)
+		assert.Equal(t, testdata.TEST_REALM, tkt.Realm)
+		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType)
+		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString))
+		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString)
+		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType)
+		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO)
+		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher)
 	}
 }
 
@@ -208,38 +191,34 @@ func TestUnmarshalASReq_optionalsNULLexceptsecond_ticket(t *testing.T) {
 	var a ASReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_reqOptionalsNULLexceptsecond_ticket)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
+
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_AS_REQ, a.MsgType)
-	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
-	assert.Equal(t, "fedcba98", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes), "Request body flags not as expected")
+	assert.Equal(t, 0, len(a.PAData))
+	assert.Equal(t, "fedcba98", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes))
 	assert.Equal(t, testdata.TEST_REALM, a.ReqBody.Realm)
 	assert.Equal(t, tt, a.ReqBody.Till)
 	assert.Equal(t, testdata.TEST_NONCE, a.ReqBody.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.ReqBody.EType)
-	assert.Equal(t, 0, len(a.ReqBody.Addresses), "Number of client addresses not empty")
-	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher), "Ciphertext of request body encrypted authorization data not empty")
-	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets), "Number of additional tickets not as expected")
+	assert.Equal(t, 0, len(a.ReqBody.Addresses))
+	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher))
+	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets))
 
-	for i, tkt := range a.ReqBody.AdditionalTickets {
-		assert.Equal(t, iana.PVNO, tkt.TktVNO, fmt.Sprintf("Additional ticket (%v) ticket-vno not as expected", i+1))
-		assert.Equal(t, testdata.TEST_REALM, tkt.Realm, fmt.Sprintf("Additional ticket (%v) realm not as expected", i+1))
-		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType, fmt.Sprintf("Additional ticket (%v) SName NameType not as expected", i+1))
-		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString), fmt.Sprintf("Additional ticket (%v) SName does not have the expected number of NameStrings", i+1))
-		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString, fmt.Sprintf("Additional ticket (%v) SName name string entries not as expected", i+1))
-		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType, fmt.Sprintf("Additional ticket (%v) encPart etype not as expected", i+1))
-		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO, fmt.Sprintf("Additional ticket (%v) encPart KVNO not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher, fmt.Sprintf("Additional ticket (%v) encPart cipher not as expected", i+1))
+	for _, tkt := range a.ReqBody.AdditionalTickets {
+		assert.Equal(t, iana.PVNO, tkt.TktVNO)
+		assert.Equal(t, testdata.TEST_REALM, tkt.Realm)
+		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType)
+		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString))
+		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString)
+		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType)
+		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO)
+		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher)
 	}
 }
 
@@ -249,31 +228,27 @@ func TestUnmarshalASReq_optionalsNULLexceptserver(t *testing.T) {
 	var a ASReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_reqOptionalsNULLexceptserver)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
+
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_AS_REQ, a.MsgType)
-	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
-	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes), "Request body flags not as expected")
+	assert.Equal(t, 0, len(a.PAData))
+	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes))
 	assert.Equal(t, testdata.TEST_REALM, a.ReqBody.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.ReqBody.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString), "Request body SName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.ReqBody.SName.NameString)
 	assert.Equal(t, tt, a.ReqBody.Till)
 	assert.Equal(t, testdata.TEST_NONCE, a.ReqBody.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.ReqBody.EType)
-	assert.Equal(t, 0, len(a.ReqBody.Addresses), "Number of client addresses not empty")
-	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher), "Ciphertext of request body encrypted authorization data not empty")
-	assert.Equal(t, 0, len(a.ReqBody.AdditionalTickets), "Number of additional tickets not empty")
+	assert.Equal(t, 0, len(a.ReqBody.Addresses))
+	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher))
+	assert.Equal(t, 0, len(a.ReqBody.AdditionalTickets))
 }
 
 func TestUnmarshalTGSReq(t *testing.T) {
@@ -282,60 +257,56 @@ func TestUnmarshalTGSReq(t *testing.T) {
 	var a TGSReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_req)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
+
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_TGS_REQ, a.MsgType)
-	assert.Equal(t, 2, len(a.PAData), "Number of PAData items in the sequence not as expected")
+	assert.Equal(t, 2, len(a.PAData))
 
-	for i, pa := range a.PAData {
-		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType, fmt.Sprintf("PAData type for entry %d not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue, fmt.Sprintf("PAData valye for entry %d not as expected", i+1))
+	for _, pa := range a.PAData {
+		assert.Equal(t, patype.PA_SAM_RESPONSE, pa.PADataType)
+		assert.Equal(t, []byte(testdata.TEST_PADATA_VALUE), pa.PADataValue)
 	}
 
-	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes), "Request body flags not as expected")
+	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes))
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.ReqBody.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.CName.NameString), "Request body CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.ReqBody.CName.NameString)
 	assert.Equal(t, testdata.TEST_REALM, a.ReqBody.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.ReqBody.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString), "Request body SName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.ReqBody.SName.NameString)
 	assert.Equal(t, tt, a.ReqBody.From)
 	assert.Equal(t, tt, a.ReqBody.Till)
 	assert.Equal(t, tt, a.ReqBody.RTime)
 	assert.Equal(t, testdata.TEST_NONCE, a.ReqBody.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.ReqBody.EType)
-	assert.Equal(t, 2, len(a.ReqBody.Addresses), "Number of client addresses not as expected")
+	assert.Equal(t, 2, len(a.ReqBody.Addresses))
 
-	for i, addr := range a.ReqBody.Addresses {
-		assert.Equal(t, addrtype.IPv4, addr.AddrType, fmt.Sprintf("Host address type not as expected for address item %d", i+1))
-		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address), fmt.Sprintf("Host address not as expected for address item %d", i+1))
+	for _, addr := range a.ReqBody.Addresses {
+		assert.Equal(t, addrtype.IPv4, addr.AddrType)
+		assert.Equal(t, "12d00023", hex.EncodeToString(addr.Address))
 	}
 
 	assert.Equal(t, testdata.TEST_ETYPE, a.ReqBody.EncAuthData.EType)
 	assert.Equal(t, iana.PVNO, a.ReqBody.EncAuthData.KVNO)
-	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.ReqBody.EncAuthData.Cipher, "Ciphertext of request body encrypted authorization data not as expected")
-	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets), "Number of additional tickets not as expected")
+	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.ReqBody.EncAuthData.Cipher)
+	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets))
 
-	for i, tkt := range a.ReqBody.AdditionalTickets {
-		assert.Equal(t, iana.PVNO, tkt.TktVNO, fmt.Sprintf("Additional ticket (%v) ticket-vno not as expected", i+1))
-		assert.Equal(t, testdata.TEST_REALM, tkt.Realm, fmt.Sprintf("Additional ticket (%v) realm not as expected", i+1))
-		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType, fmt.Sprintf("Additional ticket (%v) SName NameType not as expected", i+1))
-		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString), fmt.Sprintf("Additional ticket (%v) SName does not have the expected number of NameStrings", i+1))
-		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString, fmt.Sprintf("Additional ticket (%v) SName name string entries not as expected", i+1))
-		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType, fmt.Sprintf("Additional ticket (%v) encPart etype not as expected", i+1))
-		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO, fmt.Sprintf("Additional ticket (%v) encPart KVNO not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher, fmt.Sprintf("Additional ticket (%v) encPart cipher not as expected", i+1))
+	for _, tkt := range a.ReqBody.AdditionalTickets {
+		assert.Equal(t, iana.PVNO, tkt.TktVNO)
+		assert.Equal(t, testdata.TEST_REALM, tkt.Realm)
+		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType)
+		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString))
+		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString)
+		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType)
+		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO)
+		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher)
 	}
 }
 
@@ -345,38 +316,34 @@ func TestUnmarshalTGSReq_optionalsNULLexceptsecond_ticket(t *testing.T) {
 	var a TGSReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_reqOptionalsNULLexceptsecond_ticket)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
+
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_TGS_REQ, a.MsgType)
-	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
-	assert.Equal(t, "fedcba98", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes), "Request body flags not as expected")
+	assert.Equal(t, 0, len(a.PAData))
+	assert.Equal(t, "fedcba98", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes))
 	assert.Equal(t, testdata.TEST_REALM, a.ReqBody.Realm)
 	assert.Equal(t, tt, a.ReqBody.Till)
 	assert.Equal(t, testdata.TEST_NONCE, a.ReqBody.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.ReqBody.EType)
-	assert.Equal(t, 0, len(a.ReqBody.Addresses), "Number of client addresses not empty")
-	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher), "Ciphertext of request body encrypted authorization data not empty")
-	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets), "Number of additional tickets not as expected")
+	assert.Equal(t, 0, len(a.ReqBody.Addresses))
+	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher))
+	assert.Equal(t, 2, len(a.ReqBody.AdditionalTickets))
 
-	for i, tkt := range a.ReqBody.AdditionalTickets {
-		assert.Equal(t, iana.PVNO, tkt.TktVNO, fmt.Sprintf("Additional ticket (%v) ticket-vno not as expected", i+1))
-		assert.Equal(t, testdata.TEST_REALM, tkt.Realm, fmt.Sprintf("Additional ticket (%v) realm not as expected", i+1))
-		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType, fmt.Sprintf("Additional ticket (%v) SName NameType not as expected", i+1))
-		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString), fmt.Sprintf("Additional ticket (%v) SName does not have the expected number of NameStrings", i+1))
-		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString, fmt.Sprintf("Additional ticket (%v) SName name string entries not as expected", i+1))
-		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType, fmt.Sprintf("Additional ticket (%v) encPart etype not as expected", i+1))
-		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO, fmt.Sprintf("Additional ticket (%v) encPart KVNO not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher, fmt.Sprintf("Additional ticket (%v) encPart cipher not as expected", i+1))
+	for _, tkt := range a.ReqBody.AdditionalTickets {
+		assert.Equal(t, iana.PVNO, tkt.TktVNO)
+		assert.Equal(t, testdata.TEST_REALM, tkt.Realm)
+		assert.Equal(t, nametype.KRB_NT_PRINCIPAL, tkt.SName.NameType)
+		assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(tkt.SName.NameString))
+		assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, tkt.SName.NameString)
+		assert.Equal(t, testdata.TEST_ETYPE, tkt.EncPart.EType)
+		assert.Equal(t, iana.PVNO, tkt.EncPart.KVNO)
+		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher)
 	}
 }
 
@@ -386,31 +353,27 @@ func TestUnmarshalTGSReq_optionalsNULLexceptserver(t *testing.T) {
 	var a TGSReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_reqOptionalsNULLexceptserver)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
-	// Parse the test time value into a time.Time type.
-	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, a.Unmarshal(b))
+
+	tt, err := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
+	require.NoError(t, err)
 
 	assert.Equal(t, iana.PVNO, a.PVNO)
 	assert.Equal(t, msgtype.KRB_TGS_REQ, a.MsgType)
-	assert.Equal(t, 0, len(a.PAData), "Number of PAData items in the sequence not as expected")
-	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes), "Request body flags not as expected")
+	assert.Equal(t, 0, len(a.PAData))
+	assert.Equal(t, "fedcba90", hex.EncodeToString(a.ReqBody.KDCOptions.Bytes))
 	assert.Equal(t, testdata.TEST_REALM, a.ReqBody.Realm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.ReqBody.SName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString), "Request body SName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.ReqBody.SName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.ReqBody.SName.NameString)
 	assert.Equal(t, tt, a.ReqBody.Till)
 	assert.Equal(t, testdata.TEST_NONCE, a.ReqBody.Nonce)
 	assert.Equal(t, []int32{0, 1}, a.ReqBody.EType)
-	assert.Equal(t, 0, len(a.ReqBody.Addresses), "Number of client addresses not empty")
-	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher), "Ciphertext of request body encrypted authorization data not empty")
-	assert.Equal(t, 0, len(a.ReqBody.AdditionalTickets), "Number of additional tickets not empty")
+	assert.Equal(t, 0, len(a.ReqBody.Addresses))
+	assert.Equal(t, 0, len(a.ReqBody.EncAuthData.Cipher))
+	assert.Equal(t, 0, len(a.ReqBody.AdditionalTickets))
 }
 
 //// Marshal Tests ////.
@@ -421,9 +384,7 @@ func TestMarshalKDCReqBody(t *testing.T) {
 	var a KDCReqBody
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5kdc_req_body)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
 	require.NoError(t, a.Unmarshal(b))
 
@@ -439,19 +400,12 @@ func TestMarshalASReq(t *testing.T) {
 	var a ASReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5as_req)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal of ticket errored: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 }
@@ -462,19 +416,12 @@ func TestMarshalTGSReq(t *testing.T) {
 	var a TGSReq
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5tgs_req)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal of ticket errored: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 }

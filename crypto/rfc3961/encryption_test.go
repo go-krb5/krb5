@@ -61,13 +61,13 @@ func TestDES3DeriveRandom(t *testing.T) {
 			// Test DR (derive-random) function.
 			dr, err := e.DeriveRandom(key, usage)
 			assert.NoError(t, err)
-			assert.Equal(t, test.expectedDR, hex.EncodeToString(dr), "DR result not as expected")
+			assert.Equal(t, test.expectedDR, hex.EncodeToString(dr))
 
 			// Test DK (derive-key) function.
 			dk, err := e.DeriveKey(key, usage)
 			require.NoError(t, err)
 
-			assert.Equal(t, test.expectedDK, hex.EncodeToString(dk), "DK result not as expected")
+			assert.Equal(t, test.expectedDK, hex.EncodeToString(dk))
 		})
 	}
 }
@@ -118,11 +118,9 @@ func TestDES3StringToKey(t *testing.T) {
 			var e crypto.Des3CbcSha1Kd
 
 			key, err := e.StringToKey(test.password, test.salt, "")
-			if err != nil {
-				t.Fatalf("StringToKey failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			assert.Equal(t, test.expected, hex.EncodeToString(key), "DES3 key not as expected")
+			assert.Equal(t, test.expected, hex.EncodeToString(key))
 		})
 	}
 }
@@ -186,17 +184,11 @@ func TestDES3EncryptDecryptData(t *testing.T) {
 				return
 			}
 
-			if err != nil {
-				t.Fatalf("DES3EncryptData failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decrypted, err := rfc3961.DES3DecryptData(key, ciphertext, &e)
-			if err != nil {
-				t.Fatalf("DES3DecryptData failed: %v", err)
-			}
-
-			// Remove padding and compare.
-			assert.Equal(t, plaintext, decrypted[:len(plaintext)], "Round-trip encrypt/decrypt failed")
+			require.NoError(t, err)
+			assert.Equal(t, plaintext, decrypted[:len(plaintext)])
 		})
 	}
 }
@@ -240,18 +232,17 @@ func TestDES3EncryptDecryptMessage(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			var e crypto.Des3CbcSha1Kd
 
-			key, _ := hex.DecodeString(test.key)
-			plaintext, _ := hex.DecodeString(test.plaintext)
+			key, err := hex.DecodeString(test.key)
+			require.NoError(t, err)
+
+			plaintext, err := hex.DecodeString(test.plaintext)
+			require.NoError(t, err)
 
 			_, encryptedMessage, err := rfc3961.DES3EncryptMessage(key, plaintext, test.usage, &e)
-			if err != nil {
-				t.Fatalf("DES3EncryptMessage failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			decryptedMessage, err := rfc3961.DES3DecryptMessage(key, encryptedMessage, test.usage, &e)
-			if err != nil {
-				t.Fatalf("DES3DecryptMessage failed: %v", err)
-			}
+			require.NoError(t, err)
 
 			assert.Equal(t, plaintext, decryptedMessage)
 		})

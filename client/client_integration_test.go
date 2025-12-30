@@ -469,7 +469,7 @@ func spnegoGet(cl *client.Client) error {
 		url = testdata.TEST_HTTP_URL
 	}
 
-	r, _ := http.NewRequest("GET", url+"/modgssapi/index.html", nil)
+	r, _ := http.NewRequest(http.MethodGet, url+"/modgssapi/index.html", nil)
 
 	httpResp, err := http.DefaultClient.Do(r)
 	if err != nil {
@@ -517,13 +517,12 @@ func TestNewFromCCache(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 
 	cl, err := client.NewFromCCache(cc, c)
-	if err != nil {
-		t.Fatalf("error creating client from CCache: %v", err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, cl)
 
-	if ok, err := cl.IsConfigured(); !ok {
-		t.Fatalf("client was not configured from CCache: %v", err)
-	}
+	ok, err := cl.IsConfigured()
+	assert.True(t, ok)
+	assert.NoError(t, err)
 }
 
 // Login to the TEST.GOKRB5 domain and request service ticket for resource in the RESDOM.GOKRB5 domain.
@@ -559,17 +558,12 @@ func TestClient_GetServiceTicket_Trusted_Resource_Domain(t *testing.T) {
 	c.LibDefaults.DefaultTGSEnctypes = []string{"aes256-cts-hmac-sha1-96"}
 	c.LibDefaults.DefaultTGSEnctypeIDs = []int32{etypeID.ETypesByName["aes256-cts-hmac-sha1-96"]}
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	spn := "HTTP/host.resdom.gokrb5"
 
 	tkt, key, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 	assert.Equal(t, etypeID.ETypesByName["aes256-cts-hmac-sha1-96"], key.KeyType)
@@ -578,10 +572,7 @@ func TestClient_GetServiceTicket_Trusted_Resource_Domain(t *testing.T) {
 	skt := keytab.New()
 	require.NoError(t, skt.Unmarshal(b))
 
-	err = tkt.DecryptEncPart(skt, nil)
-	if err != nil {
-		t.Errorf("error decrypting ticket with service keytab: %v", err)
-	}
+	assert.NoError(t, tkt.DecryptEncPart(skt, nil))
 }
 
 // Login to the SUB.TEST.GOKRB5 domain and request service ticket for resource in the RESDOM.GOKRB5 domain.
@@ -590,9 +581,7 @@ func TestClient_GetServiceTicket_Trusted_Resource_SubDomain(t *testing.T) {
 	test.Integration(t)
 
 	c, err := config.NewFromString(testdata.KRB5_CONF)
-	if err != nil {
-		t.Fatalf("error reading krb5 config: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	addr := os.Getenv("TEST_KDC_ADDR")
 	if addr == "" {
@@ -618,17 +607,12 @@ func TestClient_GetServiceTicket_Trusted_Resource_SubDomain(t *testing.T) {
 
 	cl := client.NewWithPassword("testuser1", "SUB.TEST.GOKRB5", "passwordvalue", c)
 
-	err = cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
 	spn := "HTTP/host.resdom.gokrb5"
 
 	tkt, key, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 	assert.Equal(t, etypeID.ETypesByName["aes256-cts-hmac-sha1-96"], key.KeyType)
@@ -707,15 +691,10 @@ func loadCCache() (*credentials.CCache, error) {
 func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 	test.Privileged(t)
 
-	err := login()
-	if err != nil {
-		t.Fatalf("error logging in with kinit: %v", err)
-	}
+	require.NoError(t, login())
 
 	c, err := loadCCache()
-	if err != nil {
-		t.Errorf("error loading CCache: %v", err)
-	}
+	require.NoError(t, err)
 
 	cfg, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -727,23 +706,16 @@ func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 	cfg.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5}
 
 	cl, err := client.NewFromCCache(c, cfg)
-	if err != nil {
-		t.Fatalf("error generating client from ccache: %v", err)
-	}
+	require.NoError(t, err)
 
 	tkt, key, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 	assert.Equal(t, int32(18), key.KeyType)
 
-	// Check cache use - should get the same values back again.
 	tkt2, key2, err := cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, tkt.EncPart.Cipher, tkt2.EncPart.Cipher)
 	assert.Equal(t, key.KeyValue, key2.KeyValue)
@@ -753,17 +725,13 @@ func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 		url = testdata.TEST_HTTP_URL
 	}
 
-	r, _ := http.NewRequest("GET", url+"/modgssapi/index.html", nil)
+	r, err := http.NewRequest(http.MethodGet, url+"/modgssapi/index.html", nil)
+	require.NoError(t, err)
 
-	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
-	if err != nil {
-		t.Fatalf("error setting client SPNEGO header: %v", err)
-	}
+	require.NoError(t, spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5"))
 
 	httpResp, err := http.DefaultClient.Do(r)
-	if err != nil {
-		t.Fatalf("request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
@@ -771,44 +739,29 @@ func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 func TestGetServiceTicketFromCCacheWithoutKDC(t *testing.T) {
 	test.Privileged(t)
 
-	err := login()
-	if err != nil {
-		t.Fatalf("error logging in with kinit: %v", err)
-	}
+	require.NoError(t, login())
 
-	err = getServiceTkt()
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v", err)
-	}
+	require.NoError(t, getServiceTkt())
 
 	c, err := loadCCache()
-	if err != nil {
-		t.Errorf("error loading CCache: %v", err)
-	}
+	require.NoError(t, err)
 
 	cfg, _ := config.NewFromString("...")
 
 	cl, err := client.NewFromCCache(c, cfg)
-	if err != nil {
-		t.Fatalf("error generating client from ccache: %v", err)
-	}
+	require.NoError(t, err)
 
 	url := os.Getenv("TEST_HTTP_URL")
 	if url == "" {
 		url = testdata.TEST_HTTP_URL
 	}
 
-	r, _ := http.NewRequest("GET", url+"/modgssapi/index.html", nil)
+	r, _ := http.NewRequest(http.MethodGet, url+"/modgssapi/index.html", nil)
 
-	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
-	if err != nil {
-		t.Fatalf("error setting client SPNEGO header: %v", err)
-	}
+	require.NoError(t, spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5"))
 
 	httpResp, err := http.DefaultClient.Do(r)
-	if err != nil {
-		t.Fatalf("request error: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
@@ -818,9 +771,11 @@ func TestClient_ChangePasswd(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
+
 	require.NoError(t, kt.Unmarshal(b))
 
-	c, _ := config.NewFromString(testdata.KRB5_CONF)
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
 
 	addr := os.Getenv("TEST_KDC_ADDR")
 	if addr == "" {
@@ -832,18 +787,14 @@ func TestClient_ChangePasswd(t *testing.T) {
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
 	ok, err := cl.ChangePasswd("newpassword")
-	if err != nil {
-		t.Fatalf("error changing password: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.True(t, ok)
 
 	cl = client.NewWithPassword("testuser1", "TEST.GOKRB5", "newpassword", c)
 
 	ok, err = cl.ChangePasswd(testdata.TESTUSER_PASSWORD)
-	if err != nil {
-		t.Fatalf("error changing password: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.True(t, ok)
 

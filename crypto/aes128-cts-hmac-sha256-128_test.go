@@ -36,10 +36,10 @@ func TestAes128CtsHmacSha256128_StringToKey(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			saltp := rfc8009.GetSaltP(tc.salt, "aes128-cts-hmac-sha256-128")
-			assert.Equal(t, tc.saltp, hex.EncodeToString([]byte(saltp)), "SaltP not as expected")
+			assert.Equal(t, tc.saltp, hex.EncodeToString([]byte(saltp)))
 
 			k, err := e.StringToKey(tc.phrase, tc.salt, common.IterationsToS2Kparams(tc.iterations))
-			assert.Equal(t, tc.key, hex.EncodeToString(k), "String to Key not as expected")
+			assert.Equal(t, tc.key, hex.EncodeToString(k))
 			assert.NoError(t, err)
 		})
 	}
@@ -59,17 +59,17 @@ func TestAes128CtsHmacSha256128_DeriveKey(t *testing.T) {
 	k, err := e.DeriveKey(protocolBaseKey, common.GetUsageKc(testUsage))
 	require.NoError(t, err)
 
-	assert.Equal(t, "b31a018a48f54776f403e9a396325dc3", hex.EncodeToString(k), "Checksum derived key not as epxected")
+	assert.Equal(t, "b31a018a48f54776f403e9a396325dc3", hex.EncodeToString(k))
 
 	k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKe(testUsage))
 	require.NoError(t, err)
 
-	assert.Equal(t, "9b197dd1e8c5609d6e67c3e37c62c72e", hex.EncodeToString(k), "Encryption derived key not as epxected")
+	assert.Equal(t, "9b197dd1e8c5609d6e67c3e37c62c72e", hex.EncodeToString(k))
 
 	k, err = e.DeriveKey(protocolBaseKey, common.GetUsageKi(testUsage))
 	require.NoError(t, err)
 
-	assert.Equal(t, "9fda0e56ab2d85e1569a688696c26a6c", hex.EncodeToString(k), "Integrity derived key not as epxected")
+	assert.Equal(t, "9fda0e56ab2d85e1569a688696c26a6c", hex.EncodeToString(k))
 }
 
 // TestAes128CtsHmacSha256128_DeriveKey handles test vectors from RFC 8009 Appendix A.
@@ -100,7 +100,7 @@ func TestAes128CtsHmacSha256128_VerifyIntegrity(t *testing.T) {
 			b, err := e.GetChecksumHash(protocolBaseKey, p, testUsage)
 			assert.NoError(t, err)
 
-			assert.Equal(t, tc.chksum, hex.EncodeToString(b), "Checksum not as expected")
+			assert.Equal(t, tc.chksum, hex.EncodeToString(b))
 		})
 	}
 }

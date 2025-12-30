@@ -68,7 +68,7 @@ func TestUnmarshal_MICChallenge(t *testing.T) {
 
 	err := mt.Unmarshal(challenge, true)
 	assert.Nil(t, err)
-	assert.Equal(t, getMICChallengeReference(), &mt, "Token not decoded as expected.")
+	assert.Equal(t, getMICChallengeReference(), &mt)
 }
 
 func TestUnmarshalFailure_MICChallenge(t *testing.T) {
@@ -82,8 +82,8 @@ func TestUnmarshalFailure_MICChallenge(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, mt.Payload)
 	assert.Nil(t, mt.Checksum)
-	assert.Equal(t, byte(0x00), mt.Flags, "Token fields should not have been initialised")
-	assert.Equal(t, uint64(0), mt.SndSeqNum, "Token fields should not have been initialised")
+	assert.Equal(t, byte(0x00), mt.Flags)
+	assert.Equal(t, uint64(0), mt.SndSeqNum)
 }
 
 func TestUnmarshal_MICChallengeReply(t *testing.T) {
@@ -95,7 +95,7 @@ func TestUnmarshal_MICChallengeReply(t *testing.T) {
 
 	err := mt.Unmarshal(response, false)
 	assert.Nil(t, err)
-	assert.Equal(t, getMICResponseReference(), &mt, "Token not decoded as expected.")
+	assert.Equal(t, getMICResponseReference(), &mt)
 }
 
 func TestUnmarshalFailure_MICChallengeReply(t *testing.T) {
@@ -109,8 +109,8 @@ func TestUnmarshalFailure_MICChallengeReply(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Nil(t, mt.Payload)
 	assert.Nil(t, mt.Checksum)
-	assert.Equal(t, byte(0x00), mt.Flags, "Token fields should not have been initialised")
-	assert.Equal(t, uint64(0), mt.SndSeqNum, "Token fields should not have been initialised")
+	assert.Equal(t, byte(0x00), mt.Flags)
+	assert.Equal(t, uint64(0), mt.SndSeqNum)
 }
 
 func TestMICChallengeChecksumVerification(t *testing.T) {
@@ -196,5 +196,5 @@ func TestNewInitiatorMICTokenSignatureAndMarshalling(t *testing.T) {
 	token.Payload = nil
 
 	assert.Nil(t, tErr)
-	assert.Equal(t, getMICResponseReference(), token, "Token failed to be marshalled to the expected bytes.")
+	assert.Equal(t, getMICResponseReference(), token)
 }

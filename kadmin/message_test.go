@@ -27,10 +27,10 @@ func TestUnmarshalReply(t *testing.T) {
 	assert.Equal(t, 140, a.APREPLength)
 	assert.Equal(t, iana.PVNO, a.APREP.PVNO)
 	assert.Equal(t, msgtype.KRB_AP_REP, a.APREP.MsgType)
-	assert.Equal(t, int32(18), a.APREP.EncPart.EType, "AP_REQ etype not as expected")
+	assert.Equal(t, int32(18), a.APREP.EncPart.EType)
 	assert.Equal(t, iana.PVNO, a.KRBPriv.PVNO)
 	assert.Equal(t, msgtype.KRB_PRIV, a.KRBPriv.MsgType)
-	assert.Equal(t, int32(18), a.KRBPriv.EncPart.EType, "KRBPriv etype not as expected")
+	assert.Equal(t, int32(18), a.KRBPriv.EncPart.EType)
 }
 
 // Request marshal is tested via integration test in the client package due to the dynamic keys and encryption.

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/test/testdata"
@@ -21,14 +22,10 @@ func TestChangePasswdData_Marshal(t *testing.T) {
 	}
 
 	chpwdb, err := chgpasswd.Marshal()
-	if err != nil {
-		t.Fatalf("error marshaling change passwd data: %v\n", err)
-	}
+	require.NoError(t, err)
 
 	b, err := hex.DecodeString(testdata.MarshaledChangePasswdData)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, chpwdb)
 }

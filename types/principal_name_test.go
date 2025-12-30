@@ -15,7 +15,7 @@ func TestPrincipalName_GetSalt(t *testing.T) {
 		NameType:   1,
 		NameString: []string{"firststring", "secondstring"},
 	}
-	assert.Equal(t, "TEST.GOKRB5firststringsecondstring", pn.GetSalt("TEST.GOKRB5"), "Principal name default salt not as expected")
+	assert.Equal(t, "TEST.GOKRB5firststringsecondstring", pn.GetSalt("TEST.GOKRB5"))
 }
 
 func TestParseSPNString(t *testing.T) {

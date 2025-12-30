@@ -28,6 +28,6 @@ func Test_nfold(t *testing.T) {
 		{256, []byte("kerberos"), "6b65726265726f737b9b5b2b93132b935c9bdcdad95c9899c4cae4dee6d6cae4"},
 	}
 	for _, test := range tests {
-		assert.Equal(t, test.folded, hex.EncodeToString(Nfold(test.b, test.n)), "Folded not as expected")
+		assert.Equal(t, test.folded, hex.EncodeToString(Nfold(test.b, test.n)))
 	}
 }

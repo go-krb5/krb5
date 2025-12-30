@@ -34,11 +34,11 @@ func TestKRB5Token_Unmarshal(t *testing.T) {
 
 	require.NoError(t, mt.Unmarshal(b))
 
-	assert.Equal(t, gssapi.OIDKRB5.OID(), mt.OID, "KRB5Token OID not as expected.")
+	assert.Equal(t, gssapi.OIDKRB5.OID(), mt.OID)
 	assert.Equal(t, []byte{1, 0}, mt.tokID)
 	assert.Equal(t, msgtype.KRB_AP_REQ, mt.APReq.MsgType)
-	assert.Equal(t, int32(0), mt.KRBError.ErrorCode, "KRBError in KRB5Token does not indicate no error.")
-	assert.Equal(t, int32(18), mt.APReq.EncryptedAuthenticator.EType, "Authenticator within AP_REQ does not have the etype expected.")
+	assert.Equal(t, int32(0), mt.KRBError.ErrorCode)
+	assert.Equal(t, int32(18), mt.APReq.EncryptedAuthenticator.EType)
 }
 
 func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
@@ -66,9 +66,9 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, a.GenerateSeqNumberAndSubKey(etypeID, keyLen))
-	assert.Equal(t, int32(32771), a.Cksum.CksumType, "Checksum type in authenticator for SPNEGO mechtoken not as expected.")
+	assert.Equal(t, int32(32771), a.Cksum.CksumType)
 	assert.Equal(t, etypeID, a.SubKey.KeyType)
-	assert.Equal(t, keyLen, len(a.SubKey.KeyValue), "Subkey value not of the right length")
+	assert.Equal(t, keyLen, len(a.SubKey.KeyValue))
 
 	var nz bool
 
@@ -79,9 +79,11 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 	}
 
 	assert.True(t, nz)
+
 	assert.Condition(t, assert.Comparison(func() bool {
 		return a.SeqNumber > 0
-	}), "Sequence number is not greater than zero")
+	}))
+
 	assert.Condition(t, assert.Comparison(func() bool {
 		return a.SeqNumber <= math.MaxUint32
 	}))
@@ -97,13 +99,14 @@ func TestKRB5Token_newAuthenticator(t *testing.T) {
 	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
 	require.NoError(t, err)
 
-	assert.Equal(t, int32(32771), a.Cksum.CksumType, "Checksum type in authenticator for SPNEGO mechtoken not as expected.")
-	assert.Equal(t, int32(0), a.SubKey.KeyType, "Subkey not of the expected type.")
+	assert.Equal(t, int32(32771), a.Cksum.CksumType)
+	assert.Equal(t, int32(0), a.SubKey.KeyType)
 	assert.Nil(t, a.SubKey.KeyValue)
 
 	assert.Condition(t, assert.Comparison(func() bool {
 		return a.SeqNumber > 0
-	}), "Sequence number is not greater than zero")
+	}))
+
 	assert.Condition(t, assert.Comparison(func() bool {
 		return a.SeqNumber <= math.MaxUint32
 	}))
@@ -123,10 +126,7 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
 	require.NoError(t, err)
 
-	err = tkt.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, tkt.Unmarshal(b))
 
 	key := types.EncryptionKey{
 		KeyType:  18,
@@ -134,9 +134,7 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	}
 
 	mt, err := NewKRB5TokenAPREQ(&cl, tkt, key, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{})
-	if err != nil {
-		t.Fatalf("Error creating KRB5Token: %v", err)
-	}
+	require.NoError(t, err)
 
 	mb, err := mt.Marshal()
 	require.NoError(t, err)
@@ -146,8 +144,8 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, mt.OID)
 	assert.Equal(t, []byte{1, 0}, mt.tokID)
 	assert.Equal(t, msgtype.KRB_AP_REQ, mt.APReq.MsgType)
-	assert.Equal(t, int32(0), mt.KRBError.ErrorCode, "KRBError in KRB5Token does not indicate no error.")
+	assert.Equal(t, int32(0), mt.KRBError.ErrorCode)
 	assert.Equal(t, testdata.TEST_REALM, mt.APReq.Ticket.Realm)
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, mt.APReq.Ticket.SName.NameString)
-	assert.Equal(t, int32(18), mt.APReq.EncryptedAuthenticator.EType, "Authenticator within AP_REQ does not have the etype expected.")
+	assert.Equal(t, int32(18), mt.APReq.EncryptedAuthenticator.EType)
 }

@@ -2,11 +2,11 @@ package types
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/adtype"
@@ -16,16 +16,11 @@ import (
 
 func unmarshalAuthenticatorTest(t *testing.T, v string) Authenticator {
 	var a Authenticator
-	// t.Logf("Starting unmarshal tests of %s", v).
-	b, err := hex.DecodeString(v)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	b, err := hex.DecodeString(v)
+	require.NoError(t, err)
+
+	require.NoError(t, a.Unmarshal(b))
 
 	return a
 }
@@ -39,19 +34,19 @@ func TestUnmarshalAuthenticator(t *testing.T) {
 	assert.Equal(t, iana.PVNO, a.AVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
-	assert.Equal(t, int32(1), a.Cksum.CksumType, "Checksum type not as expected")
-	assert.Equal(t, []byte("1234"), a.Cksum.Checksum, "Checsum not as expected")
+	assert.Equal(t, int32(1), a.Cksum.CksumType)
+	assert.Equal(t, []byte("1234"), a.Cksum.Checksum)
 	assert.Equal(t, 123456, a.Cusec)
 	assert.Equal(t, tt, a.CTime)
-	assert.Equal(t, int32(1), a.SubKey.KeyType, "Subkey type not as expected")
-	assert.Equal(t, []byte("12345678"), a.SubKey.KeyValue, "Subkey value not as expected")
-	assert.Equal(t, 2, len(a.AuthorizationData), "Number of Authorization data items not as expected")
+	assert.Equal(t, int32(1), a.SubKey.KeyType)
+	assert.Equal(t, []byte("12345678"), a.SubKey.KeyValue)
+	assert.Equal(t, 2, len(a.AuthorizationData))
 
-	for i, entry := range a.AuthorizationData {
-		assert.Equal(t, adtype.ADIfRelevant, entry.ADType, fmt.Sprintf("Authorization type of entry %d not as expected", i+1))
-		assert.Equal(t, []byte(testdata.TEST_AUTHORIZATION_DATA_VALUE), entry.ADData, fmt.Sprintf("Authorization data of entry %d not as expected", i+1))
+	for _, entry := range a.AuthorizationData {
+		assert.Equal(t, adtype.ADIfRelevant, entry.ADType)
+		assert.Equal(t, []byte(testdata.TEST_AUTHORIZATION_DATA_VALUE), entry.ADData)
 	}
 }
 
@@ -64,7 +59,7 @@ func TestUnmarshalAuthenticator_optionalsempty(t *testing.T) {
 	assert.Equal(t, iana.PVNO, a.AVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, 123456, a.Cusec)
 	assert.Equal(t, tt, a.CTime)
@@ -79,7 +74,7 @@ func TestUnmarshalAuthenticator_optionalsNULL(t *testing.T) {
 	assert.Equal(t, iana.PVNO, a.AVNO)
 	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
 	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
-	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
+	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString))
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, 123456, a.Cusec)
 	assert.Equal(t, tt, a.CTime)
@@ -91,19 +86,12 @@ func TestMarshalAuthenticator(t *testing.T) {
 	var a Authenticator
 
 	b, err := hex.DecodeString(testdata.MarshaledKRB5authenticator)
-	if err != nil {
-		t.Fatalf("Test vector read error: %v", err)
-	}
+	require.NoError(t, err)
 
-	err = a.Unmarshal(b)
-	if err != nil {
-		t.Fatalf("Unmarshal error: %v", err)
-	}
+	require.NoError(t, a.Unmarshal(b))
 
 	mb, err := a.Marshal()
-	if err != nil {
-		t.Fatalf("Marshal of ticket errored: %v", err)
-	}
+	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/crypto/common"
@@ -105,11 +106,9 @@ func TestStringToKey(t *testing.T) {
 				salt := decodeHex(test.salt)
 
 				k, err := e.StringToKey(test.passphrase, salt, common.IterationsToS2Kparams(test.iterations))
-				if err != nil {
-					t.Fatalf("StringToKey failed: %v", err)
-				}
+				require.NoError(t, err)
 
-				assert.Equal(t, test.finalKey128, hex.EncodeToString(k), "Final key not as expected")
+				assert.Equal(t, test.finalKey128, hex.EncodeToString(k))
 			})
 		})
 	}
@@ -122,11 +121,9 @@ func TestStringToKey(t *testing.T) {
 				salt := decodeHex(test.salt)
 
 				k, err := e.StringToKey(test.passphrase, salt, common.IterationsToS2Kparams(test.iterations))
-				if err != nil {
-					t.Fatalf("StringToKey failed: %v", err)
-				}
+				require.NoError(t, err)
 
-				assert.Equal(t, test.finalKey256, hex.EncodeToString(k), "Final key not as expected")
+				assert.Equal(t, test.finalKey256, hex.EncodeToString(k))
 			})
 		})
 	}
@@ -190,20 +187,15 @@ func TestCBCCTS_AES128(t *testing.T) {
 			expectedOutput, _ := hex.DecodeString(test.output)
 
 			actualIV, actualOutput, err := rfc3962.EncryptData(aesKey, input, &e)
-			if err != nil {
-				t.Fatalf("EncryptData failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			assert.Equal(t, test.output, hex.EncodeToString(actualOutput), "Ciphertext not as expected")
-			assert.Equal(t, test.nextIV, hex.EncodeToString(actualIV), "Next IV not as expected")
+			assert.Equal(t, test.output, hex.EncodeToString(actualOutput))
+			assert.Equal(t, test.nextIV, hex.EncodeToString(actualIV))
 
-			// Test decryption.
 			decrypted, err := rfc3962.DecryptData(aesKey, expectedOutput, &e)
-			if err != nil {
-				t.Fatalf("DecryptData failed: %v", err)
-			}
+			require.NoError(t, err)
 
-			assert.Equal(t, test.input, hex.EncodeToString(decrypted), "Decrypted plaintext not as expected")
+			assert.Equal(t, test.input, hex.EncodeToString(decrypted))
 		})
 	}
 }
@@ -248,18 +240,14 @@ func TestEncryptDecryptMessage(t *testing.T) {
 			t.Run("AES128", func(t *testing.T) {
 				var e crypto.Aes128CtsHmacSha96
 
-				key, _ := hex.DecodeString(test.key128)
+				key, err := hex.DecodeString(test.key128)
+				require.NoError(t, err)
 
-				// Test full message encryption/decryption round-trip.
 				_, encryptedMessage, err := rfc3962.EncryptMessage(key, plaintext, test.usage, &e)
-				if err != nil {
-					t.Fatalf("EncryptMessage failed: %v", err)
-				}
+				require.NoError(t, err)
 
 				decryptedMessage, err := rfc3962.DecryptMessage(key, encryptedMessage, test.usage, &e)
-				if err != nil {
-					t.Fatalf("DecryptMessage failed: %v", err)
-				}
+				require.NoError(t, err)
 
 				assert.Equal(t, plaintext, decryptedMessage)
 			})
@@ -267,17 +255,14 @@ func TestEncryptDecryptMessage(t *testing.T) {
 			t.Run("AES256", func(t *testing.T) {
 				var e crypto.Aes256CtsHmacSha96
 
-				key, _ := hex.DecodeString(test.key256)
+				key, err := hex.DecodeString(test.key256)
+				require.NoError(t, err)
 
 				_, encryptedMessage, err := rfc3962.EncryptMessage(key, plaintext, test.usage, &e)
-				if err != nil {
-					t.Fatalf("EncryptMessage failed: %v", err)
-				}
+				require.NoError(t, err)
 
 				decryptedMessage, err := rfc3962.DecryptMessage(key, encryptedMessage, test.usage, &e)
-				if err != nil {
-					t.Fatalf("DecryptMessage failed: %v", err)
-				}
+				require.NoError(t, err)
 
 				assert.Equal(t, plaintext, decryptedMessage)
 			})
