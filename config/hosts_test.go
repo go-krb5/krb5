@@ -83,6 +83,7 @@ func TestResolveKDCNoDNS(t *testing.T) {
 		"127.0.0.1:88",
 		"127.0.0.2:88",
 	}
+
 	for _, s := range expected {
 		var found bool
 

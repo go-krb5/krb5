@@ -606,9 +606,12 @@ func TestLoadTabs(t *testing.T) {
 	assert.Equal(t, "TEST.GOKRB5", c.DomainRealm["test.gokrb5"])
 }
 
+// TestPasrseDuration ensures duration parsing works as expected.
+//
+// See Also: https://web.mit.edu/kerberos/krb5-latest/doc/basic/date_format.html#duration.
 func TestParseDuration(t *testing.T) {
 	t.Parallel()
-	// https://web.mit.edu/kerberos/krb5-1.12/doc/basic/date_format.html#duration
+
 	hms, _ := time.ParseDuration("12h30m15s")
 	hm, _ := time.ParseDuration("12h30m")
 	h, _ := time.ParseDuration("12h")

@@ -20,7 +20,6 @@ func (c *Config) GetKDCs(realm string, tcp bool) (int, map[int]string, error) {
 
 	var count int
 
-	// Get the KDCs from the krb5.conf.
 	var ks []string
 
 	for _, r := range c.Realms {
@@ -34,7 +33,6 @@ func (c *Config) GetKDCs(realm string, tcp bool) (int, map[int]string, error) {
 	count = len(ks)
 
 	if count > 0 {
-		// Order the kdcs randomly for preference.
 		kdcs = randServOrder(ks)
 		return count, kdcs, nil
 	}
@@ -43,13 +41,12 @@ func (c *Config) GetKDCs(realm string, tcp bool) (int, map[int]string, error) {
 		return count, kdcs, fmt.Errorf("no KDCs defined in configuration for realm %s", realm)
 	}
 
-	// Use DNS to resolve kerberos SRV records.
-	proto := "udp"
+	proto := protoUDP
 	if tcp {
-		proto = "tcp"
+		proto = protoTCP
 	}
 
-	index, addrs, err := dns.OrderedSRV("kerberos", proto, realm)
+	index, addrs, err := dns.OrderedSRV(svcKerberos, proto, realm)
 	if err != nil {
 		return count, kdcs, err
 	}
@@ -67,27 +64,28 @@ func (c *Config) GetKDCs(realm string, tcp bool) (int, map[int]string, error) {
 	return count, kdcs, nil
 }
 
-// GetKpasswdServers returns the count of kpasswd servers available and a map of kpasswd host names keyed on preference order.
-// https://web.mit.edu/kerberos/krb5-latest/doc/admin/conf_files/krb5_conf.html#realms - see kpasswd_server section
+// GetKpasswdServers returns the count of kpasswd servers available and a map of kpasswd host names keyed on preference
+// order.
+//
+// See Also: https://web.mit.edu/kerberos/krb5-latest/doc/admin/conf_files/krb5_conf.html#realms.
 func (c *Config) GetKpasswdServers(realm string, tcp bool) (int, map[int]string, error) {
 	kdcs := make(map[int]string)
 
 	var count int
 
-	// Use DNS to resolve kerberos SRV records if configured to do so in krb5.conf.
 	if c.LibDefaults.DNSLookupKDC {
-		proto := "udp"
+		proto := protoUDP
 		if tcp {
-			proto = "tcp"
+			proto = protoTCP
 		}
 
-		c, addrs, err := dns.OrderedSRV("kpasswd", proto, realm)
+		c, addrs, err := dns.OrderedSRV(svcKerberosPassword, proto, realm)
 		if err != nil {
 			return count, kdcs, err
 		}
 
 		if c < 1 {
-			c, addrs, err = dns.OrderedSRV("kerberos-adm", proto, realm)
+			c, addrs, err = dns.OrderedSRV(svcKerberosAdmin, proto, realm)
 			if err != nil {
 				return count, kdcs, err
 			}
@@ -103,7 +101,6 @@ func (c *Config) GetKpasswdServers(realm string, tcp bool) (int, map[int]string,
 			kdcs[k] = strings.TrimRight(v.Target, ".") + ":" + strconv.Itoa(int(v.Port))
 		}
 	} else {
-		// Get the KDCs from the krb5.conf an order them randomly for preference.
 		var (
 			ks []string
 			ka []string

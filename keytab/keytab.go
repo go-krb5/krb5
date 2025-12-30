@@ -1,4 +1,4 @@
-// Package keytab implements Kerberos keytabs: https://web.mit.edu/kerberos/krb5-devel/doc/formats/keytab_file_format.html.
+// Package keytab implements Kerberos keytabs: https://web.mit.edu/kerberos/krb5-latest/doc/formats/keytab_file_format.html.
 package keytab
 
 import (

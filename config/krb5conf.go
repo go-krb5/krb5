@@ -11,7 +11,6 @@ import (
 	"net"
 	"os"
 	"os/user"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -45,111 +44,113 @@ func New() *Config {
 }
 
 // LibDefaults represents the [libdefaults] section of the configuration.
+// The following values are not implemented: ap_req_checksum_type int, kdc_req_checksum_type int, plugin_base_dir string.
 type LibDefaults struct {
-	// default false.
+	// AllowWeakCrypto has a default value of false.
 	AllowWeakCrypto bool
 
-	// ap_req_checksum_type int //unlikely to support this.
-
-	// default false.
+	// Canonicalize has a default value of false.
 	Canonicalize bool
 
-	// default is 4. unlikely to implement older.
+	// CCacheType has a default value of 4.
 	CCacheType int
 
-	// max allowed skew in seconds, default 300.
+	// Clockskew is the max allowed skew in seconds and has a default value of 300.
 	Clockskew time.Duration
 
-	// default /tmp/krb5cc_%{uid} //Not implementing as will hold in memory.
-
-	// Default_ccache_name string.
-
-	// default /usr/local/var/krb5/user/%{euid}/client.keytab.
+	// DefaultClientKeytabName has a default vakue of /usr/local/var/krb5/user/%{euid}/client.keytab.
 	DefaultClientKeytabName string
 
-	// default /etc/krb5.keytab.
+	// DefaultKeytabName has a default value of /etc/krb5.keytab.
 	DefaultKeytabName string
 
 	DefaultRealm string
 
-	// default aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTGSEnctypes has a default value of
+	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+	// des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
 	DefaultTGSEnctypes []string
 
-	// default aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTktEnctypes has a default value of
+	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1
+	// arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
 	DefaultTktEnctypes []string
 
-	// default aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTGSEnctypeIDs has a default value of
+	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1
+	// arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
 	DefaultTGSEnctypeIDs []int32
 
-	// default aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTktEnctypeIDs has a default value of
+	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+	// des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
 	DefaultTktEnctypeIDs []int32
 
-	// default true.
+	// DNSCanonicalizeHostname has a default value of true.
 	DNSCanonicalizeHostname bool
 
-	// default false.
+	// DNSLookupKDC has a default value of false.
 	DNSLookupKDC bool
 
 	DNSLookupRealm bool
 
-	// Not implementing yet.
 	ExtraAddresses []net.IP
 
-	// default false.
+	// Forwardable has a default value of false.
 	Forwardable bool
 
-	// default false.
+	// IgnoreAcceptorHostname has a default value of false.
 	IgnoreAcceptorHostname bool
 
-	// default false.
+	// K5LoginAuthoritative has a default value of false.
 	K5LoginAuthoritative bool
 
-	// default user's home directory. Must be owned by the user or root.
+	// K5LoginDirectory has a default value based on the user's home directory. Must be owned by the user or root.
 	K5LoginDirectory string
 
-	// default 0x00000010 (KDC_OPT_RENEWABLE_OK).
+	// KDCDefaultOptions has a default value of 0x00000010 (KDC_OPT_RENEWABLE_OK).
 	KDCDefaultOptions asn1.BitString
 
-	// default 1.
+	// KDCTimeSync has a default value of 1.
 	KDCTimeSync int
 
-	// kdc_req_checksum_type int //unlikely to implement as for very old KDCs.
-
-	// default true.
+	// NoAddresses has a default value of true.
 	NoAddresses bool
 
-	// default aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// PermittedEnctypes has a default value of
+	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
+	// des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
 	PermittedEnctypes []string
 
 	PermittedEnctypeIDs []int32
 
-	// plugin_base_dir string //not supporting plugins.
-
-	// default “17, 16, 15, 14”, which forces libkrb5 to attempt to use PKINIT if it is supported.
+	// PreferredPreauthTypes has a defaultb value of 17, 16, 15, 14; which forces an attempt to use PKINIT if it is
+	// supported.
 	PreferredPreauthTypes []int
 
-	// default false.
+	// Proxiable has a default value of false.
 	Proxiable bool
 
-	// default true.
+	// RDNS has a default value of true.
 	RDNS bool
 
-	// default -1.
+	// RealmTryDomains has a default value of -1.
 	RealmTryDomains int
 
-	// default 0.
+	// RenewLifetime has a default value of 0.
 	RenewLifetime time.Duration
 
-	// default 8.
+	// SafeChecksumType has a default value of 8.
 	SafeChecksumType int
 
-	// default 1 day.
+	// TicketLifetime has a default value of 1 day.
 	TicketLifetime time.Duration
 
-	// 1 means to always use tcp. MIT krb5 has a default value of 1465, and it prevents user setting more than 32700.
+	// UDPPreferenceLimit determines if UDP is used, 1 means to always use tcp. Must be less than 32700, and has a
+	// default value of 1465.
 	UDPPreferenceLimit int
 
-	// default false.
+	// VerifyAPReqNofail has a default value of false.
 	VerifyAPReqNofail bool
 }
 
@@ -195,10 +196,9 @@ func newLibDefaults() LibDefaults {
 	return l
 }
 
-// Parse the lines of the [libdefaults] section of the configuration into the LibDefaults struct.
+// Parse the lines of the libdefaults section of the configuration into the LibDefaults struct.
 func (l *LibDefaults) parseLines(lines []string) error {
 	for _, line := range lines {
-		// Remove comments after the values.
 		if idx := strings.IndexAny(line, "#;"); idx != -1 {
 			line = line[:idx]
 		}
@@ -216,21 +216,21 @@ func (l *LibDefaults) parseLines(lines []string) error {
 
 		key := strings.TrimSpace(strings.ToLower(p[0]))
 		switch key {
-		case "allow_weak_crypto":
+		case ConfigKeyAllowWeakCrypto:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.AllowWeakCrypto = v
-		case "canonicalize":
+		case ConfigKeyCanonicalize:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.Canonicalize = v
-		case "ccache_type":
+		case ConfigKeyCredentialCacheType:
 			p[1] = strings.TrimSpace(p[1])
 
 			v, err := strconv.ParseUint(p[1], 10, 32)
@@ -239,75 +239,75 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			}
 
 			l.CCacheType = int(v)
-		case "clockskew":
+		case ConfigKeyClockSkew:
 			d, err := parseDuration(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.Clockskew = d
-		case "default_client_keytab_name":
+		case ConfigKeyDefaultClientKeytabName:
 			l.DefaultClientKeytabName = strings.TrimSpace(p[1])
-		case "default_keytab_name":
+		case ConfigKeyDefaultKeytabName:
 			l.DefaultKeytabName = strings.TrimSpace(p[1])
-		case "default_realm":
+		case ConfigKeyDefaultRealm:
 			l.DefaultRealm = strings.TrimSpace(p[1])
-		case "default_tgs_enctypes":
+		case ConfigKeyDefaultTGSENCtypes:
 			l.DefaultTGSEnctypes = strings.Fields(p[1])
-		case "default_tkt_enctypes":
+		case ConfigKeyDefaultTKTENCtypes:
 			l.DefaultTktEnctypes = strings.Fields(p[1])
-		case "dns_canonicalize_hostname":
+		case ConfigKeyDNSCanonicalizeHostname:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.DNSCanonicalizeHostname = v
-		case "dns_lookup_kdc":
+		case ConfigKeyDNSLookupKDC:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.DNSLookupKDC = v
-		case "dns_lookup_realm":
+		case ConfigKeyDNSLookupRealm:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.DNSLookupRealm = v
-		case "extra_addresses":
+		case ConfigKeyExtraAddresses:
 			ipStr := strings.TrimSpace(p[1])
 			for _, ip := range strings.Split(ipStr, ",") {
 				if eip := net.ParseIP(ip); eip != nil {
 					l.ExtraAddresses = append(l.ExtraAddresses, eip)
 				}
 			}
-		case "forwardable":
+		case ConfigKeyForwardable:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.Forwardable = v
-		case "ignore_acceptor_hostname":
+		case ConfigKeyIgnoreAcceptorHostname:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.IgnoreAcceptorHostname = v
-		case "k5login_authoritative":
+		case ConfigKeyK5LoginAuthorative:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.K5LoginAuthoritative = v
-		case "k5login_directory":
+		case ConfigKeyK5LoginDirectory:
 			l.K5LoginDirectory = strings.TrimSpace(p[1])
-		case "kdc_default_options":
+		case ConfigKeyKDCDefaultOptions:
 			v := strings.TrimSpace(p[1])
 			v = strings.ReplaceAll(v, "0x", "")
 
@@ -318,7 +318,7 @@ func (l *LibDefaults) parseLines(lines []string) error {
 
 			l.KDCDefaultOptions.Bytes = b
 			l.KDCDefaultOptions.BitLength = len(b) * 8
-		case "kdc_timesync":
+		case ConfigKeyKDCTimeSync:
 			p[1] = strings.TrimSpace(p[1])
 
 			v, err := strconv.ParseInt(p[1], 10, 32)
@@ -327,16 +327,16 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			}
 
 			l.KDCTimeSync = int(v)
-		case "noaddresses":
+		case ConfigKeyNoAddresses:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.NoAddresses = v
-		case "permitted_enctypes":
+		case ConfigKeyPermittedEncTypes:
 			l.PermittedEnctypes = strings.Fields(p[1])
-		case "preferred_preauth_types":
+		case ConfigKeyPreferredPreAuthTypes:
 			p[1] = strings.TrimSpace(p[1])
 			t := strings.Split(p[1], ",")
 
@@ -352,21 +352,21 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			}
 
 			l.PreferredPreauthTypes = v
-		case "proxiable":
+		case ConfigKeyProxiable:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.Proxiable = v
-		case "rdns":
+		case ConfigKeyRDNS:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.RDNS = v
-		case "realm_try_domains":
+		case ConfigKeyRealmTryDomains:
 			p[1] = strings.TrimSpace(p[1])
 
 			v, err := strconv.ParseInt(p[1], 10, 32)
@@ -375,14 +375,14 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			}
 
 			l.RealmTryDomains = int(v)
-		case "renew_lifetime":
+		case ConfigKeyRenewLifetime:
 			d, err := parseDuration(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.RenewLifetime = d
-		case "safe_checksum_type":
+		case ConfigKeySafeChecksumType:
 			p[1] = strings.TrimSpace(p[1])
 
 			v, err := strconv.ParseInt(p[1], 10, 32)
@@ -391,14 +391,14 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			}
 
 			l.SafeChecksumType = int(v)
-		case "ticket_lifetime":
+		case ConfigKeyTicketLifetime:
 			d, err := parseDuration(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.TicketLifetime = d
-		case "udp_preference_limit":
+		case ConfigKeyUDPPreferenceLimit:
 			p[1] = strings.TrimSpace(p[1])
 
 			v, err := strconv.ParseUint(p[1], 10, 32)
@@ -407,7 +407,7 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			}
 
 			l.UDPPreferenceLimit = int(v)
-		case "verify_ap_req_nofail":
+		case ConfigKeyVerifyAPReqNoFail:
 			v, err := parseBoolean(p[1])
 			if err != nil {
 				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
@@ -424,27 +424,24 @@ func (l *LibDefaults) parseLines(lines []string) error {
 	return nil
 }
 
-// Realm represents an entry in the [realms] section of the configuration.
+// Realm represents an entry in the [realms] section of the configuration. Currently the specific known options not
+// implemented are auth_to_local and auth_to_local_names.
 type Realm struct {
 	Realm string
 
 	AdminServer []string
 
-	// auth_to_local //Not implementing for now.
-
-	// auth_to_local_names //Not implementing for now.
-
 	DefaultDomain string
 
 	KDC []string
 
-	// default admin_server:464.
+	// KPasswdServer has a default of 'admin_server:464'.
 	KPasswdServer []string
 
 	MasterKDC []string
 }
 
-// Parse the lines of a [realms] entry into the Realm struct.
+// Parse the lines of a realms entry into the Realm struct.
 func (r *Realm) parseLines(name string, lines []string) (err error) {
 	r.Realm = name
 
@@ -456,14 +453,12 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 		ignore             bool
 	)
 
-	// counts the depth of blocks within brackets { }.
 	var c int
 	for _, line := range lines {
 		if ignore && c > 0 && !strings.Contains(line, "{") && !strings.Contains(line, "}") {
 			continue
 		}
 
-		// Remove comments after the values.
 		if idx := strings.IndexAny(line, "#;"); idx != -1 {
 			line = line[:idx]
 		}
@@ -517,13 +512,12 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 		v := strings.TrimSpace(p[1])
 
 		switch key {
-		case "admin_server":
+		case ConfigKeyAdminServer:
 			appendUntilFinal(&r.AdminServer, v, &adminServerFinal)
-		case "default_domain":
+		case ConfigKeyDefaultDomain:
 			r.DefaultDomain = v
-		case "kdc":
+		case ConfigKeyKDC:
 			if !strings.Contains(v, ":") {
-				// No port number specified default to 88.
 				if strings.HasSuffix(v, `*`) {
 					v = strings.TrimSpace(strings.TrimSuffix(v, `*`)) + ":88*"
 				} else {
@@ -532,13 +526,13 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 			}
 
 			appendUntilFinal(&r.KDC, v, &KDCFinal)
-		case "kpasswd_server":
+		case ConfigKeyKPasswdServer:
 			appendUntilFinal(&r.KPasswdServer, v, &kpasswdServerFinal)
-		case "master_kdc":
+		case ConfigKeyMasterKDC:
 			appendUntilFinal(&r.MasterKDC, v, &masterKDCFinal)
 		}
 	}
-	// default for Kpasswd_server = admin_server:464.
+
 	if len(r.KPasswdServer) < 1 {
 		for _, a := range r.AdminServer {
 			s := strings.Split(a, ":")
@@ -558,7 +552,6 @@ func parseRealms(lines []string) (realms []Realm, err error) {
 	)
 
 	for i, l := range lines {
-		// Remove comments after the values.
 		if idx := strings.IndexAny(l, "#;"); idx != -1 {
 			l = l[:idx]
 		}
@@ -567,9 +560,7 @@ func parseRealms(lines []string) (realms []Realm, err error) {
 		if l == "" {
 			continue
 		}
-		// if strings.Contains(l, "v4_") {
-		//	return nil, errors.New("v4 configurations are not supported in Realms section")
-		// }.
+
 		if strings.Contains(l, "{") {
 			c++
 
@@ -618,7 +609,6 @@ type DomainRealm map[string]string
 // Parse the lines of the [domain_realm] section of the configuration and add to the mapping.
 func (d *DomainRealm) parseLines(lines []string) error {
 	for _, line := range lines {
-		// Remove comments after the values.
 		if idx := strings.IndexAny(line, "#;"); idx != -1 {
 			line = line[:idx]
 		}
@@ -710,36 +700,34 @@ func NewFromScanner(scanner *bufio.Scanner) (*Config, error) {
 		lines          []string
 	)
 
-	// TODO: compile all regex patterns.
 	for scanner.Scan() {
-		// Skip comments and blank lines.
-		if matched, _ := regexp.MatchString(`^\s*(#|;|\n)`, scanner.Text()); matched {
+		if reCommentsAndBlankLines.MatchString(scanner.Text()) {
 			continue
 		}
 
-		if matched, _ := regexp.MatchString(`^\s*\[libdefaults\]\s*`, scanner.Text()); matched {
-			sections[len(lines)] = "libdefaults"
+		if reLibDefaults.MatchString(scanner.Text()) {
+			sections[len(lines)] = ConfigSectionLibDefaults
 			sectionLineNum = append(sectionLineNum, len(lines))
 
 			continue
 		}
 
-		if matched, _ := regexp.MatchString(`^\s*\[realms\]\s*`, scanner.Text()); matched {
-			sections[len(lines)] = "realms"
+		if reRealms.MatchString(scanner.Text()) {
+			sections[len(lines)] = ConfigSectionRealms
 			sectionLineNum = append(sectionLineNum, len(lines))
 
 			continue
 		}
 
-		if matched, _ := regexp.MatchString(`^\s*\[domain_realm\]\s*`, scanner.Text()); matched {
-			sections[len(lines)] = "domain_realm"
+		if reDomainRealm.MatchString(scanner.Text()) {
+			sections[len(lines)] = ConfigSectionDomainRealm
 			sectionLineNum = append(sectionLineNum, len(lines))
 
 			continue
 		}
 
-		if matched, _ := regexp.MatchString(`^\s*\[.*\]\s*`, scanner.Text()); matched {
-			sections[len(lines)] = "unknown_section"
+		if reUnknownSection.MatchString(scanner.Text()) {
+			sections[len(lines)] = ConfigSectionUnknown
 			sectionLineNum = append(sectionLineNum, len(lines))
 
 			continue
@@ -757,31 +745,31 @@ func NewFromScanner(scanner *bufio.Scanner) (*Config, error) {
 		}
 
 		switch section := sections[start]; section {
-		case "libdefaults":
+		case ConfigSectionLibDefaults:
 			err := c.LibDefaults.parseLines(lines[start:end])
 			if err != nil {
 				if _, ok := err.(UnsupportedDirective); !ok {
-					return nil, fmt.Errorf("error processing libdefaults section: %v", err)
+					return nil, fmt.Errorf("error processing %s section: %w", section, err)
 				}
 
 				e = err
 			}
-		case "realms":
+		case ConfigSectionRealms:
 			realms, err := parseRealms(lines[start:end])
 			if err != nil {
 				if _, ok := err.(UnsupportedDirective); !ok {
-					return nil, fmt.Errorf("error processing realms section: %v", err)
+					return nil, fmt.Errorf("error processing %s section: %w", section, err)
 				}
 
 				e = err
 			}
 
 			c.Realms = realms
-		case "domain_realm":
+		case ConfigSectionDomainRealm:
 			err := c.DomainRealm.parseLines(lines[start:end])
 			if err != nil {
 				if _, ok := err.(UnsupportedDirective); !ok {
-					return nil, fmt.Errorf("error processing domaain_realm section: %v", err)
+					return nil, fmt.Errorf("error processing %s section: %w", section, err)
 				}
 
 				e = err
@@ -825,16 +813,15 @@ func parseETypes(s []string, w bool) []int32 {
 func parseDuration(s string) (time.Duration, error) {
 	s = strings.ReplaceAll(strings.TrimSpace(s), " ", "")
 
-	// handle Nd[NmNs].
-	if strings.Contains(s, "d") {
-		ds := strings.SplitN(s, "d", 2)
+	if strings.Contains(s, timeUnitDays) {
+		ds := strings.SplitN(s, timeUnitDays, 2)
 
 		dn, err := strconv.ParseUint(ds[0], 10, 32)
 		if err != nil {
 			return time.Duration(0), errors.New("invalid time duration")
 		}
 
-		d := time.Duration(dn*24) * time.Hour
+		d := time.Hour * 24 * time.Duration(dn)
 
 		if ds[1] != "" {
 			dp, err := time.ParseDuration(ds[1])
@@ -848,21 +835,18 @@ func parseDuration(s string) (time.Duration, error) {
 		return d, nil
 	}
 
-	// handle Nm[Ns].
 	d, err := time.ParseDuration(s)
 	if err == nil {
 		return d, nil
 	}
 
-	// handle N.
 	v, err := strconv.ParseUint(s, 10, 32)
 	if err == nil && v > 0 {
 		return time.Duration(v) * time.Second, nil
 	}
 
-	// handle h:m[:s].
-	if strings.Contains(s, ":") {
-		t := strings.Split(s, ":")
+	if strings.Contains(s, timeDelimiterColon) {
+		t := strings.Split(s, timeDelimiterColon)
 		if 2 > len(t) || len(t) > 3 {
 			return time.Duration(0), errors.New("invalid time duration value")
 		}
@@ -926,7 +910,7 @@ func appendUntilFinal(s *[]string, value string, final *bool) {
 	*s = append(*s, value)
 }
 
-// JSON return details of the config in a JSON format.
+// JSON marshalls the config using the encoding/json package.
 func (c *Config) JSON() (string, error) {
 	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
