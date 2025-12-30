@@ -71,7 +71,7 @@ func TestClient_SetSPNEGOHeader(t *testing.T) {
 				t.Fatalf("%s request error: %v", url+p, err)
 			}
 
-			assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode, "Status code in response to client with no SPNEGO not as expected")
+			assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 
 			err = SetSPNEGOHeader(cl, r, "")
 			if err != nil {
@@ -83,7 +83,7 @@ func TestClient_SetSPNEGOHeader(t *testing.T) {
 				t.Fatalf("%s request error: %v\n", url+p, err)
 			}
 
-			assert.Equal(t, http.StatusOK, httpResp.StatusCode, "Status code in response to client SPNEGO request not as expected")
+			assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 		}
 	}
 }
@@ -136,7 +136,7 @@ func TestSPNEGOHTTPClient(t *testing.T) {
 				t.Fatalf("%s request error: %v", url+p, err)
 			}
 
-			assert.Equal(t, http.StatusOK, httpResp.StatusCode, "Status code in response to client SPNEGO request not as expected")
+			assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 		}
 	}
 }
@@ -152,7 +152,7 @@ func TestService_SPNEGOKRB_NoAuthHeader(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode, "Status code in response to client with no SPNEGO not as expected")
+	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 	assert.Equal(t, "Negotiate", httpResp.Header.Get("WWW-Authenticate"), "Negotiation header not set by server.")
 }
 
@@ -176,7 +176,7 @@ func TestService_SPNEGOKRB_ValidUser(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusOK, httpResp.StatusCode, "Status code in response to client SPNEGO request not as expected")
+	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
 
 func TestService_SPNEGOKRB_ValidUser_RawKRB5Token(t *testing.T) {
@@ -210,7 +210,7 @@ func TestService_SPNEGOKRB_ValidUser_RawKRB5Token(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusOK, httpResp.StatusCode, "Status code in response to client SPNEGO request not as expected")
+	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
 
 func TestService_SPNEGOKRB_Replay(t *testing.T) {
@@ -234,7 +234,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusOK, httpResp.StatusCode, "Status code in response to client SPNEGO request not as expected")
+	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 
 	// Use ticket again should be rejected.
 	httpResp, err = http.DefaultClient.Do(r1)
@@ -242,7 +242,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode, "Status code in response to client with no SPNEGO not as expected. Expected a replay to be detected.")
+	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 
 	// Form a 2nd ticket.
 	r2, _ := http.NewRequest("GET", s.URL, nil)
@@ -258,7 +258,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusOK, httpResp.StatusCode, "Status code in response to client SPNEGO request not as expected")
+	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 
 	// Using the 1st ticket again should still be rejected.
 	httpResp, err = http.DefaultClient.Do(r1)
@@ -266,7 +266,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode, "Status code in response to client with no SPNEGO not as expected. Expected a replay to be detected.")
+	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 
 	// Using the 2nd again should be rejected as replay.
 	httpResp, err = http.DefaultClient.Do(r2)
@@ -274,7 +274,7 @@ func TestService_SPNEGOKRB_Replay(t *testing.T) {
 		t.Fatalf("Request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode, "Status code in response to client with no SPNEGO not as expected. Expected a replay to be detected.")
+	assert.Equal(t, http.StatusUnauthorized, httpResp.StatusCode)
 }
 
 func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {

@@ -167,5 +167,5 @@ func TestSessions_JSON(t *testing.T) {
     "SessionKeyExpiration": "1970-01-01T00:00:32Z"
   }
 ]`
-	assert.Equal(t, expected, j, "json output not as expected")
+	assert.Equal(t, expected, j)
 }

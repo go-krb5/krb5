@@ -20,19 +20,19 @@ func TestPrincipalName_GetSalt(t *testing.T) {
 
 func TestParseSPNString(t *testing.T) {
 	pn, realm := ParseSPNString("HTTP/www.example.com@REALM.COM")
-	assert.Equal(t, "REALM.COM", realm, "realm value not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, pn.NameType, "name type not as expected")
-	assert.Equal(t, "HTTP", pn.NameString[0], "first element of name string not as expected")
-	assert.Equal(t, "www.example.com", pn.NameString[1], "second element of name string not as expected")
+	assert.Equal(t, "REALM.COM", realm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, pn.NameType)
+	assert.Equal(t, "HTTP", pn.NameString[0])
+	assert.Equal(t, "www.example.com", pn.NameString[1])
 
 	pn, realm = ParseSPNString("HTTP/www.example.com")
-	assert.Equal(t, "", realm, "realm value not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, pn.NameType, "name type not as expected")
-	assert.Equal(t, "HTTP", pn.NameString[0], "first element of name string not as expected")
-	assert.Equal(t, "www.example.com", pn.NameString[1], "second element of name string not as expected")
+	assert.Equal(t, "", realm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, pn.NameType)
+	assert.Equal(t, "HTTP", pn.NameString[0])
+	assert.Equal(t, "www.example.com", pn.NameString[1])
 
 	pn, realm = ParseSPNString("www.example.com@REALM.COM")
-	assert.Equal(t, "REALM.COM", realm, "realm value not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, pn.NameType, "name type not as expected")
-	assert.Equal(t, "www.example.com", pn.NameString[0], "second element of name string not as expected")
+	assert.Equal(t, "REALM.COM", realm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, pn.NameType)
+	assert.Equal(t, "www.example.com", pn.NameString[0])
 }

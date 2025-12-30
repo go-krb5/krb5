@@ -21,5 +21,5 @@ func TestStringToKey(t *testing.T) {
 	}
 
 	k := hex.EncodeToString(kb)
-	assert.Equal(t, testKey, k, "Key not as expected")
+	assert.Equal(t, testKey, k)
 }

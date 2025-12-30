@@ -70,8 +70,8 @@ func TestUnmarshalPAEncTSEnc(t *testing.T) {
 		t.Fatalf("Unmarshal error of %s: %v\n", "MarshaledKRB5pa_enc_ts", err)
 	}
 
-	assert.Equal(t, tt, a.PATimestamp, "PA timestamp not as expected")
-	assert.Equal(t, 123456, a.PAUSec, "PA microseconds not as expected")
+	assert.Equal(t, tt, a.PATimestamp)
+	assert.Equal(t, 123456, a.PAUSec)
 }
 
 func TestUnmarshalPAEncTSEnc_nousec(t *testing.T) {
@@ -91,8 +91,8 @@ func TestUnmarshalPAEncTSEnc_nousec(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	assert.Equal(t, tt, a.PATimestamp, "PA timestamp not as expected")
-	assert.Equal(t, 0, a.PAUSec, "PA microseconds not as expected")
+	assert.Equal(t, tt, a.PATimestamp)
+	assert.Equal(t, 0, a.PAUSec)
 }
 
 func TestUnmarshalETypeInfo(t *testing.T) {
@@ -174,13 +174,13 @@ func TestUnmarshalETypeInfo2(t *testing.T) {
 
 	assert.Equal(t, 3, len(a), "Number of EType info2 entries not as expected")
 	assert.Equal(t, int32(0), a[0].EType, "Etype of first etype info2 entry not as expected")
-	assert.Equal(t, "Morton's #0", a[0].Salt, "Salt of first etype info2 entry not as expected")
+	assert.Equal(t, "Morton's #0", a[0].Salt)
 	assert.Equal(t, []byte("s2k: 0"), a[0].S2KParams, "String to key params of first etype info2 entry not as expected")
 	assert.Equal(t, int32(1), a[1].EType, "Etype of second etype info2 entry not as expected")
 	assert.Equal(t, 0, len(a[1].Salt), "Salt of second etype info2 entry not as expected")
 	assert.Equal(t, []byte("s2k: 1"), a[1].S2KParams, "String to key params of second etype info2 entry not as expected")
 	assert.Equal(t, int32(2), a[2].EType, "Etype of third etype info2 entry not as expected")
-	assert.Equal(t, "Morton's #2", a[2].Salt, "Salt of third etype info2 entry not as expected")
+	assert.Equal(t, "Morton's #2", a[2].Salt)
 	assert.Equal(t, []byte("s2k: 2"), a[2].S2KParams, "String to key params of third etype info2 entry not as expected")
 }
 
@@ -201,6 +201,6 @@ func TestUnmarshalETypeInfo2_only1(t *testing.T) {
 
 	assert.Equal(t, 1, len(a), "Number of EType info2 entries not as expected")
 	assert.Equal(t, int32(0), a[0].EType, "Etype of first etype info2 entry not as expected")
-	assert.Equal(t, "Morton's #0", a[0].Salt, "Salt of first etype info2 entry not as expected")
+	assert.Equal(t, "Morton's #0", a[0].Salt)
 	assert.Equal(t, []byte("s2k: 0"), a[0].S2KParams, "String to key params of first etype info2 entry not as expected")
 }

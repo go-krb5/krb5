@@ -25,7 +25,7 @@ func TestPAC_ClientInfo_Unmarshal(t *testing.T) {
 		t.Fatalf("Error unmarshaling test data: %v", err)
 	}
 
-	assert.Equal(t, time.Date(2017, 5, 6, 15, 53, 11, 000000000, time.UTC), k.ClientID.Time(), "Client ID time not as expected.")
-	assert.Equal(t, uint16(18), k.NameLength, "Client name length not as expected")
-	assert.Equal(t, "testuser1", k.Name, "Client name not as expected")
+	assert.Equal(t, time.Date(2017, 5, 6, 15, 53, 11, 000000000, time.UTC), k.ClientID.Time())
+	assert.Equal(t, uint16(18), k.NameLength)
+	assert.Equal(t, "testuser1", k.Name)
 }

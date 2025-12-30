@@ -29,10 +29,10 @@ func TestUnmarshalKRBPriv(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
-	assert.Equal(t, msgtype.KRB_PRIV, a.MsgType, "Message type not as expected")
-	assert.Equal(t, iana.PVNO, a.EncPart.KVNO, "EncPart KVNO not as expected")
-	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType, "EncPart etype not as expected")
+	assert.Equal(t, iana.PVNO, a.PVNO)
+	assert.Equal(t, msgtype.KRB_PRIV, a.MsgType)
+	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
+	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
 	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.EncPart.Cipher, "Cipher text of EncPart not as expected")
 }
 
@@ -54,12 +54,12 @@ func TestUnmarshalEncPrivPart(t *testing.T) {
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
 	assert.Equal(t, "krb5data", string(a.UserData), "User data not as expected")
-	assert.Equal(t, tt, a.Timestamp, "Timestamp not as expected")
-	assert.Equal(t, 123456, a.Usec, "Microseconds not as expected")
+	assert.Equal(t, tt, a.Timestamp)
+	assert.Equal(t, 123456, a.Usec)
 	assert.Equal(t, int64(17), a.SequenceNumber, "Sequence number not as expected")
-	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType, "SAddress type not as expected")
+	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType)
 	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address), "Address not as expected for SAddress")
-	assert.Equal(t, addrtype.IPv4, a.RAddress.AddrType, "RAddress type not as expected")
+	assert.Equal(t, addrtype.IPv4, a.RAddress.AddrType)
 	assert.Equal(t, "12d00023", hex.EncodeToString(a.RAddress.Address), "Address not as expected for RAddress")
 }
 
@@ -79,7 +79,7 @@ func TestUnmarshalEncPrivPart_optionalsNULL(t *testing.T) {
 	}
 
 	assert.Equal(t, "krb5data", string(a.UserData), "User data not as expected")
-	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType, "SAddress type not as expected")
+	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType)
 	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address), "Address not as expected for SAddress")
 }
 
@@ -103,7 +103,7 @@ func TestMarshalKRBPriv(t *testing.T) {
 		t.Fatalf("error marshaling KRBPriv: %v", err)
 	}
 
-	assert.Equal(t, b, mb, "marshaled bytes not as expected")
+	assert.Equal(t, b, mb)
 
 	be, err := hex.DecodeString(testdata.MarshaledKRB5enc_priv_part)
 	if err != nil {
@@ -120,7 +120,7 @@ func TestMarshalKRBPriv(t *testing.T) {
 		t.Fatalf("error marshaling KRBPriv: %v", err)
 	}
 
-	assert.Equal(t, b, mb, "marshaled bytes not as expected when it has decrypted encpart")
+	assert.Equal(t, b, mb)
 }
 
 func TestKRBPriv_EncryptEncPart(t *testing.T) {

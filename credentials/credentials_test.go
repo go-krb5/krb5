@@ -13,7 +13,7 @@ func TestImplementsInterface(t *testing.T) {
 
 	u := new(Credentials)
 	i := new(identity.Identity)
-	assert.Implements(t, i, u, "Credentials type does not implement the Identity interface")
+	assert.Implements(t, i, u)
 }
 
 func TestCredentials_Marshal(t *testing.T) {

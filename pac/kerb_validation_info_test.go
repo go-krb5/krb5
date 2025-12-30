@@ -32,7 +32,7 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	assert.Equal(t, time.Date(2006, 3, 18, 10, 44, 54, 837147900, time.UTC), k.PasswordLastSet.Time(), "PasswordLastSet not as expected")
 	assert.Equal(t, time.Date(2006, 3, 19, 10, 44, 54, 837147900, time.UTC), k.PasswordCanChange.Time(), "PasswordCanChange not as expected")
 
-	assert.Equal(t, "lzhu", k.EffectiveName.Value, "EffectiveName not as expected")
+	assert.Equal(t, "lzhu", k.EffectiveName.Value)
 	assert.Equal(t, "Liqiang(Larry) Zhu", k.FullName.String(), "EffectiveName not as expected")
 	assert.Equal(t, "ntds2.bat", k.LogonScript.String(), "EffectiveName not as expected")
 	assert.Equal(t, "", k.ProfilePath.String(), "EffectiveName not as expected")
@@ -73,14 +73,14 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 		{RelativeID: 3026603, Attributes: 7},
 		{RelativeID: 3018354, Attributes: 7},
 	}
-	assert.Equal(t, gids, k.GroupIDs, "GroupIDs not as expected")
+	assert.Equal(t, gids, k.GroupIDs)
 
 	assert.Equal(t, uint32(32), k.UserFlags, "UserFlags not as expected")
 
-	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k.UserSessionKey, "UserSessionKey not as expected")
+	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k.UserSessionKey)
 
-	assert.Equal(t, "NTDEV-DC-05", k.LogonServer.Value, "LogonServer not as expected")
-	assert.Equal(t, "NTDEV", k.LogonDomainName.Value, "LogonDomainName not as expected")
+	assert.Equal(t, "NTDEV-DC-05", k.LogonServer.Value)
+	assert.Equal(t, "NTDEV", k.LogonDomainName.Value)
 
 	assert.Equal(t, "S-1-5-21-397955417-626881126-188441444", k.LogonDomainID.String(), "LogonDomainID not as expected")
 
@@ -112,7 +112,7 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	}
 	for i, s := range es {
 		assert.Equal(t, s.sid, k.ExtraSIDs[i].SID.String(), "ExtraSID SID value not as epxected")
-		assert.Equal(t, s.attr, k.ExtraSIDs[i].Attributes, "ExtraSID Attributes value not as epxected")
+		assert.Equal(t, s.attr, k.ExtraSIDs[i].Attributes)
 	}
 
 	assert.Equal(t, uint8(0), k.ResourceGroupDomainSID.SubAuthorityCount, "ResourceGroupDomainSID not as expected")
@@ -156,14 +156,14 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 		{RelativeID: 1115, Attributes: 7},
 		{RelativeID: 1116, Attributes: 7},
 	}
-	assert.Equal(t, gids, k2.GroupIDs, "GroupIDs not as expected")
+	assert.Equal(t, gids, k2.GroupIDs)
 
 	assert.Equal(t, uint32(32), k2.UserFlags, "UserFlags not as expected")
 
-	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k2.UserSessionKey, "UserSessionKey not as expected")
+	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k2.UserSessionKey)
 
-	assert.Equal(t, "ADDC", k2.LogonServer.Value, "LogonServer not as expected")
-	assert.Equal(t, "TEST", k2.LogonDomainName.Value, "LogonDomainName not as expected")
+	assert.Equal(t, "ADDC", k2.LogonServer.Value)
+	assert.Equal(t, "TEST", k2.LogonDomainName.Value)
 
 	assert.Equal(t, "S-1-5-21-3167651404-3865080224-2280184895", k2.LogonDomainID.String(), "LogonDomainID not as expected")
 
@@ -185,7 +185,7 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	}
 	for i, s := range es2 {
 		assert.Equal(t, s.sid, k2.ExtraSIDs[i].SID.String(), "ExtraSID SID value not as epxected")
-		assert.Equal(t, s.attr, k2.ExtraSIDs[i].Attributes, "ExtraSID Attributes value not as epxected")
+		assert.Equal(t, s.attr, k2.ExtraSIDs[i].Attributes)
 	}
 
 	assert.Equal(t, uint8(0), k2.ResourceGroupDomainSID.SubAuthorityCount, "ResourceGroupDomainSID not as expected")
@@ -229,14 +229,14 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 		{RelativeID: 513, Attributes: 7},
 		{RelativeID: 1109, Attributes: 7},
 	}
-	assert.Equal(t, gids, k.GroupIDs, "GroupIDs not as expected")
+	assert.Equal(t, gids, k.GroupIDs)
 
 	assert.Equal(t, uint32(544), k.UserFlags, "UserFlags not as expected")
 
-	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k.UserSessionKey, "UserSessionKey not as expected")
+	assert.Equal(t, mstypes.UserSessionKey{CypherBlock: [2]mstypes.CypherBlock{{Data: [8]byte{}}, {Data: [8]byte{}}}}, k.UserSessionKey)
 
-	assert.Equal(t, "UDC", k.LogonServer.Value, "LogonServer not as expected")
-	assert.Equal(t, "USER", k.LogonDomainName.Value, "LogonDomainName not as expected")
+	assert.Equal(t, "UDC", k.LogonServer.Value)
+	assert.Equal(t, "USER", k.LogonDomainName.Value)
 
 	assert.Equal(t, "S-1-5-21-2284869408-3503417140-1141177250", k.LogonDomainID.String(), "LogonDomainID not as expected")
 
@@ -257,7 +257,7 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 	}
 	for i, s := range es {
 		assert.Equal(t, s.sid, k.ExtraSIDs[i].SID.String(), "ExtraSID SID value not as epxected")
-		assert.Equal(t, s.attr, k.ExtraSIDs[i].Attributes, "ExtraSID Attributes value not as epxected")
+		assert.Equal(t, s.attr, k.ExtraSIDs[i].Attributes)
 	}
 
 	assert.Equal(t, uint8(4), k.ResourceGroupDomainSID.SubAuthorityCount, "ResourceGroupDomainSID not as expected")
@@ -268,7 +268,7 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 		{RelativeID: 1107, Attributes: 536870919},
 		{RelativeID: 1108, Attributes: 536870919},
 	}
-	assert.Equal(t, rgids, k.ResourceGroupIDs, "ResourceGroupIDs not as expected")
+	assert.Equal(t, rgids, k.ResourceGroupIDs)
 
 	groupSids := []string{"S-1-5-21-2284869408-3503417140-1141177250-1110",
 		"S-1-5-21-2284869408-3503417140-1141177250-513",

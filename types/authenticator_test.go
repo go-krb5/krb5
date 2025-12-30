@@ -36,15 +36,15 @@ func TestUnmarshalAuthenticator(t *testing.T) {
 	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
-	assert.Equal(t, iana.PVNO, a.AVNO, "Authenticator version number not as expected")
-	assert.Equal(t, testdata.TEST_REALM, a.CRealm, "CRealm not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType, "CName NameType not as expected")
+	assert.Equal(t, iana.PVNO, a.AVNO)
+	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
 	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
-	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString, "CName entries not as expected")
+	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
 	assert.Equal(t, int32(1), a.Cksum.CksumType, "Checksum type not as expected")
 	assert.Equal(t, []byte("1234"), a.Cksum.Checksum, "Checsum not as expected")
-	assert.Equal(t, 123456, a.Cusec, "Client microseconds not as expected")
-	assert.Equal(t, tt, a.CTime, "Client time not as expected")
+	assert.Equal(t, 123456, a.Cusec)
+	assert.Equal(t, tt, a.CTime)
 	assert.Equal(t, int32(1), a.SubKey.KeyType, "Subkey type not as expected")
 	assert.Equal(t, []byte("12345678"), a.SubKey.KeyValue, "Subkey value not as expected")
 	assert.Equal(t, 2, len(a.AuthorizationData), "Number of Authorization data items not as expected")
@@ -61,13 +61,13 @@ func TestUnmarshalAuthenticator_optionalsempty(t *testing.T) {
 	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
-	assert.Equal(t, iana.PVNO, a.AVNO, "Authenticator version number not as expected")
-	assert.Equal(t, testdata.TEST_REALM, a.CRealm, "CRealm not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType, "CName NameType not as expected")
+	assert.Equal(t, iana.PVNO, a.AVNO)
+	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
 	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
-	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString, "CName entries not as expected")
-	assert.Equal(t, 123456, a.Cusec, "Client microseconds not as expected")
-	assert.Equal(t, tt, a.CTime, "Client time not as expected")
+	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
+	assert.Equal(t, 123456, a.Cusec)
+	assert.Equal(t, tt, a.CTime)
 }
 
 func TestUnmarshalAuthenticator_optionalsNULL(t *testing.T) {
@@ -76,13 +76,13 @@ func TestUnmarshalAuthenticator_optionalsNULL(t *testing.T) {
 	// Parse the test time value into a time.Time type.
 	tt, _ := time.Parse(testdata.TEST_TIME_FORMAT, testdata.TEST_TIME)
 
-	assert.Equal(t, iana.PVNO, a.AVNO, "Authenticator version number not as expected")
-	assert.Equal(t, testdata.TEST_REALM, a.CRealm, "CRealm not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType, "CName NameType not as expected")
+	assert.Equal(t, iana.PVNO, a.AVNO)
+	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
 	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.CName.NameString), "CName does not have the expected number of NameStrings")
-	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString, "CName entries not as expected")
-	assert.Equal(t, 123456, a.Cusec, "Client microseconds not as expected")
-	assert.Equal(t, tt, a.CTime, "Client time not as expected")
+	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
+	assert.Equal(t, 123456, a.Cusec)
+	assert.Equal(t, tt, a.CTime)
 }
 
 func TestMarshalAuthenticator(t *testing.T) {
@@ -105,5 +105,5 @@ func TestMarshalAuthenticator(t *testing.T) {
 		t.Fatalf("Marshal of ticket errored: %v", err)
 	}
 
-	assert.Equal(t, b, mb, "Marshal bytes of Authenticator not as expected")
+	assert.Equal(t, b, mb)
 }

@@ -13,5 +13,5 @@ func TestImplementsInterface(t *testing.T) {
 	var s KRB5BasicAuthenticator
 
 	a := new(identity.Authenticator)
-	assert.Implements(t, a, s, "SPNEGOAuthenticator type does not implement the goidentity.Authenticator interface")
+	assert.Implements(t, a, s)
 }

@@ -279,7 +279,7 @@ func TestVerifyAPREQ_Replay(t *testing.T) {
 		t.Fatal("Validation of AP_REQ passed when it should not have")
 	}
 
-	assert.IsType(t, messages.KRBError{}, err, "Error is not a KRBError")
+	assert.IsType(t, messages.KRBError{}, err)
 	assert.Equal(t, errorcode.KRB_AP_ERR_REPEAT, err.(messages.KRBError).ErrorCode, "Error code not as expected")
 }
 

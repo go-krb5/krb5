@@ -30,5 +30,5 @@ func TestChangePasswdData_Marshal(t *testing.T) {
 		t.Fatalf("Test vector read error: %v", err)
 	}
 
-	assert.Equal(t, b, chpwdb, "marshaled bytes of change passwd data not as expected")
+	assert.Equal(t, b, chpwdb)
 }

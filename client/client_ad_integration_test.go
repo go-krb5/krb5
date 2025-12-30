@@ -84,8 +84,8 @@ func TestClient_GetServiceTicket_AD(t *testing.T) {
 	isPAC, pac, err := tkt.GetPACType(skt, &sname, l)
 	assert.NoError(t, err)
 
-	assert.True(t, isPAC, "should have PAC")
-	assert.Equal(t, "USER", pac.KerbValidationInfo.LogonDomainName.String(), "domain name in PAC not correct")
+	assert.True(t, isPAC)
+	assert.Equal(t, "USER", pac.KerbValidationInfo.LogonDomainName.String())
 }
 
 func TestClient_GetServiceTicket_AD_TRUST_USER_DOMAIN(t *testing.T) {
@@ -129,8 +129,8 @@ func TestClient_GetServiceTicket_AD_TRUST_USER_DOMAIN(t *testing.T) {
 	isPAC, pac, err := tkt.GetPACType(skt, &sname, l)
 	assert.NoError(t, err)
 
-	assert.True(t, isPAC, "Did not find PAC in service ticket")
-	assert.Equal(t, "testuser1", pac.KerbValidationInfo.EffectiveName.Value, "PAC value not parsed")
+	assert.True(t, isPAC)
+	assert.Equal(t, "testuser1", pac.KerbValidationInfo.EffectiveName.Value)
 }
 
 func TestClient_GetServiceTicket_AD_USER_DOMAIN(t *testing.T) {
@@ -159,7 +159,9 @@ func TestClient_GetServiceTicket_AD_USER_DOMAIN(t *testing.T) {
 
 	assert.Equal(t, spn, tkt.SName.PrincipalNameString())
 
-	b, _ = hex.DecodeString(testdata.KEYTAB_TESTUSER2_USER_GOKRB5)
+	b, err = hex.DecodeString(testdata.KEYTAB_TESTUSER2_USER_GOKRB5)
+	require.NoError(t, err)
+
 	skt := keytab.New()
 
 	require.NoError(t, skt.Unmarshal(b))
@@ -174,6 +176,6 @@ func TestClient_GetServiceTicket_AD_USER_DOMAIN(t *testing.T) {
 	isPAC, pac, err := tkt.GetPACType(skt, &sname, l)
 	assert.NoError(t, err)
 
-	assert.True(t, isPAC, "Did not find PAC in service ticket")
-	assert.Equal(t, "testuser1", pac.KerbValidationInfo.EffectiveName.Value, "PAC value not parsed")
+	assert.True(t, isPAC)
+	assert.Equal(t, "testuser1", pac.KerbValidationInfo.EffectiveName.Value)
 }

@@ -383,8 +383,8 @@ func TestClient_GetServiceTicket_InvalidSPN(t *testing.T) {
 
 	spn := "host.test.gokrb5"
 	_, _, err := cl.GetServiceTicket(spn)
-	assert.NotNil(t, err, "Expected unknown principal error")
-	assert.True(t, strings.Contains(err.Error(), "KDC_ERR_S_PRINCIPAL_UNKNOWN"), "Error text not as expected")
+	assert.NotNil(t, err)
+	assert.True(t, strings.Contains(err.Error(), "KDC_ERR_S_PRINCIPAL_UNKNOWN"))
 }
 
 func TestClient_GetServiceTicket_OlderKDC(t *testing.T) {
@@ -501,16 +501,11 @@ func TestNewFromCCache(t *testing.T) {
 	test.Integration(t)
 
 	b, err := hex.DecodeString(testdata.CCACHE_TEST)
-	if err != nil {
-		t.Fatalf("error decoding test data")
-	}
+	require.NoError(t, err)
 
 	cc := new(credentials.CCache)
 
-	err = cc.Unmarshal(b)
-	if err != nil {
-		t.Fatal("error getting test CCache")
-	}
+	require.NoError(t, cc.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -770,7 +765,7 @@ func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 		t.Fatalf("request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusOK, httpResp.StatusCode, "status code in response to client SPNEGO request not as expected")
+	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
 
 func TestGetServiceTicketFromCCacheWithoutKDC(t *testing.T) {
@@ -815,7 +810,7 @@ func TestGetServiceTicketFromCCacheWithoutKDC(t *testing.T) {
 		t.Fatalf("request error: %v\n", err)
 	}
 
-	assert.Equal(t, http.StatusOK, httpResp.StatusCode, "status code in response to client SPNEGO request not as expected")
+	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
 
 func TestClient_ChangePasswd(t *testing.T) {
@@ -841,7 +836,7 @@ func TestClient_ChangePasswd(t *testing.T) {
 		t.Fatalf("error changing password: %v", err)
 	}
 
-	assert.True(t, ok, "password was not changed")
+	assert.True(t, ok)
 
 	cl = client.NewWithPassword("testuser1", "TEST.GOKRB5", "newpassword", c)
 
@@ -850,14 +845,11 @@ func TestClient_ChangePasswd(t *testing.T) {
 		t.Fatalf("error changing password: %v", err)
 	}
 
-	assert.True(t, ok, "password was not changed back")
+	assert.True(t, ok)
 
 	cl = client.NewWithPassword("testuser1", "TEST.GOKRB5", testdata.TESTUSER_PASSWORD, c)
 
-	err = cl.Login()
-	if err != nil {
-		t.Fatalf("Could not log back in after reverting password: %v", err)
-	}
+	require.NoError(t, cl.Login())
 }
 
 func TestClient_Destroy(t *testing.T) {
@@ -876,23 +868,18 @@ func TestClient_Destroy(t *testing.T) {
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5_SHORTTICKETS}
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
-	err := cl.Login()
-	if err != nil {
-		t.Fatalf("error on login: %v\n", err)
-	}
+	require.NoError(t, cl.Login())
 
-	_, _, err = cl.GetServiceTicket(spn)
-	if err != nil {
-		t.Fatalf("error getting service ticket: %v\n", err)
-	}
+	_, _, err := cl.GetServiceTicket(spn)
+	require.NoError(t, err)
 
 	n := runtime.NumGoroutine()
 
 	time.Sleep(time.Second * 60)
 	cl.Destroy()
 	time.Sleep(time.Second * 5)
-	assert.True(t, runtime.NumGoroutine() < n, "auto-renewal goroutine was not stopped when client destroyed")
+	assert.True(t, runtime.NumGoroutine() < n)
 
 	is, _ := cl.IsConfigured()
-	assert.False(t, is, "client is still configured after it was destroyed")
+	assert.False(t, is)
 }

@@ -30,8 +30,8 @@ func TestUnmarshalKRBCred(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	assert.Equal(t, iana.PVNO, a.PVNO, "PVNO not as expected")
-	assert.Equal(t, msgtype.KRB_CRED, a.MsgType, "Message type not as expected")
+	assert.Equal(t, iana.PVNO, a.PVNO)
+	assert.Equal(t, msgtype.KRB_CRED, a.MsgType)
 	assert.Equal(t, 2, len(a.Tickets), "Number of tickets not as expected")
 
 	for i, tkt := range a.Tickets {
@@ -45,8 +45,8 @@ func TestUnmarshalKRBCred(t *testing.T) {
 		assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), tkt.EncPart.Cipher, fmt.Sprintf("Ticket (%v) encPart cipher not as expected", i+1))
 	}
 
-	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType, "encPart etype not as expected")
-	assert.Equal(t, iana.PVNO, a.EncPart.KVNO, "encPart KVNO not as expected")
+	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
+	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
 	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.EncPart.Cipher, "encPart cipher not as expected")
 }
 
@@ -92,12 +92,12 @@ func TestUnmarshalEncCredPart(t *testing.T) {
 		}
 	}
 
-	assert.Equal(t, testdata.TEST_NONCE, a.Nouce, "Nouce not as expected")
-	assert.Equal(t, tt, a.Timestamp, "Timestamp not as expected")
-	assert.Equal(t, 123456, a.Usec, "Microseconds not as expected")
-	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType, "SAddress type not as expected")
+	assert.Equal(t, testdata.TEST_NONCE, a.Nouce)
+	assert.Equal(t, tt, a.Timestamp)
+	assert.Equal(t, 123456, a.Usec)
+	assert.Equal(t, addrtype.IPv4, a.SAddress.AddrType)
 	assert.Equal(t, "12d00023", hex.EncodeToString(a.SAddress.Address), "Address not as expected for SAddress")
-	assert.Equal(t, addrtype.IPv4, a.RAddress.AddrType, "RAddress type not as expected")
+	assert.Equal(t, addrtype.IPv4, a.RAddress.AddrType)
 	assert.Equal(t, "12d00023", hex.EncodeToString(a.RAddress.Address), "Address not as expected for RAddress")
 }
 

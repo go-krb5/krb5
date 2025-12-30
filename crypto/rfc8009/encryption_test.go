@@ -263,7 +263,7 @@ func TestEncryptDecrypt_AES128(t *testing.T) {
 				t.Fatalf("DecryptMessage failed: %v", err)
 			}
 
-			assert.Equal(t, plaintext, decryptedMessage, "Round-trip encrypt/decrypt failed")
+			assert.Equal(t, plaintext, decryptedMessage)
 
 			ivz := make([]byte, e.GetConfounderByteSize())
 			integrityInput := append(ivz, aesOutput...)
@@ -375,7 +375,7 @@ func TestEncryptDecrypt_AES256(t *testing.T) {
 				t.Fatalf("DecryptMessage failed: %v", err)
 			}
 
-			assert.Equal(t, plaintext, decryptedMessage, "Round-trip encrypt/decrypt failed")
+			assert.Equal(t, plaintext, decryptedMessage)
 
 			ivz := make([]byte, e.GetConfounderByteSize())
 			integrityInput := append(ivz, aesOutput...)
@@ -463,7 +463,7 @@ func TestEncryptData_InvalidKeySize_AES128(t *testing.T) {
 
 			_, _, err := e.EncryptData(wrongKey, plaintext)
 
-			assert.Error(t, err, "Expected an error for invalid key size")
+			assert.Error(t, err)
 			assert.Contains(t, err.Error(), test.expectedError, "Error message not as expected")
 		})
 	}
@@ -501,7 +501,7 @@ func TestEncryptData_InvalidKeySize_AES256(t *testing.T) {
 
 			_, _, err := e.EncryptData(wrongKey, plaintext)
 
-			assert.Error(t, err, "Expected an error for invalid key size")
+			assert.Error(t, err)
 			assert.Contains(t, err.Error(), test.expectedError, "Error message not as expected")
 		})
 	}
@@ -518,7 +518,7 @@ func TestEncryptMessage_InvalidKeySize_AES128(t *testing.T) {
 
 	_, _, err := e.EncryptMessage(wrongKey, plaintext, testUsage)
 
-	assert.Error(t, err, "Expected error for invalid key size")
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "incorrect keysize", "Error message should mention keysize")
 }
 
@@ -533,7 +533,7 @@ func TestDecryptMessage_InvalidKeySize_AES128(t *testing.T) {
 
 	_, err := e.DecryptMessage(wrongKey, fakeCiphertext, testUsage)
 
-	assert.Error(t, err, "Expected error for invalid key")
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "integrity verification failed",
 		"Gets integrity error before keysize check")
 }
@@ -549,7 +549,7 @@ func TestDecryptMessage_IntegrityVerificationFail_AES128(t *testing.T) {
 
 	_, err := e.DecryptMessage(wrongKey, fakeCiphertext, testUsage)
 
-	assert.Error(t, err, "Expected error for integrity verification fail")
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "integrity verification fail", "Error message should mention integrity verification fail")
 }
 
@@ -562,7 +562,7 @@ func TestEncryptMessage_ZeroUsage(t *testing.T) {
 
 	_, _, err := e.EncryptMessage(key, message, zeroUsage)
 
-	assert.Error(t, err, "Expected error when usage is 0")
+	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "incorrect keysize",
 		"Should fail with keysize error because derived key is empty")
 }
@@ -599,7 +599,7 @@ func TestDecryptData_InvalidKeySize_AES128(t *testing.T) {
 
 			_, err := e.DecryptData(wrongKey, ciphertext)
 
-			assert.Error(t, err, "Expected an error for invalid key size")
+			assert.Error(t, err)
 			assert.Contains(t, err.Error(), test.expectedError, "Error message not as expected")
 		})
 	}

@@ -25,8 +25,8 @@ func TestUnmarshalEncryptedData(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	assert.Equal(t, testdata.TEST_ETYPE, a.EType, "Encrypted data Etype not as expected")
-	assert.Equal(t, iana.PVNO, a.KVNO, "Encrypted data KVNO not as expected")
+	assert.Equal(t, testdata.TEST_ETYPE, a.EType)
+	assert.Equal(t, iana.PVNO, a.KVNO)
 	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.Cipher, "Ecrypted data ciphertext not as expected")
 }
 
@@ -45,8 +45,8 @@ func TestUnmarshalEncryptedData_MSBsetkvno(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	assert.Equal(t, testdata.TEST_ETYPE, a.EType, "Encrypted data Etype not as expected")
-	assert.Equal(t, -16777216, a.KVNO, "Encrypted data KVNO not as expected")
+	assert.Equal(t, testdata.TEST_ETYPE, a.EType)
+	assert.Equal(t, -16777216, a.KVNO)
 	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.Cipher, "Ecrypted data ciphertext not as expected")
 }
 
@@ -65,8 +65,8 @@ func TestUnmarshalEncryptedData_kvno_neg1(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	assert.Equal(t, testdata.TEST_ETYPE, a.EType, "Encrypted data Etype not as expected")
-	assert.Equal(t, -1, a.KVNO, "Encrypted data KVNO not as expected")
+	assert.Equal(t, testdata.TEST_ETYPE, a.EType)
+	assert.Equal(t, -1, a.KVNO)
 	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.Cipher, "Ecrypted data ciphertext not as expected")
 }
 
@@ -109,5 +109,5 @@ func TestMarshalEncryptedData(t *testing.T) {
 		t.Fatalf("Marshal of ticket errored: %v", err)
 	}
 
-	assert.Equal(t, b, mb, "Marshal bytes of Encrypted Data not as expected")
+	assert.Equal(t, b, mb)
 }

@@ -37,8 +37,8 @@ func TestUnmarshal(t *testing.T) {
 	assert.Equal(t, "698c4df8e9f60e7eea5a21bf4526ad25", hex.EncodeToString(kt.Entries[0].Key.KeyValue), "Key material not as expected")
 	assert.Equal(t, int16(1), kt.Entries[0].Principal.NumComponents, "Number of components in principal not as expected")
 	assert.Equal(t, int32(1), kt.Entries[0].Principal.NameType, "Name type of principal not as expected")
-	assert.Equal(t, "TEST.GOKRB5", kt.Entries[0].Principal.Realm, "Realm of principal not as expected")
-	assert.Equal(t, "testuser1", kt.Entries[0].Principal.Components[0], "Component in principal not as expected")
+	assert.Equal(t, "TEST.GOKRB5", kt.Entries[0].Principal.Realm)
+	assert.Equal(t, "testuser1", kt.Entries[0].Principal.Components[0])
 }
 
 func TestMarshal(t *testing.T) {
@@ -57,7 +57,7 @@ func TestMarshal(t *testing.T) {
 		t.Fatalf("Error marshaling: %v", err)
 	}
 
-	assert.Equal(t, b, mb, "Marshaled bytes not the same as input bytes")
+	assert.Equal(t, b, mb)
 
 	err = kt.Unmarshal(mb)
 	if err != nil {
@@ -214,7 +214,7 @@ func TestKeytabEntriesUser(t *testing.T) {
 	}
 
 	// Compare content.
-	assert.Equal(t, generated, ktutilbytes, "Service keytab doesn't match ktutil keytab")
+	assert.Equal(t, generated, ktutilbytes)
 }
 
 func TestKeytabEntriesService(t *testing.T) {
@@ -253,7 +253,7 @@ func TestKeytabEntriesService(t *testing.T) {
 	}
 
 	// Compare content.
-	assert.Equal(t, generated, ktutilbytes, "Service keytab doesn't match ktutil keytab")
+	assert.Equal(t, generated, ktutilbytes)
 }
 
 func TestKeytab_GetEncryptionKey(t *testing.T) {

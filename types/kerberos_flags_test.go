@@ -17,7 +17,7 @@ func TestKerberosFlags_SetFlag(t *testing.T) {
 	var f asn1.BitString
 	SetFlag(&f, flags.Forwardable)
 	SetFlag(&f, flags.RenewableOK)
-	assert.Equal(t, b, f.Bytes, "Flag bytes not as expected")
+	assert.Equal(t, b, f.Bytes)
 }
 
 func TestKerberosFlags_UnsetFlag(t *testing.T) {
@@ -29,7 +29,7 @@ func TestKerberosFlags_UnsetFlag(t *testing.T) {
 	SetFlag(&f, flags.Forwardable)
 	SetFlag(&f, flags.RenewableOK)
 	UnsetFlag(&f, flags.RenewableOK)
-	assert.Equal(t, b, f.Bytes, "Flag bytes not as expected")
+	assert.Equal(t, b, f.Bytes)
 }
 
 func TestKerberosFlags_IsFlagSet(t *testing.T) {

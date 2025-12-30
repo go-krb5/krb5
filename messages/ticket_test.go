@@ -36,13 +36,13 @@ func TestUnmarshalTicket(t *testing.T) {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
 
-	assert.Equal(t, iana.PVNO, a.TktVNO, "Ticket version number not as expected")
-	assert.Equal(t, testdata.TEST_REALM, a.Realm, "Realm not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.SName.NameType, "CName NameType not as expected")
+	assert.Equal(t, iana.PVNO, a.TktVNO)
+	assert.Equal(t, testdata.TEST_REALM, a.Realm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.SName.NameType)
 	assert.Equal(t, len(testdata.TEST_PRINCIPALNAME_NAMESTRING), len(a.SName.NameString), "SName does not have the expected number of NameStrings")
-	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.SName.NameString, "SName name strings not as expected")
-	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType, "Etype of Ticket EncPart not as expected")
-	assert.Equal(t, iana.PVNO, a.EncPart.KVNO, "KNVO of Ticket EncPart not as expected")
+	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.SName.NameString)
+	assert.Equal(t, testdata.TEST_ETYPE, a.EncPart.EType)
+	assert.Equal(t, iana.PVNO, a.EncPart.KVNO)
 	assert.Equal(t, []byte(testdata.TEST_CIPHERTEXT), a.EncPart.Cipher, "Cipher of Ticket EncPart not as expected")
 }
 
@@ -66,15 +66,15 @@ func TestUnmarshalEncTicketPart(t *testing.T) {
 	assert.Equal(t, "fedcba98", hex.EncodeToString(a.Flags.Bytes), "Flags not as expected")
 	assert.Equal(t, int32(1), a.Key.KeyType, "Key type not as expected")
 	assert.Equal(t, []byte("12345678"), a.Key.KeyValue, "Key value not as expected")
-	assert.Equal(t, testdata.TEST_REALM, a.CRealm, "CRealm not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType, "CName type not as expected")
-	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString, "CName string entries not as expected")
-	assert.Equal(t, trtype.DOMAIN_X500_COMPRESS, a.Transited.TRType, "Transisted type not as expected")
+	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
+	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
+	assert.Equal(t, trtype.DOMAIN_X500_COMPRESS, a.Transited.TRType)
 	assert.Equal(t, []byte("EDU,MIT.,ATHENA.,WASHINGTON.EDU,CS."), a.Transited.Contents, "Transisted content not as expected")
-	assert.Equal(t, tt, a.AuthTime, "Auth time not as expected")
-	assert.Equal(t, tt, a.StartTime, "Start time not as expected")
-	assert.Equal(t, tt, a.EndTime, "End time not as expected")
-	assert.Equal(t, tt, a.RenewTill, "Renew Till time not as expected")
+	assert.Equal(t, tt, a.AuthTime)
+	assert.Equal(t, tt, a.StartTime)
+	assert.Equal(t, tt, a.EndTime)
+	assert.Equal(t, tt, a.RenewTill)
 	assert.Equal(t, 2, len(a.CAddr), "Number of client addresses not as expected")
 
 	for i, addr := range a.CAddr {
@@ -108,13 +108,13 @@ func TestUnmarshalEncTicketPart_optionalsNULL(t *testing.T) {
 	assert.Equal(t, "fedcba98", hex.EncodeToString(a.Flags.Bytes), "Flags not as expected")
 	assert.Equal(t, int32(1), a.Key.KeyType, "Key type not as expected")
 	assert.Equal(t, []byte("12345678"), a.Key.KeyValue, "Key value not as expected")
-	assert.Equal(t, testdata.TEST_REALM, a.CRealm, "CRealm not as expected")
-	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType, "CName type not as expected")
-	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString, "CName string entries not as expected")
-	assert.Equal(t, trtype.DOMAIN_X500_COMPRESS, a.Transited.TRType, "Transisted type not as expected")
+	assert.Equal(t, testdata.TEST_REALM, a.CRealm)
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, a.CName.NameType)
+	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, a.CName.NameString)
+	assert.Equal(t, trtype.DOMAIN_X500_COMPRESS, a.Transited.TRType)
 	assert.Equal(t, []byte("EDU,MIT.,ATHENA.,WASHINGTON.EDU,CS."), a.Transited.Contents, "Transisted content not as expected")
-	assert.Equal(t, tt, a.AuthTime, "Auth time not as expected")
-	assert.Equal(t, tt, a.EndTime, "End time not as expected")
+	assert.Equal(t, tt, a.AuthTime)
+	assert.Equal(t, tt, a.EndTime)
 }
 
 func TestMarshalTicket(t *testing.T) {
@@ -137,7 +137,7 @@ func TestMarshalTicket(t *testing.T) {
 		t.Fatalf("Marshal of ticket errored: %v", err)
 	}
 
-	assert.Equal(t, b, mb, "Marshalled bytes not as expected")
+	assert.Equal(t, b, mb)
 }
 
 func TestAuthorizationData_GetPACType_GOKRB5TestData(t *testing.T) {
@@ -179,13 +179,13 @@ func TestAuthorizationData_GetPACType_GOKRB5TestData(t *testing.T) {
 		t.Errorf("error getting PAC: %v", err)
 	}
 
-	assert.True(t, isPAC, "PAC should be present")
+	assert.True(t, isPAC)
 	assert.Equal(t, 5, len(pac.Buffers), "Number of buffers not as expected")
 	assert.Equal(t, uint32(5), pac.CBuffers, "Count of buffers not as expected")
 	assert.Equal(t, uint32(0), pac.Version, "PAC version not as expected")
-	assert.NotNil(t, pac.KerbValidationInfo, "PAC Kerb Validation info is nil")
-	assert.NotNil(t, pac.ClientInfo, "PAC Client Info info is nil")
-	assert.NotNil(t, pac.UPNDNSInfo, "PAC UPN DNS Info info is nil")
-	assert.NotNil(t, pac.KDCChecksum, "PAC KDC Checksum info is nil")
-	assert.NotNil(t, pac.ServerChecksum, "PAC Server checksum info is nil")
+	assert.NotNil(t, pac.KerbValidationInfo)
+	assert.NotNil(t, pac.ClientInfo)
+	assert.NotNil(t, pac.UPNDNSInfo)
+	assert.NotNil(t, pac.KDCChecksum)
+	assert.NotNil(t, pac.ServerChecksum)
 }

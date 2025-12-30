@@ -82,7 +82,7 @@ func TestUnmarshal_Challenge(t *testing.T) {
 	var wt WrapToken
 
 	err := wt.Unmarshal(challenge, true)
-	assert.Nil(t, err, "Unexpected error occurred.")
+	assert.Nil(t, err)
 	assert.Equal(t, getChallengeReference(), &wt, "Token not decoded as expected.")
 }
 
@@ -94,9 +94,9 @@ func TestUnmarshalFailure_Challenge(t *testing.T) {
 	var wt WrapToken
 
 	err := wt.Unmarshal(challenge, false)
-	assert.NotNil(t, err, "Expected error did not occur: a message from the acceptor cannot be expected to be sent from the initiator.")
-	assert.Nil(t, wt.Payload, "Token fields should not have been initialised")
-	assert.Nil(t, wt.CheckSum, "Token fields should not have been initialised")
+	assert.NotNil(t, err)
+	assert.Nil(t, wt.Payload)
+	assert.Nil(t, wt.CheckSum)
 	assert.Equal(t, byte(0x00), wt.Flags, "Token fields should not have been initialised")
 	assert.Equal(t, uint16(0), wt.EC, "Token fields should not have been initialised")
 	assert.Equal(t, uint16(0), wt.RRC, "Token fields should not have been initialised")
@@ -111,7 +111,7 @@ func TestUnmarshal_ChallengeReply(t *testing.T) {
 	var wt WrapToken
 
 	err := wt.Unmarshal(response, false)
-	assert.Nil(t, err, "Unexpected error occurred.")
+	assert.Nil(t, err)
 	assert.Equal(t, getResponseReference(), &wt, "Token not decoded as expected.")
 }
 
@@ -123,9 +123,9 @@ func TestUnmarshalFailure_ChallengeReply(t *testing.T) {
 	var wt WrapToken
 
 	err := wt.Unmarshal(response, true)
-	assert.NotNil(t, err, "Expected error did not occur: a message from the initiator cannot be expected to be sent from the acceptor.")
-	assert.Nil(t, wt.Payload, "Token fields should not have been initialised")
-	assert.Nil(t, wt.CheckSum, "Token fields should not have been initialised")
+	assert.NotNil(t, err)
+	assert.Nil(t, wt.Payload)
+	assert.Nil(t, wt.CheckSum)
 	assert.Equal(t, byte(0x00), wt.Flags, "Token fields should not have been initialised")
 	assert.Equal(t, uint16(0), wt.EC, "Token fields should not have been initialised")
 	assert.Equal(t, uint16(0), wt.RRC, "Token fields should not have been initialised")
@@ -140,8 +140,8 @@ func TestChallengeChecksumVerification(t *testing.T) {
 	var wt WrapToken
 	require.NoError(t, wt.Unmarshal(challenge, true))
 	challengeOk, cErr := wt.Verify(getSessionKey(), acceptorSeal)
-	assert.Nil(t, cErr, "Error occurred during checksum verification.")
-	assert.True(t, challengeOk, "Checksum verification failed.")
+	assert.Nil(t, cErr)
+	assert.True(t, challengeOk)
 }
 
 func TestResponseChecksumVerification(t *testing.T) {
@@ -152,8 +152,8 @@ func TestResponseChecksumVerification(t *testing.T) {
 	var wt WrapToken
 	require.NoError(t, wt.Unmarshal(reply, false))
 	replyOk, rErr := wt.Verify(getSessionKey(), initiatorSeal)
-	assert.Nil(t, rErr, "Error occurred during checksum verification.")
-	assert.True(t, replyOk, "Checksum verification failed.")
+	assert.Nil(t, rErr)
+	assert.True(t, replyOk)
 }
 
 func TestChecksumVerificationFailure(t *testing.T) {
@@ -166,8 +166,8 @@ func TestChecksumVerificationFailure(t *testing.T) {
 
 	// Test a failure with the correct key but wrong keyusage:.
 	challengeOk, cErr := wt.Verify(getSessionKey(), initiatorSeal)
-	assert.NotNil(t, cErr, "Expected error did not occur.")
-	assert.False(t, challengeOk, "Checksum verification succeeded when it should have failed.")
+	assert.NotNil(t, cErr)
+	assert.False(t, challengeOk)
 
 	wrongKeyVal, _ := hex.DecodeString("14f9bde6b50ec508201a97f74c4effff")
 	badKey := types.EncryptionKey{
@@ -176,8 +176,8 @@ func TestChecksumVerificationFailure(t *testing.T) {
 	}
 	// Test a failure with the wrong key but correct keyusage:.
 	wrongKeyOk, wkErr := wt.Verify(badKey, acceptorSeal)
-	assert.NotNil(t, wkErr, "Expected error did not occur.")
-	assert.False(t, wrongKeyOk, "Checksum verification succeeded when it should have failed.")
+	assert.NotNil(t, wkErr)
+	assert.False(t, wrongKeyOk)
 }
 
 func TestMarshal_Challenge(t *testing.T) {
@@ -201,20 +201,20 @@ func TestMarshal_Failures(t *testing.T) {
 
 	noChkSum := getResponseReferenceNoChkSum()
 	chkBytes, chkErr := noChkSum.Marshal()
-	assert.Nil(t, chkBytes, "No bytes should be returned.")
-	assert.NotNil(t, chkErr, "Expected an error as no checksum was set")
+	assert.Nil(t, chkBytes)
+	assert.NotNil(t, chkErr)
 
 	noPayload := getResponseReference()
 	noPayload.Payload = nil
 	pldBytes, pldErr := noPayload.Marshal()
-	assert.Nil(t, pldBytes, "No bytes should be returned.")
-	assert.NotNil(t, pldErr, "Expected an error as no checksum was set")
+	assert.Nil(t, pldBytes)
+	assert.NotNil(t, pldErr)
 }
 
 func TestNewInitiatorTokenSignatureAndMarshalling(t *testing.T) {
 	t.Parallel()
 
 	token, tErr := NewInitiatorWrapToken([]byte{0x01, 0x01, 0x00, 0x00}, getSessionKey())
-	assert.Nil(t, tErr, "Unexpected error.")
+	assert.Nil(t, tErr)
 	assert.Equal(t, getResponseReference(), token, "Token failed to be marshalled to the expected bytes.")
 }

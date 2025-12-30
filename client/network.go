@@ -179,7 +179,7 @@ func dialSendTCP(dialer Dialer, kdcs map[int]string, b []byte) ([]byte, error) {
 			errs = append(errs, fmt.Sprintf("error setting deadline on connection to %s: %v", kdcs[i], err))
 			continue
 		}
-		// conn is guaranteed to be a TCPConn.
+
 		rb, err := sendTCP(conn.(*net.TCPConn), b)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("error sending to %s: %v", kdcs[i], err))

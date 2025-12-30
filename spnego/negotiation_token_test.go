@@ -23,8 +23,8 @@ func TestUnmarshal_negTokenInit(t *testing.T) {
 	isInit, nt, err := UnmarshalNegToken(b)
 	require.NoError(t, err)
 
-	assert.IsType(t, NegTokenInit{}, nt, "Not the expected type NegTokenInit")
-	assert.True(t, isInit, "Boolean indicating type is negTokenInit is not true")
+	assert.IsType(t, NegTokenInit{}, nt)
+	assert.True(t, isInit)
 
 	nInit := nt.(NegTokenInit)
 	assert.Equal(t, 4, len(nInit.MechTypes))
@@ -35,7 +35,7 @@ func TestUnmarshal_negTokenInit(t *testing.T) {
 		[]int{1, 2, 840, 48018, 1, 2, 2},
 		[]int{1, 3, 6, 1, 5, 2, 5},
 	}
-	assert.Equal(t, expectMechTypes, nInit.MechTypes, "MechTypes list in NegTokenInit not as expected")
+	assert.Equal(t, expectMechTypes, nInit.MechTypes)
 }
 
 func TestMarshal_negTokenInit(t *testing.T) {
@@ -52,7 +52,7 @@ func TestMarshal_negTokenInit(t *testing.T) {
 	mb, err := nInit.Marshal()
 	require.NoError(t, err)
 
-	assert.Equal(t, b, mb, "Marshalled bytes not as expected for NegTokenInit")
+	assert.Equal(t, b, mb)
 }
 
 func TestUnmarshal_negTokenResp(t *testing.T) {
@@ -68,12 +68,12 @@ func TestUnmarshal_negTokenResp(t *testing.T) {
 		t.Fatalf("Error unmarshalling negotiation token: %v", err)
 	}
 
-	assert.IsType(t, NegTokenResp{}, nt, "Not the expected type NegTokenResp")
-	assert.False(t, isInit, "Boolean indicating type is negTokenInit is not false")
+	assert.IsType(t, NegTokenResp{}, nt)
+	assert.False(t, isInit)
 
 	nResp := nt.(NegTokenResp)
 	assert.Equal(t, asn1.Enumerated(0), nResp.NegState)
-	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, nResp.SupportedMech, "SupportedMech type not as expected.")
+	assert.Equal(t, asn1.ObjectIdentifier{1, 2, 840, 113554, 1, 2, 2}, nResp.SupportedMech)
 }
 
 func TestMarshal_negTokenResp(t *testing.T) {
@@ -96,7 +96,7 @@ func TestMarshal_negTokenResp(t *testing.T) {
 		t.Fatalf("Error marshalling negotiation init token: %v", err)
 	}
 
-	assert.Equal(t, b, mb, "Marshalled bytes not as expected for NegTokenResp")
+	assert.Equal(t, b, mb)
 }
 
 func TestUnmarshal_negTokenInitWithReqFlags(t *testing.T) {
