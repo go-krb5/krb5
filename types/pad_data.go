@@ -53,7 +53,7 @@ func GetPAEncTSEncAsnMarshalled() ([]byte, error) {
 
 	b, err := asn1.Marshal(p, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
-		return b, fmt.Errorf("error mashaling PAEncTSEnc: %v", err)
+		return b, fmt.Errorf("error mashaling PAEncTSEnc: %w", err)
 	}
 
 	return b, nil

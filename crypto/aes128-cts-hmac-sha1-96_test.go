@@ -17,10 +17,12 @@ func TestAes128CtsHmacSha196_StringToKey(t *testing.T) {
 
 	b, err := hex.DecodeString("1234567878563412")
 	require.NoError(t, err)
+
 	s := string(b)
 
 	b, err = hex.DecodeString("f09d849e")
 	require.NoError(t, err)
+
 	s2 := string(b)
 
 	e := &Aes128CtsHmacSha96{}

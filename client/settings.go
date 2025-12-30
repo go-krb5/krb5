@@ -92,7 +92,7 @@ func (s *Settings) Logger() *log.Logger {
 }
 
 // Log will write to the service's logger if it is configured.
-func (cl *Client) Log(format string, v ...interface{}) {
+func (cl *Client) Log(format string, v ...any) {
 	if cl.settings.Logger() != nil {
 		cl.settings.Logger().Output(2, fmt.Sprintf(format, v...))
 	}

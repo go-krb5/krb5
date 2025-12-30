@@ -82,21 +82,20 @@ func LoadCCache(cpath string) (*CCache, error) {
 // Unmarshal a byte slice of credential cache data into CCache type.
 func (c *CCache) Unmarshal(b []byte) error {
 	p := 0
-	// The first byte of the file always has the value 5.
+
 	if int8(b[p]) != 5 {
 		return errors.New("Invalid credential cache data. First byte does not equal 5")
 	}
 
 	p++
-	// Get credential cache version
-	// The second byte contains the version number (1 to 4).
+
 	c.Version = b[p]
 	if c.Version < 1 || c.Version > 4 {
 		return errors.New("Invalid credential cache data. Keytab version is not within 1 to 4")
 	}
 
 	p++
-	// Version 1 or 2 of the file format uses native byte order for integer representations. Versions 3 & 4 always uses big-endian byte order.
+
 	var endian binary.ByteOrder
 
 	endian = binary.BigEndian
@@ -183,7 +182,6 @@ func parseCredential(b []byte, p *int, c *CCache, e *binary.ByteOrder) (cred *Cr
 
 	key.KeyType = int32(readInt16(b, p, e))
 	if c.Version == 3 {
-		// repeated twice in version 3.
 		key.KeyType = int32(readInt16(b, p, e))
 	}
 
@@ -219,7 +217,7 @@ func parseCredential(b []byte, p *int, c *CCache, e *binary.ByteOrder) (cred *Cr
 	cred.Ticket = readData(b, p, e)
 	cred.SecondTicket = readData(b, p, e)
 
-	return
+	return cred, nil
 }
 
 // GetClientPrincipalName returns a PrincipalName type for the client the credentials cache is for.
@@ -290,8 +288,8 @@ func (c *CCache) GetEntries() []*Credential {
 	return creds
 }
 
+// Reference: https://web.mit.edu/kerberos/krb5-latest/doc/formats/ccache_file_format.html
 func (h *headerField) valid() bool {
-	// See https://web.mit.edu/kerberos/krb5-latest/doc/formats/ccache_file_format.html - Header format.
 	switch h.tag {
 	case headerFieldTagKDCOffset:
 		if h.length != 8 || len(h.value) != 8 {

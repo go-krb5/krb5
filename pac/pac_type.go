@@ -94,7 +94,8 @@ func (pac *PACType) Unmarshal(b []byte) (err error) {
 }
 
 // ProcessPACInfoBuffers processes the PAC Info Buffers.
-// https://msdn.microsoft.com/en-us/library/cc237954.aspx
+//
+// Reference: https://msdn.microsoft.com/en-us/library/cc237954.aspx
 func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger) error {
 	for _, buf := range pac.Buffers {
 		p := make([]byte, buf.CBBufferSize)
@@ -103,7 +104,6 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 		switch buf.ULType {
 		case infoTypeKerbValidationInfo:
 			if pac.KerbValidationInfo != nil {
-				// Must ignore subsequent buffers of this type.
 				continue
 			}
 
@@ -111,7 +111,7 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 
 			err := k.Unmarshal(p)
 			if err != nil {
-				return fmt.Errorf("error processing KerbValidationInfo: %v", err)
+				return fmt.Errorf("error processing KerbValidationInfo: %w", err)
 			}
 
 			pac.KerbValidationInfo = &k
@@ -127,12 +127,11 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 			// var k CredentialsInfo
 			// err := k.Unmarshal(p, key) // The encryption key used is the AS reply key only available to the client.
 			// if err != nil {
-			//	return fmt.Errorf("error processing CredentialsInfo: %v", err)
+			//	return fmt.Errorf("error processing CredentialsInfo: %w", err)
 			//}
 			// pac.CredentialsInfo = &k.
 		case infoTypePACServerSignatureData:
 			if pac.ServerChecksum != nil {
-				// Must ignore subsequent buffers of this type.
 				continue
 			}
 
@@ -142,13 +141,12 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 			copy(pac.ZeroSigData[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)], zb)
 
 			if err != nil {
-				return fmt.Errorf("error processing ServerChecksum: %v", err)
+				return fmt.Errorf("error processing ServerChecksum: %w", err)
 			}
 
 			pac.ServerChecksum = &k
 		case infoTypePACKDCSignatureData:
 			if pac.KDCChecksum != nil {
-				// Must ignore subsequent buffers of this type.
 				continue
 			}
 
@@ -158,13 +156,12 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 			copy(pac.ZeroSigData[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)], zb)
 
 			if err != nil {
-				return fmt.Errorf("error processing KDCChecksum: %v", err)
+				return fmt.Errorf("error processing KDCChecksum: %w", err)
 			}
 
 			pac.KDCChecksum = &k
 		case infoTypePACClientInfo:
 			if pac.ClientInfo != nil {
-				// Must ignore subsequent buffers of this type.
 				continue
 			}
 
@@ -172,13 +169,12 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 
 			err := k.Unmarshal(p)
 			if err != nil {
-				return fmt.Errorf("error processing ClientInfo: %v", err)
+				return fmt.Errorf("error processing ClientInfo: %w", err)
 			}
 
 			pac.ClientInfo = &k
 		case infoTypeS4UDelegationInfo:
 			if pac.S4UDelegationInfo != nil {
-				// Must ignore subsequent buffers of this type.
 				continue
 			}
 

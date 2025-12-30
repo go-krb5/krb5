@@ -13,61 +13,56 @@ import (
 )
 
 // SendToKDC performs network actions to send data to the KDC.
-func (cl *Client) sendToKDC(b []byte, realm string) ([]byte, error) {
-	var rb []byte
+func (cl *Client) sendToKDC(b []byte, realm string) (rb []byte, err error) {
 	if cl.Config.LibDefaults.UDPPreferenceLimit == 1 {
-		// 1 means we should always use TCP.
-		rb, errtcp := cl.sendKDCTCP(realm, b)
-		if errtcp != nil {
-			if e, ok := errtcp.(messages.KRBError); ok {
+		if rb, err = cl.sendKDCTCP(realm, b); err != nil {
+			if e, ok := err.(messages.KRBError); ok {
 				return rb, e
 			}
 
-			return rb, fmt.Errorf("communication error with KDC via TCP: %v", errtcp)
+			return rb, fmt.Errorf("communication error with KDC via TCP: %w", err)
 		}
 
 		return rb, nil
 	}
+
+	var errtcp, errudp error
 
 	if len(b) <= cl.Config.LibDefaults.UDPPreferenceLimit {
-		// Try UDP first, TCP second.
-		rb, errudp := cl.sendKDCUDP(realm, b)
-		if errudp != nil {
-			if e, ok := errudp.(messages.KRBError); ok && e.ErrorCode != errorcode.KRB_ERR_RESPONSE_TOO_BIG {
-				// Got a KRBError from KDC
-				// If this is not a KRB_ERR_RESPONSE_TOO_BIG we will return immediately otherwise will try TCP.
+		if rb, err = cl.sendKDCUDP(realm, b); err != nil {
+			if e, ok := err.(messages.KRBError); ok && e.ErrorCode != errorcode.KRB_ERR_RESPONSE_TOO_BIG {
 				return rb, e
 			}
-			// Try TCP.
-			r, errtcp := cl.sendKDCTCP(realm, b)
-			if errtcp != nil {
-				if e, ok := errtcp.(messages.KRBError); ok {
-					// Got a KRBError.
-					return r, e
+
+			errudp = err
+
+			if rb, err = cl.sendKDCTCP(realm, b); err != nil {
+				if e, ok := err.(messages.KRBError); ok {
+					return rb, e
 				}
 
-				return r, fmt.Errorf("failed to communicate with KDC. Attempts made with UDP (%v) and then TCP (%v)", errudp, errtcp)
-			}
+				errtcp = err
 
-			rb = r
+				return rb, fmt.Errorf("failed to communicate with KDC. Attempts made with UDP (%v) and then TCP (%v)", errudp, errtcp)
+			}
 		}
 
 		return rb, nil
 	}
-	// Try TCP first, UDP second.
-	rb, errtcp := cl.sendKDCTCP(realm, b)
-	if errtcp != nil {
-		if e, ok := errtcp.(messages.KRBError); ok {
-			// Got a KRBError from KDC so returning and not trying UDP.
+
+	if rb, err = cl.sendKDCTCP(realm, b); err != nil {
+		if e, ok := err.(messages.KRBError); ok {
 			return rb, e
 		}
 
-		rb, errudp := cl.sendKDCUDP(realm, b)
-		if errudp != nil {
-			if e, ok := errudp.(messages.KRBError); ok {
-				// Got a KRBError.
+		errtcp = err
+
+		if rb, err = cl.sendKDCUDP(realm, b); err != nil {
+			if e, ok := err.(messages.KRBError); ok {
 				return rb, e
 			}
+
+			errudp = err
 
 			return rb, fmt.Errorf("failed to communicate with KDC. Attempts made with TCP (%v) and then UDP (%v)", errtcp, errudp)
 		}
@@ -77,41 +72,41 @@ func (cl *Client) sendToKDC(b []byte, realm string) ([]byte, error) {
 }
 
 // sendKDCUDP sends bytes to the KDC via UDP.
-func (cl *Client) sendKDCUDP(realm string, b []byte) ([]byte, error) {
-	var r []byte
-
+func (cl *Client) sendKDCUDP(realm string, b []byte) (rb []byte, err error) {
 	_, kdcs, err := cl.Config.GetKDCs(realm, false)
 	if err != nil {
-		return r, err
+		return nil, err
 	}
 
-	r, err = dialSendUDP(cl.settings.dialer, kdcs, b)
-	if err != nil {
-		return r, err
+	if rb, err = dialSendUDP(cl.settings.dialer, kdcs, b); err != nil {
+		return nil, err
 	}
 
-	return checkForKRBError(r)
+	return checkForKRBError(rb)
 }
 
 // dialSendUDP establishes a UDP connection to a KDC.
-func dialSendUDP(dialer Dialer, kdcs map[int]string, b []byte) ([]byte, error) {
+func dialSendUDP(dialer Dialer, kdcs map[int]string, b []byte) (rb []byte, err error) {
 	var errs []string
 
 	for i := 1; i <= len(kdcs); i++ {
-		conn, err := dialer.Dial("udp", kdcs[i])
-		if err != nil {
+		var conn net.Conn
+
+		if conn, err = dialer.Dial("udp", kdcs[i]); err != nil {
 			errs = append(errs, fmt.Sprintf("error establishing connection to %s: %v", kdcs[i], err))
+
 			continue
 		}
 
-		if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
+		if err = conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			errs = append(errs, fmt.Sprintf("error setting deadline on connection to %s: %v", kdcs[i], err))
+
 			continue
 		}
-		// conn is guaranteed to be a UDPConn.
-		rb, err := sendUDP(conn.(*net.UDPConn), b)
-		if err != nil {
+
+		if rb, err = sendUDP(conn.(*net.UDPConn), b); err != nil {
 			errs = append(errs, fmt.Sprintf("error sending to %s: %v", kdcs[i], err))
+
 			continue
 		}
 
@@ -129,7 +124,7 @@ func sendUDP(conn *net.UDPConn, b []byte) ([]byte, error) {
 
 	_, err := conn.Write(b)
 	if err != nil {
-		return r, fmt.Errorf("error sending to (%s): %v", conn.RemoteAddr().String(), err)
+		return r, fmt.Errorf("error sending to (%s): %w", conn.RemoteAddr().String(), err)
 	}
 
 	udpbuf := make([]byte, 4096)
@@ -137,7 +132,7 @@ func sendUDP(conn *net.UDPConn, b []byte) ([]byte, error) {
 
 	r = udpbuf[:n]
 	if err != nil {
-		return r, fmt.Errorf("sending over UDP failed to %s: %v", conn.RemoteAddr().String(), err)
+		return r, fmt.Errorf("sending over UDP failed to %s: %w", conn.RemoteAddr().String(), err)
 	}
 
 	if len(r) < 1 {
@@ -204,14 +199,14 @@ func sendTCP(conn *net.TCPConn, b []byte) ([]byte, error) {
 
 	_, err := conn.Write(b)
 	if err != nil {
-		return r, fmt.Errorf("error sending to KDC (%s): %v", conn.RemoteAddr().String(), err)
+		return r, fmt.Errorf("error sending to KDC (%s): %w", conn.RemoteAddr().String(), err)
 	}
 
 	sh := make([]byte, 4)
 
 	_, err = conn.Read(sh)
 	if err != nil {
-		return r, fmt.Errorf("error reading response size header: %v", err)
+		return r, fmt.Errorf("error reading response size header: %w", err)
 	}
 
 	s := binary.BigEndian.Uint32(sh)
@@ -220,7 +215,7 @@ func sendTCP(conn *net.TCPConn, b []byte) ([]byte, error) {
 
 	_, err = io.ReadFull(conn, rb)
 	if err != nil {
-		return r, fmt.Errorf("error reading response: %v", err)
+		return r, fmt.Errorf("error reading response: %w", err)
 	}
 
 	if len(rb) < 1 {
@@ -231,10 +226,11 @@ func sendTCP(conn *net.TCPConn, b []byte) ([]byte, error) {
 }
 
 // checkForKRBError checks if the response bytes from the KDC are a KRBError.
-func checkForKRBError(b []byte) ([]byte, error) {
-	var KRBErr messages.KRBError
-	if err := KRBErr.Unmarshal(b); err == nil {
-		return b, KRBErr
+func checkForKRBError(b []byte) (rb []byte, err error) {
+	var e messages.KRBError
+
+	if err = e.Unmarshal(b); err == nil {
+		return b, e
 	}
 
 	return b, nil

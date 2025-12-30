@@ -44,7 +44,7 @@ func (k *DeviceInfo) Unmarshal(b []byte) (err error) {
 
 	err = dec.Decode(k)
 	if err != nil {
-		err = fmt.Errorf("error unmarshaling DeviceInfo: %v", err)
+		err = fmt.Errorf("error unmarshalling DeviceInfo: %w", err)
 	}
 
 	return

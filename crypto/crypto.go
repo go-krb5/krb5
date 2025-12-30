@@ -73,7 +73,7 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 
 	et, err := GetEtype(etypeID)
 	if err != nil {
-		return key, et, fmt.Errorf("error getting encryption type: %v", err)
+		return key, et, fmt.Errorf("error getting encryption type: %w", err)
 	}
 
 	sk2p := et.GetDefaultStringToKeyParams()
@@ -100,13 +100,13 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 
 			err := eti.Unmarshal(pa.PADataValue)
 			if err != nil {
-				return key, et, fmt.Errorf("error unmashaling PA Data to PA-ETYPE-INFO2: %v", err)
+				return key, et, fmt.Errorf("error unmashaling PA Data to PA-ETYPE-INFO2: %w", err)
 			}
 
 			if etypeID != eti[0].EType {
 				et, err = GetEtype(eti[0].EType)
 				if err != nil {
-					return key, et, fmt.Errorf("error getting encryption type: %v", err)
+					return key, et, fmt.Errorf("error getting encryption type: %w", err)
 				}
 			}
 
@@ -120,13 +120,13 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 
 			err := et2.Unmarshal(pa.PADataValue)
 			if err != nil {
-				return key, et, fmt.Errorf("error unmashalling PA Data to PA-ETYPE-INFO2: %v", err)
+				return key, et, fmt.Errorf("error unmashalling PA Data to PA-ETYPE-INFO2: %w", err)
 			}
 
 			if etypeID != et2[0].EType {
 				et, err = GetEtype(et2[0].EType)
 				if err != nil {
-					return key, et, fmt.Errorf("error getting encryption type: %v", err)
+					return key, et, fmt.Errorf("error getting encryption type: %w", err)
 				}
 			}
 
@@ -162,7 +162,7 @@ func GetEncryptedData(plainBytes []byte, key types.EncryptionKey, usage uint32, 
 
 	et, err := GetEtype(key.KeyType)
 	if err != nil {
-		return ed, fmt.Errorf("error getting etype: %v", err)
+		return ed, fmt.Errorf("error getting etype: %w", err)
 	}
 
 	_, b, err := et.EncryptMessage(key.KeyValue, plainBytes, usage)
@@ -188,12 +188,12 @@ func DecryptEncPart(ed types.EncryptedData, key types.EncryptionKey, usage uint3
 func DecryptMessage(ciphertext []byte, key types.EncryptionKey, usage uint32) ([]byte, error) {
 	et, err := GetEtype(key.KeyType)
 	if err != nil {
-		return []byte{}, fmt.Errorf("error decrypting: %v", err)
+		return []byte{}, fmt.Errorf("error decrypting: %w", err)
 	}
 
 	b, err := et.DecryptMessage(key.KeyValue, ciphertext, usage)
 	if err != nil {
-		return nil, fmt.Errorf("error decrypting: %v", err)
+		return nil, fmt.Errorf("error decrypting: %w", err)
 	}
 
 	return b, nil

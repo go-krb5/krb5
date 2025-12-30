@@ -23,7 +23,7 @@ func DES3EncryptData(key, data []byte, e etype.EType) ([]byte, []byte, error) {
 
 	block, err := des.NewTripleDESCipher(key)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error creating cipher: %v", err)
+		return nil, nil, fmt.Errorf("error creating cipher: %w", err)
 	}
 
 	// RFC 3961: initial cipher state      All bits zero.
@@ -48,7 +48,7 @@ func DES3EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byt
 
 	_, err := rand.Read(c)
 	if err != nil {
-		return []byte{}, []byte{}, fmt.Errorf("could not generate random confounder: %v", err)
+		return []byte{}, []byte{}, fmt.Errorf("could not generate random confounder: %w", err)
 	}
 
 	plainBytes := append(c, message...)
@@ -59,19 +59,19 @@ func DES3EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byt
 	if usage != 0 {
 		k, err = e.DeriveKey(key, common.GetUsageKe(usage))
 		if err != nil {
-			return []byte{}, []byte{}, fmt.Errorf("error deriving key for encryption: %v", err)
+			return []byte{}, []byte{}, fmt.Errorf("error deriving key for encryption: %w", err)
 		}
 	}
 
 	iv, b, err := e.EncryptData(k, plainBytes)
 	if err != nil {
-		return iv, b, fmt.Errorf("error encrypting data: %v", err)
+		return iv, b, fmt.Errorf("error encrypting data: %w", err)
 	}
 
 	// Generate and append integrity hash.
 	ih, err := common.GetIntegrityHash(plainBytes, key, usage, e)
 	if err != nil {
-		return iv, b, fmt.Errorf("error encrypting data: %v", err)
+		return iv, b, fmt.Errorf("error encrypting data: %w", err)
 	}
 
 	b = append(b, ih...)
@@ -91,7 +91,7 @@ func DES3DecryptData(key, data []byte, e etype.EType) ([]byte, error) {
 
 	block, err := des.NewTripleDESCipher(key)
 	if err != nil {
-		return []byte{}, fmt.Errorf("error creating cipher: %v", err)
+		return []byte{}, fmt.Errorf("error creating cipher: %w", err)
 	}
 
 	pt := make([]byte, len(data))
@@ -108,12 +108,12 @@ func DES3DecryptMessage(key, ciphertext []byte, usage uint32, e etype.EType) ([]
 	// Derive the key.
 	k, err := e.DeriveKey(key, common.GetUsageKe(usage))
 	if err != nil {
-		return nil, fmt.Errorf("error deriving key: %v", err)
+		return nil, fmt.Errorf("error deriving key: %w", err)
 	}
 	// Strip off the checksum from the end.
 	b, err := e.DecryptData(k, ciphertext[:len(ciphertext)-e.GetHMACBitLength()/8])
 	if err != nil {
-		return nil, fmt.Errorf("error decrypting: %v", err)
+		return nil, fmt.Errorf("error decrypting: %w", err)
 	}
 	// Verify checksum.
 	if !e.VerifyIntegrity(key, ciphertext, b, usage) {

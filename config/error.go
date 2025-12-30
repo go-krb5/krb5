@@ -23,7 +23,7 @@ func (e Invalid) Error() string {
 }
 
 // InvalidErrorf creates a new Invalid error.
-func InvalidErrorf(format string, a ...interface{}) Invalid {
+func InvalidErrorf(format string, a ...any) Invalid {
 	return Invalid{
 		text: fmt.Sprintf("invalid krb5 config "+format, a...),
 	}

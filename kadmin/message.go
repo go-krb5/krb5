@@ -11,10 +11,6 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
-const (
-	verisonHex = "ff80"
-)
-
 // Request message for changing password.
 type Request struct {
 	APREQ   messages.APReq
@@ -36,41 +32,40 @@ type Reply struct {
 
 // Marshal a Request into a byte slice.
 func (m *Request) Marshal() (b []byte, err error) {
-	b = []byte{255, 128} // protocol version number: contains the hex constant 0xff80 (big-endian integer).
+	b = []byte{255, 128}
 
 	ab, e := m.APREQ.Marshal()
 	if e != nil {
-		err = fmt.Errorf("error marshaling AP_REQ: %v", e)
-		return
+		return nil, fmt.Errorf("error marshaling AP_REQ: %v", e)
 	}
 
 	if len(ab) > math.MaxUint16 {
-		err = errors.New("length of AP_REQ greater then max Uint16 size")
-		return
+		return nil, errors.New("length of AP_REQ greater then max Uint16 size")
 	}
 
 	al := make([]byte, 2)
 	binary.BigEndian.PutUint16(al, uint16(len(ab)))
+
 	b = append(b, al...)
 	b = append(b, ab...)
 
-	pb, e := m.KRBPriv.Marshal()
-	if e != nil {
-		err = fmt.Errorf("error marshaling KRB_Priv: %v", e)
-		return
+	pb, err := m.KRBPriv.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling KRB_Priv: %w", err)
 	}
 
 	b = append(b, pb...)
+
 	if len(b)+2 > math.MaxUint16 {
-		err = errors.New("length of message greater then max Uint16 size")
-		return
+		return nil, errors.New("length of message greater then max Uint16 size")
 	}
 
 	ml := make([]byte, 2)
 	binary.BigEndian.PutUint16(ml, uint16(len(b)+2))
+
 	b = append(ml, b...)
 
-	return
+	return b, nil
 }
 
 // Unmarshal a byte slice into a Reply.
@@ -97,7 +92,7 @@ func (m *Reply) Unmarshal(b []byte) error {
 		m.IsKRBError = true
 
 		// TODO: Figure out the reason for ignoring the error and document it. It's probably because the error is
-		// already indicated by the struct values.
+		//       already indicated by the struct values.
 		_ = m.KRBError.Unmarshal(b[6:m.MessageLength])
 		m.ResultCode, m.Result = parseResponse(m.KRBError.EData)
 	}
@@ -107,12 +102,14 @@ func (m *Reply) Unmarshal(b []byte) error {
 
 func parseResponse(b []byte) (c uint16, s string) {
 	c = binary.BigEndian.Uint16(b[0:2])
-	buf := bytes.NewBuffer(b[2:])
-	m := make([]byte, len(b)-2)
-	binary.Read(buf, binary.BigEndian, &m)
-	s = string(m)
 
-	return
+	buf := bytes.NewBuffer(b[2:])
+
+	m := make([]byte, len(b)-2)
+
+	binary.Read(buf, binary.BigEndian, &m)
+
+	return c, string(m)
 }
 
 // Decrypt the encrypted part of the KRBError within the change password Reply.

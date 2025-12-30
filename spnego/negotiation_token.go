@@ -113,6 +113,7 @@ func (n *NegTokenInit) Unmarshal(b []byte) error {
 	}
 
 	nInit := nt.(NegTokenInit)
+
 	n.MechTokenBytes = nInit.MechTokenBytes
 	n.MechListMIC = nInit.MechListMIC
 	n.MechTypes = nInit.MechTypes
@@ -123,7 +124,6 @@ func (n *NegTokenInit) Unmarshal(b []byte) error {
 
 // Verify an Init negotiation token.
 func (n *NegTokenInit) Verify() (bool, gssapi.Status) {
-	// Check if supported mechanisms are in the MechTypeList.
 	var mtSupported bool
 
 	for _, m := range n.MechTypes {
@@ -141,7 +141,7 @@ func (n *NegTokenInit) Verify() (bool, gssapi.Status) {
 	if !mtSupported {
 		return false, gssapi.Status{Code: gssapi.StatusBadMech, Message: "no supported mechanism specified in negotiation"}
 	}
-	// There should be some mechtoken bytes for a KRB5Token (other mech types are not supported).
+
 	mt := new(KRB5Token)
 
 	mt.settings = n.settings
@@ -160,7 +160,7 @@ func (n *NegTokenInit) Verify() (bool, gssapi.Status) {
 			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "MechToken is not a KRB5 token as expected"}
 		}
 	}
-	// Verify the mechtoken.
+
 	return n.mechToken.Verify()
 }
 
@@ -286,12 +286,12 @@ func (n *NegTokenResp) Context() context.Context {
 //
 // The boolean indicates if the response is a NegTokenInit.
 // If error is nil and the boolean is false the response is a NegTokenResp.
-func UnmarshalNegToken(b []byte) (bool, interface{}, error) {
+func UnmarshalNegToken(b []byte) (bool, any, error) {
 	var a asn1.RawValue
 
 	_, err := asn1.Unmarshal(b, &a, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	if err != nil {
-		return false, nil, fmt.Errorf("error unmarshalling NegotiationToken: %v", err)
+		return false, nil, fmt.Errorf("error unmarshalling NegotiationToken: %w", err)
 	}
 
 	switch a.Tag {
@@ -300,7 +300,7 @@ func UnmarshalNegToken(b []byte) (bool, interface{}, error) {
 
 		_, err = asn1.Unmarshal(a.Bytes, &n, asn1.WithUnmarshalAllowTypeGeneralString(true))
 		if err != nil {
-			return false, nil, fmt.Errorf("error unmarshalling NegotiationToken type %d (Init): %v", a.Tag, err)
+			return false, nil, fmt.Errorf("error unmarshalling NegotiationToken type %d (Init): %w", a.Tag, err)
 		}
 
 		nt := NegTokenInit{
@@ -316,7 +316,7 @@ func UnmarshalNegToken(b []byte) (bool, interface{}, error) {
 
 		_, err = asn1.Unmarshal(a.Bytes, &n, asn1.WithUnmarshalAllowTypeGeneralString(true))
 		if err != nil {
-			return false, nil, fmt.Errorf("error unmarshalling NegotiationToken type %d (Resp/Targ): %v", a.Tag, err)
+			return false, nil, fmt.Errorf("error unmarshalling NegotiationToken type %d (Resp/Targ): %w", a.Tag, err)
 		}
 
 		nt := NegTokenResp{
@@ -336,12 +336,12 @@ func UnmarshalNegToken(b []byte) (bool, interface{}, error) {
 func NewNegTokenInitKRB5(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey) (NegTokenInit, error) {
 	mt, err := NewKRB5TokenAPREQ(cl, tkt, sessionKey, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{})
 	if err != nil {
-		return NegTokenInit{}, fmt.Errorf("error getting KRB5 token; %v", err)
+		return NegTokenInit{}, fmt.Errorf("error getting KRB5 token; %w", err)
 	}
 
 	mtb, err := mt.Marshal()
 	if err != nil {
-		return NegTokenInit{}, fmt.Errorf("error marshalling KRB5 token; %v", err)
+		return NegTokenInit{}, fmt.Errorf("error marshalling KRB5 token; %w", err)
 	}
 
 	return NegTokenInit{

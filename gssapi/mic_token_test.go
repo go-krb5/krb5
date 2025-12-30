@@ -34,13 +34,6 @@ func getMICChallengeReference() *MICToken {
 	}
 }
 
-func getMICChallengeReferenceNoChksum() *MICToken {
-	c := getMICChallengeReference()
-	c.Checksum = nil
-
-	return c
-}
-
 func getMICResponseReference() *MICToken {
 	response, _ := hex.DecodeString(testMICChallengeReplyFromInitiator)
 

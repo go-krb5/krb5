@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/crypto/md4" //nolint:gosec // TODO: Ensure this is not registered by default.
+	"golang.org/x/crypto/md4" //nolint:gosec,staticcheck // TODO: Ensure this is not registered by default.
 )
 
 // StringToKey returns a key derived from the string provided according to the definition in RFC 4757.

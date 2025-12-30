@@ -93,7 +93,7 @@ func (k *ASRep) Unmarshal(b []byte) error {
 	// Process the raw ticket within.
 	tkt, err := unmarshalTicket(m.Ticket.Bytes)
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling Ticket within AS_REP")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling Ticket within AS_REP")
 	}
 
 	k.KDCRepFields = KDCRepFields{
@@ -157,7 +157,7 @@ func (k *TGSRep) Unmarshal(b []byte) error {
 	// Process the raw ticket within.
 	tkt, err := unmarshalTicket(m.Ticket.Bytes)
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling Ticket within TGS_REP")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling Ticket within TGS_REP")
 	}
 
 	k.KDCRepFields = KDCRepFields{
@@ -215,7 +215,7 @@ func (e *EncKDCRepPart) Unmarshal(b []byte) error {
 		// a AS-REP or a TGS-REP.
 		_, err = asn1.UnmarshalWithParams(b, e, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncTGSRepPart))
 		if err != nil {
-			return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling encrypted part within KDC_REP")
+			return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling encrypted part within KDC_REP")
 		}
 	}
 
@@ -268,7 +268,7 @@ func (k *ASRep) DecryptEncPart(c *credentials.Credentials) (types.EncryptionKey,
 
 	err = denc.Unmarshal(b)
 	if err != nil {
-		return key, krberror.Errorf(err, krberror.EncodingError, "error unmarshaling decrypted encpart of AS_REP")
+		return key, krberror.Errorf(err, krberror.EncodingError, "error unmarshalling decrypted encpart of AS_REP")
 	}
 
 	k.DecryptedEncPart = denc
@@ -356,7 +356,7 @@ func (k *TGSRep) DecryptEncPart(key types.EncryptionKey) error {
 
 	err = denc.Unmarshal(b)
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling encrypted part")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling encrypted part")
 	}
 
 	k.DecryptedEncPart = denc

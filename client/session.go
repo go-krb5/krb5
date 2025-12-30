@@ -172,8 +172,6 @@ func (s *sessions) JSON() (string, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
-	var js []jsonSession
-
 	keys := make([]string, 0, len(s.Entries))
 	for k := range s.Entries {
 		keys = append(keys, k)
@@ -181,7 +179,9 @@ func (s *sessions) JSON() (string, error) {
 
 	sort.Strings(keys)
 
-	for _, k := range keys {
+	js := make([]jsonSession, len(keys))
+
+	for i, k := range keys {
 		r, at, et, rt, kt := s.Entries[k].timeDetails()
 		j := jsonSession{
 			Realm:                r,
@@ -190,7 +190,8 @@ func (s *sessions) JSON() (string, error) {
 			RenewTill:            rt,
 			SessionKeyExpiration: kt,
 		}
-		js = append(js, j)
+
+		js[i] = j
 	}
 
 	b, err := json.MarshalIndent(js, "", "  ")
@@ -321,13 +322,12 @@ func (cl *Client) sessionTGT(realm string) (tgt messages.Ticket, sessionKey type
 func (cl *Client) sessionTimes(realm string) (authTime, endTime, renewTime, sessionExp time.Time, err error) {
 	s, ok := cl.sessions.get(realm)
 	if !ok {
-		err = fmt.Errorf("could not find TGT session for %s", realm)
-		return
+		return authTime, endTime, renewTime, sessionExp, fmt.Errorf("could not find TGT session for %s", realm)
 	}
 
 	_, authTime, endTime, renewTime, sessionExp = s.timeDetails()
 
-	return
+	return authTime, endTime, renewTime, sessionExp, nil
 }
 
 // spnRealm resolves the realm name of a service principal name.

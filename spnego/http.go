@@ -118,17 +118,15 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	}
 
 	if respUnauthorizedNegotiate(resp) {
-		err := SetSPNEGOHeader(c.krb5Client, req, c.spn)
-		if err != nil {
+		if err = SetSPNEGOHeader(c.krb5Client, req, c.spn); err != nil {
 			return resp, err
 		}
 
 		if req.Body != nil {
-			// Refresh the body reader so the body can be sent again.
 			req.Body = io.NopCloser(&body)
 		}
 
-		io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 
 		return c.Do(req)
@@ -237,12 +235,12 @@ func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string) error {
 
 	err := s.AcquireCred()
 	if err != nil {
-		return fmt.Errorf("could not acquire client credential: %v", err)
+		return fmt.Errorf("could not acquire client credential: %w", err)
 	}
 
 	st, err := s.InitSecContext()
 	if err != nil {
-		return fmt.Errorf("could not initialize context: %v", err)
+		return fmt.Errorf("could not initialize context: %w", err)
 	}
 
 	nb, err := st.Marshal()
@@ -262,33 +260,39 @@ type ctxKey string
 
 const (
 	credentialsKey = "github.com/go-krb5/krb5/spnego/credentials"
+
 	// spnegoNegTokenRespKRBAcceptCompleted - The response on successful authentication always has this header. Capturing as const so we don't have marshaling and encoding overhead.
 	spnegoNegTokenRespKRBAcceptCompleted = "Negotiate oRQwEqADCgEAoQsGCSqGSIb3EgECAg=="
+
 	// spnegoNegTokenRespReject - The response on a failed authentication always has this rejection header. Capturing as const so we don't have marshaling and encoding overhead.
 	spnegoNegTokenRespReject = "Negotiate oQcwBaADCgEC"
+
 	// spnegoNegTokenRespIncompleteKRB5 - Response token specifying incomplete context and KRB5 as the supported mechtype.
 	spnegoNegTokenRespIncompleteKRB5 = "Negotiate oRQwEqADCgEBoQsGCSqGSIb3EgECAg=="
+
 	// HTTPHeaderAuthRequest is the header that will hold authn/z information.
 	HTTPHeaderAuthRequest = "Authorization"
+
 	// HTTPHeaderAuthResponse is the header that will hold SPNEGO data from the server.
 	HTTPHeaderAuthResponse = "WWW-Authenticate"
+
 	// HTTPHeaderAuthResponseValueKey is the key in the auth header for SPNEGO.
 	HTTPHeaderAuthResponseValueKey = "Negotiate"
+
 	// UnauthorizedMsg is the message returned in the body when authentication fails.
 	UnauthorizedMsg = "Unauthorised.\n"
 
+	// CTXKey is the Credentials Context Key for spnego.
 	CTXKey ctxKey = credentialsKey
 )
 
 // SPNEGOKRB5Authenticate is a Kerberos SPNEGO authentication HTTP handler wrapper.
 func SPNEGOKRB5Authenticate(inner http.Handler, kt *keytab.Keytab, settings ...func(*service.Settings)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set up the SPNEGO GSS-API mechanism.
 		var spnego *SPNEGO
 
 		h, err := types.GetHostAddress(r.RemoteAddr)
 		if err == nil {
-			// put in this order so that if the user provides a ClientAddress it will override the one here.
 			o := append([]func(*service.Settings){service.ClientAddress(h)}, settings...)
 			spnego = SPNEGOService(kt, o...)
 		} else {
@@ -357,7 +361,7 @@ func getAuthorizationNegotiationHeaderAsSPNEGOToken(spnego *SPNEGO, r *http.Requ
 	// Decode the header into an SPNEGO context token.
 	b, err := base64.StdEncoding.DecodeString(s[1])
 	if err != nil {
-		err = fmt.Errorf("error in base64 decoding negotiation header: %v", err)
+		err = fmt.Errorf("error in base64 decoding negotiation header: %w", err)
 		spnegoNegotiateKRB5MechType(spnego, w, "%s - SPNEGO %v", r.RemoteAddr, err)
 
 		return nil, err
@@ -370,7 +374,7 @@ func getAuthorizationNegotiationHeaderAsSPNEGOToken(spnego *SPNEGO, r *http.Requ
 		// Check if this is a raw KRB5 context token - issue #347.
 		var k5t KRB5Token
 		if k5t.Unmarshal(b) != nil {
-			err = fmt.Errorf("error in unmarshaling SPNEGO token: %v", err)
+			err = fmt.Errorf("error in unmarshalling SPNEGO token: %w", err)
 			spnegoNegotiateKRB5MechType(spnego, w, "%s - SPNEGO %v", r.RemoteAddr, err)
 
 			return nil, err
@@ -392,12 +396,12 @@ func getSessionCredentials(spnego *SPNEGO, r *http.Request) (credentials.Credent
 	if sm := spnego.serviceSettings.SessionManager(); sm != nil {
 		cb, err := sm.Get(r, credentialsKey)
 		if err != nil || cb == nil || len(cb) < 1 {
-			return creds, fmt.Errorf("%s - SPNEGO error getting session and credentials for request: %v", r.RemoteAddr, err)
+			return creds, fmt.Errorf("%s - SPNEGO error getting session and credentials for request: %w", r.RemoteAddr, err)
 		}
 
 		err = creds.Unmarshal(cb)
 		if err != nil {
-			return creds, fmt.Errorf("%s - SPNEGO credentials malformed in session: %v", r.RemoteAddr, err)
+			return creds, fmt.Errorf("%s - SPNEGO credentials malformed in session: %w", r.RemoteAddr, err)
 		}
 
 		return creds, nil
@@ -429,24 +433,24 @@ func newSession(spnego *SPNEGO, r *http.Request, w http.ResponseWriter, id *cred
 
 // Log and respond to client for error conditions.
 
-func spnegoNegotiateKRB5MechType(s *SPNEGO, w http.ResponseWriter, format string, v ...interface{}) {
+func spnegoNegotiateKRB5MechType(s *SPNEGO, w http.ResponseWriter, format string, v ...any) {
 	s.Log(format, v...)
 	w.Header().Set(HTTPHeaderAuthResponse, spnegoNegTokenRespIncompleteKRB5)
 	http.Error(w, UnauthorizedMsg, http.StatusUnauthorized)
 }
 
-func spnegoResponseReject(s *SPNEGO, w http.ResponseWriter, format string, v ...interface{}) {
+func spnegoResponseReject(s *SPNEGO, w http.ResponseWriter, format string, v ...any) {
 	s.Log(format, v...)
 	w.Header().Set(HTTPHeaderAuthResponse, spnegoNegTokenRespReject)
 	http.Error(w, UnauthorizedMsg, http.StatusUnauthorized)
 }
 
-func spnegoResponseAcceptCompleted(s *SPNEGO, w http.ResponseWriter, format string, v ...interface{}) {
+func spnegoResponseAcceptCompleted(s *SPNEGO, w http.ResponseWriter, format string, v ...any) {
 	s.Log(format, v...)
 	w.Header().Set(HTTPHeaderAuthResponse, spnegoNegTokenRespKRBAcceptCompleted)
 }
 
-func spnegoInternalServerError(s *SPNEGO, w http.ResponseWriter, format string, v ...interface{}) {
+func spnegoInternalServerError(s *SPNEGO, w http.ResponseWriter, format string, v ...any) {
 	s.Log(format, v...)
 	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 }

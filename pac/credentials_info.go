@@ -50,13 +50,13 @@ func (c *CredentialsInfo) Unmarshal(b []byte, k types.EncryptionKey) (err error)
 
 	c.PACCredentialDataEncrypted, err = r.ReadBytes(len(b) - 8)
 	if err != nil {
-		err = fmt.Errorf("error reading PAC Credetials Data: %v", err)
+		err = fmt.Errorf("error reading PAC Credetials Data: %w", err)
 		return
 	}
 
 	err = c.DecryptEncPart(k)
 	if err != nil {
-		err = fmt.Errorf("error decrypting PAC Credentials Data: %v", err)
+		err = fmt.Errorf("error decrypting PAC Credentials Data: %w", err)
 		return
 	}
 
@@ -96,7 +96,7 @@ func (c *CredentialData) Unmarshal(b []byte) (err error) {
 
 	err = dec.Decode(c)
 	if err != nil {
-		err = fmt.Errorf("error unmarshaling KerbValidationInfo: %v", err)
+		err = fmt.Errorf("error unmarshalling KerbValidationInfo: %w", err)
 	}
 
 	return

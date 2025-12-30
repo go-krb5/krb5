@@ -250,8 +250,8 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go httpGet(r1, &wg)
-	go httpGet(r2, &wg)
+	go httpGet(t, r1, &wg)
+	go httpGet(t, r2, &wg)
 
 	wg.Wait()
 
@@ -271,8 +271,8 @@ func TestService_SPNEGOKRB_ReplayCache_Concurrency(t *testing.T) {
 
 		rr2.Header.Set(HTTPHeaderAuthRequest, r2h)
 
-		go httpGet(rr1, &wg2)
-		go httpGet(rr2, &wg2)
+		go httpGet(t, rr1, &wg2)
+		go httpGet(t, rr2, &wg2)
 	}
 
 	wg2.Wait()
@@ -318,10 +318,12 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
 
-func httpGet(r *http.Request, wg *sync.WaitGroup) {
+func httpGet(t *testing.T, r *http.Request, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	http.DefaultClient.Do(r)
+	_, err := http.DefaultClient.Do(r)
+
+	require.NoError(t, err)
 }
 
 func httpServerWithoutSessionManager(t *testing.T) *httptest.Server {
@@ -438,7 +440,7 @@ func (smgr SessionMgr) Get(r *http.Request, k any) ([]byte, error) {
 func (smgr SessionMgr) New(w http.ResponseWriter, r *http.Request, k any, v []byte) error {
 	s, err := smgr.store.New(r, smgr.cookieName)
 	if err != nil {
-		return fmt.Errorf("could not get new session from session manager: %v", err)
+		return fmt.Errorf("could not get new session from session manager: %w", err)
 	}
 
 	s.Values[k] = v

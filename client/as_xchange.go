@@ -86,14 +86,13 @@ func (cl *Client) ASExchange(realm string, ASReq messages.ASReq, referral int) (
 }
 
 // setPAData adds pre-authentication data to the AS_REQ.
-func setPAData(cl *Client, krberr *messages.KRBError, ASReq *messages.ASReq) error {
+func setPAData(cl *Client, krberr *messages.KRBError, req *messages.ASReq) error {
 	if !cl.settings.DisablePAFXFAST() {
 		pa := types.PAData{PADataType: patype.PA_REQ_ENC_PA_REP}
-		ASReq.PAData = append(ASReq.PAData, pa)
+		req.PAData = append(req.PAData, pa)
 	}
 
 	if cl.settings.AssumePreAuthentication() {
-		// Identify the etype to use to encrypt the PA Data.
 		var (
 			et   etype.EType
 			err  error
@@ -102,8 +101,6 @@ func setPAData(cl *Client, krberr *messages.KRBError, ASReq *messages.ASReq) err
 		)
 
 		if krberr == nil {
-			// This is not in response to an error from the KDC. It is preemptive or renewal
-			// There is no KRB Error that tells us the etype to use.
 			etn := cl.settings.preAuthEType
 			if etn == 0 {
 				etn = int32(cl.Config.LibDefaults.PreferredPreauthTypes[0])
@@ -119,7 +116,6 @@ func setPAData(cl *Client, krberr *messages.KRBError, ASReq *messages.ASReq) err
 				return krberror.Errorf(err, krberror.EncryptingError, "error getting key from credentials")
 			}
 		} else {
-			// Get the etype to use from the PA data in the KRBError e-data.
 			et, err = preAuthEType(krberr)
 			if err != nil {
 				return krberror.Errorf(err, krberror.EncryptingError, "error getting etype for pre-auth encryption")
@@ -132,7 +128,7 @@ func setPAData(cl *Client, krberr *messages.KRBError, ASReq *messages.ASReq) err
 				return krberror.Errorf(err, krberror.EncryptingError, "error getting key from credentials")
 			}
 		}
-		// Generate the PA data.
+
 		paTSb, err := types.GetPAEncTSEncAsnMarshalled()
 		if err != nil {
 			return krberror.Errorf(err, krberror.KRBMsgError, "error creating PAEncTSEnc for Pre-Authentication")
@@ -152,15 +148,15 @@ func setPAData(cl *Client, krberr *messages.KRBError, ASReq *messages.ASReq) err
 			PADataType:  patype.PA_ENC_TIMESTAMP,
 			PADataValue: pb,
 		}
-		// Look for and delete any exiting patype.PA_ENC_TIMESTAMP.
-		for i, pa := range ASReq.PAData {
+
+		for i, pa := range req.PAData {
 			if pa.PADataType == patype.PA_ENC_TIMESTAMP {
-				ASReq.PAData[i] = ASReq.PAData[len(ASReq.PAData)-1]
-				ASReq.PAData = ASReq.PAData[:len(ASReq.PAData)-1]
+				req.PAData[i] = req.PAData[len(req.PAData)-1]
+				req.PAData = req.PAData[:len(req.PAData)-1]
 			}
 		}
 
-		ASReq.PAData = append(ASReq.PAData, pa)
+		req.PAData = append(req.PAData, pa)
 	}
 
 	return nil

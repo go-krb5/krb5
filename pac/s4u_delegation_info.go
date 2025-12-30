@@ -25,7 +25,7 @@ func (k *S4UDelegationInfo) Unmarshal(b []byte) (err error) {
 
 	err = dec.Decode(k)
 	if err != nil {
-		err = fmt.Errorf("error unmarshaling S4UDelegationInfo: %v", err)
+		err = fmt.Errorf("error unmarshalling S4UDelegationInfo: %w", err)
 	}
 
 	return

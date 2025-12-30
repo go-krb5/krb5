@@ -83,7 +83,7 @@ func PKCS7Unpad(b []byte, m int) ([]byte, error) {
 func GetHash(pt, key []byte, usage []byte, etype etype.EType) ([]byte, error) {
 	k, err := etype.DeriveKey(key, usage)
 	if err != nil {
-		return nil, fmt.Errorf("unable to derive key for checksum: %v", err)
+		return nil, fmt.Errorf("unable to derive key for checksum: %w", err)
 	}
 
 	mac := hmac.New(etype.GetHashFunc(), k)

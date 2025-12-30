@@ -29,7 +29,7 @@ type Credentials struct {
 	cname           types.PrincipalName
 	keytab          *keytab.Keytab
 	password        string
-	attributes      map[string]interface{}
+	attributes      map[string]any
 	validUntil      time.Time
 	authenticated   bool
 	human           bool
@@ -38,7 +38,7 @@ type Credentials struct {
 	sessionID       string
 }
 
-// marshalCredentials is used to enable marshaling and unmarshaling of credentials
+// marshalCredentials is used to enable marshaling and unmarshalling of credentials
 // without having exported fields on the Credentials struct.
 type marshalCredentials struct {
 	Username        string
@@ -47,7 +47,7 @@ type marshalCredentials struct {
 	CName           types.PrincipalName `json:"-"`
 	Keytab          bool
 	Password        bool
-	Attributes      map[string]interface{} `json:"-"`
+	Attributes      map[string]any `json:"-"`
 	ValidUntil      time.Time
 	Authenticated   bool
 	Human           bool
@@ -79,7 +79,7 @@ func New(username string, realm string) *Credentials {
 		realm:           realm,
 		cname:           types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, username),
 		keytab:          keytab.New(),
-		attributes:      make(map[string]interface{}),
+		attributes:      make(map[string]any),
 		groupMembership: make(map[string]bool),
 		sessionID:       uuid.Must(uuid.NewRandom()).String(),
 		human:           true,
@@ -317,17 +317,17 @@ func (c *Credentials) ValidUntil() time.Time {
 }
 
 // Attributes returns the Credentials' attributes map.
-func (c *Credentials) Attributes() map[string]interface{} {
+func (c *Credentials) Attributes() map[string]any {
 	return c.attributes
 }
 
 // SetAttribute sets the value of an attribute.
-func (c *Credentials) SetAttribute(k string, v interface{}) {
+func (c *Credentials) SetAttribute(k string, v any) {
 	c.attributes[k] = v
 }
 
 // SetAttributes replaces the attributes map with the one provided.
-func (c *Credentials) SetAttributes(a map[string]interface{}) {
+func (c *Credentials) SetAttributes(a map[string]any) {
 	c.attributes = a
 }
 
@@ -338,7 +338,7 @@ func (c *Credentials) RemoveAttribute(k string) {
 
 // Marshal the Credentials into a byte slice.
 func (c *Credentials) Marshal() ([]byte, error) {
-	gob.Register(map[string]interface{}{})
+	gob.Register(map[string]any{})
 	gob.Register(ADCredentials{})
 
 	buf := new(bytes.Buffer)
@@ -369,7 +369,7 @@ func (c *Credentials) Marshal() ([]byte, error) {
 
 // Unmarshal a byte slice into Credentials.
 func (c *Credentials) Unmarshal(b []byte) error {
-	gob.Register(map[string]interface{}{})
+	gob.Register(map[string]any{})
 	gob.Register(ADCredentials{})
 
 	mc := new(marshalCredentials)

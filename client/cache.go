@@ -50,8 +50,6 @@ func (c *Cache) JSON() (string, error) {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
 
-	var es []CacheEntry
-
 	keys := make([]string, 0, len(c.Entries))
 	for k := range c.Entries {
 		keys = append(keys, k)
@@ -59,8 +57,10 @@ func (c *Cache) JSON() (string, error) {
 
 	sort.Strings(keys)
 
-	for _, k := range keys {
-		es = append(es, c.Entries[k])
+	es := make([]CacheEntry, len(keys))
+
+	for i, k := range keys {
+		es[i] = c.Entries[k]
 	}
 
 	b, err := json.MarshalIndent(&es, "", "  ")

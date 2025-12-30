@@ -20,6 +20,6 @@ func TestOID(t *testing.T) {
 
 	for _, tst := range tests {
 		oid := asn1.ObjectIdentifier(tst.oid)
-		assert.True(t, oid.Equal(OIDName(tst.name).OID()), "OID value not as expected for %s", tst.name)
+		assert.True(t, oid.Equal(tst.name.OID()), "OID value not as expected for %s", tst.name)
 	}
 }

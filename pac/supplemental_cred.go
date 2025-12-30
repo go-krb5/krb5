@@ -63,23 +63,25 @@ func (c *NTLMSupplementalCred) Unmarshal(b []byte) (err error) {
 
 // isFlagSet tests if a flag is set in the uint32 little endian flag.
 func isFlagSet(f uint32, i uint32) bool {
-	// Which byte?
 	b := int(i / 8)
-	// Which bit in byte.
 	p := uint(7 - (int(i) - 8*b))
+
 	fb := make([]byte, 4)
+
 	binary.LittleEndian.PutUint32(fb, f)
 
 	return fb[b]&(1<<p) != 0
 }
 
-// SECPKGSupplementalCred implements https://msdn.microsoft.com/en-us/library/cc237956.aspx
+// SECPKGSupplementalCred implements Microsoft's SECPKG_SUPPLEMENTAL_CRED.
+//
+// Reference: https://msdn.microsoft.com/en-us/library/cc237956.aspx
 type SECPKGSupplementalCred struct {
 	PackageName mstypes.RPCUnicodeString
 
 	CredentialSize uint32
 
-	// Is a ptr. Size is the value of CredentialSize.
+	// Credentials is a ptr. Size is the value of CredentialSize.
 	Credentials []uint8 `ndr:"pointer,conformant"`
 }
 
@@ -89,7 +91,7 @@ func (c *SECPKGSupplementalCred) Unmarshal(b []byte) (err error) {
 
 	err = dec.Decode(c)
 	if err != nil {
-		err = fmt.Errorf("error unmarshaling SECPKGSupplementalCred: %v", err)
+		err = fmt.Errorf("error unmarshalling SECPKGSupplementalCred: %w", err)
 	}
 
 	return

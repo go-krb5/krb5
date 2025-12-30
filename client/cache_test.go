@@ -63,7 +63,6 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 	_, ok := c.getEntry(fmt.Sprintf("%d/test.cache", cnt+1))
 	assert.False(t, ok)
 
-	// Remove just the even entries.
 	for i := 0; i < cnt; i += 2 {
 		wg.Add(1)
 
@@ -99,14 +98,13 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 
 	wg.Wait()
 
-	// Clear the cache.
 	c.clear()
 
 	for i := 0; i < cnt; i++ {
 		wg.Add(1)
 
 		go func(i int) {
-			_, ok := c.getEntry(fmt.Sprintf("%d/test.cache", cnt+1))
+			_, ok := c.getEntry(fmt.Sprintf("%d/test.cache", i+1))
 			assert.False(t, ok)
 			wg.Done()
 		}(i)

@@ -88,7 +88,7 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 
 	err := tgt.Unmarshal(cred.Ticket)
 	if err != nil {
-		return cl, fmt.Errorf("TGT bytes in cache are not valid: %v", err)
+		return cl, fmt.Errorf("TGT bytes in cache are not valid: %w", err)
 	}
 
 	cl.sessions.Entries[c.DefaultPrincipal.Realm] = &session{
@@ -104,7 +104,7 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 
 		err = tkt.Unmarshal(cred.Ticket)
 		if err != nil {
-			return cl, fmt.Errorf("cache entry ticket bytes are not valid: %v", err)
+			return cl, fmt.Errorf("cache entry ticket bytes are not valid: %w", err)
 		}
 
 		cl.cache.addEntry(
@@ -134,7 +134,7 @@ func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (t
 
 			err := pas.Unmarshal(krberr.EData)
 			if err != nil {
-				return types.EncryptionKey{}, 0, fmt.Errorf("could not get PAData from KRBError to generate key from password: %v", err)
+				return types.EncryptionKey{}, 0, fmt.Errorf("could not get PAData from KRBError to generate key from password: %w", err)
 			}
 
 			key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), krberr.CName, krberr.CRealm, etype.GetETypeID(), pas)
@@ -217,12 +217,11 @@ func (cl *Client) Login() error {
 }
 
 // AffirmLogin will only perform an AS exchange with the KDC if the client does not already have a TGT.
-func (cl *Client) AffirmLogin() error {
+func (cl *Client) AffirmLogin() (err error) {
 	_, endTime, _, _, err := cl.sessionTimes(cl.Credentials.Domain())
 	if err != nil || time.Now().UTC().After(endTime) {
-		err := cl.Login()
-		if err != nil {
-			return fmt.Errorf("could not get valid TGT for client's realm: %v", err)
+		if err = cl.Login(); err != nil {
+			return fmt.Errorf("could not get valid TGT for client's realm: %w", err)
 		}
 	}
 
@@ -230,16 +229,15 @@ func (cl *Client) AffirmLogin() error {
 }
 
 // realmLogin obtains or renews a TGT and establishes a session for the realm specified.
-func (cl *Client) realmLogin(realm string) error {
+func (cl *Client) realmLogin(realm string) (err error) {
 	if realm == cl.Credentials.Domain() {
 		return cl.Login()
 	}
 
 	_, endTime, _, _, err := cl.sessionTimes(cl.Credentials.Domain())
 	if err != nil || time.Now().UTC().After(endTime) {
-		err := cl.Login()
-		if err != nil {
-			return fmt.Errorf("could not get valid TGT for client's realm: %v", err)
+		if err = cl.Login(); err != nil {
+			return fmt.Errorf("could not get valid TGT for client's realm: %w", err)
 		}
 	}
 

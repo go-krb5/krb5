@@ -23,7 +23,7 @@ func (k *DeviceClaimsInfo) Unmarshal(b []byte) (err error) {
 
 	err = dec.Decode(m)
 	if err != nil {
-		err = fmt.Errorf("error unmarshaling ClientClaimsInfo ClaimsSetMetadata: %v", err)
+		err = fmt.Errorf("error unmarshalling ClientClaimsInfo ClaimsSetMetadata: %w", err)
 		return
 	}
 
@@ -31,7 +31,7 @@ func (k *DeviceClaimsInfo) Unmarshal(b []byte) (err error) {
 
 	k.ClaimsSet, err = k.ClaimsSetMetadata.ClaimsSet()
 	if err != nil {
-		err = fmt.Errorf("error unmarshaling ClientClaimsInfo ClaimsSet: %v", err)
+		err = fmt.Errorf("error unmarshalling ClientClaimsInfo ClaimsSet: %w", err)
 	}
 
 	return

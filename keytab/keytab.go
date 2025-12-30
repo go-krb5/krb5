@@ -136,8 +136,7 @@ func (kt Keytab) String() string {
 }
 
 // AddEntry adds an entry to the keytab. The password should be provided in plain text and it will be converted using the defined enctype to be stored.
-func (kt *Keytab) AddEntry(principalName, realm, password string, ts time.Time, KVNO uint8, encType int32) error {
-	// Generate a key from the password.
+func (kt *Keytab) AddEntry(principalName, realm, password string, ts time.Time, kvno uint8, encType int32) error {
 	princ, _ := types.ParseSPNString(principalName)
 
 	key, _, err := crypto.GetKeyFromPassword(password, princ, realm, encType, types.PADataSequence{})
@@ -145,7 +144,6 @@ func (kt *Keytab) AddEntry(principalName, realm, password string, ts time.Time, 
 		return err
 	}
 
-	// Populate the keytab entry principal.
 	ktep := newPrincipal()
 
 	ktep.NumComponents = int16(len(princ.NameString))
@@ -157,12 +155,11 @@ func (kt *Keytab) AddEntry(principalName, realm, password string, ts time.Time, 
 	ktep.Components = princ.NameString
 	ktep.NameType = princ.NameType
 
-	// Populate the keytab entry.
 	e := newEntry()
 	e.Principal = ktep
 	e.Timestamp = ts
-	e.KVNO8 = KVNO
-	e.KVNO = uint32(KVNO)
+	e.KVNO8 = kvno
+	e.KVNO = uint32(kvno)
 	e.Key = key
 
 	kt.Entries = append(kt.Entries, e)
@@ -216,7 +213,7 @@ func (kt *Keytab) Marshal() ([]byte, error) {
 func (kt *Keytab) Write(w io.Writer) (int, error) {
 	b, err := kt.Marshal()
 	if err != nil {
-		return 0, fmt.Errorf("error marshaling keytab: %v", err)
+		return 0, fmt.Errorf("error marshaling keytab: %w", err)
 	}
 
 	return w.Write(b)
@@ -228,16 +225,15 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 		return fmt.Errorf("byte array is less than 2 bytes: %d", len(b))
 	}
 
-	// The first byte of the file always has the value 5.
 	if b[0] != keytabFirstByte {
 		return errors.New("invalid keytab data. First byte does not equal 5")
 	}
-	// Get keytab version
-	// The 2nd byte contains the version number (1 or 2).
+
 	kt.version = b[1]
 	if kt.version != 1 && kt.version != 2 {
 		return errors.New("invalid keytab data. Keytab version is neither 1 nor 2")
 	}
+
 	// Version 1 of the file format uses native byte order for integer representations. Version 2 always uses big-endian byte order.
 	var endian binary.ByteOrder
 
@@ -245,7 +241,7 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 	if kt.version == 1 && isNativeEndianLittle() {
 		endian = binary.LittleEndian
 	}
-	// n tracks position in the byte array.
+
 	n := 2
 
 	l, err := readInt32(b, &n, &endian)
@@ -255,7 +251,6 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 
 	for l != 0 {
 		if l < 0 {
-			// Zero padded so skip over.
 			l *= -1
 			n += int(l)
 		} else {
@@ -270,16 +265,17 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 			eb := b[n : n+int(l)]
 			n += int(l)
 			ke := newEntry()
-			// p keeps track as to where we are in the byte stream.
+
 			var (
 				p   int
 				err error
 			)
 
-			parsePrincipal(eb, &p, kt, &ke, &endian)
+			if err = parsePrincipal(eb, &p, kt, &ke, &endian); err != nil {
+				return err
+			}
 
-			ke.Timestamp, err = readTimestamp(eb, &p, &endian)
-			if err != nil {
+			if ke.Timestamp, err = readTimestamp(eb, &p, &endian); err != nil {
 				return err
 			}
 
@@ -297,22 +293,20 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 
 			ke.Key.KeyType = int32(rei16)
 
-			rei16, err = readInt16(eb, &p, &endian)
-			if err != nil {
+			if rei16, err = readInt16(eb, &p, &endian); err != nil {
 				return err
 			}
 
 			kl := int(rei16)
 
-			ke.Key.KeyValue, err = readBytes(eb, &p, kl, &endian)
-			if err != nil {
+			if ke.Key.KeyValue, err = readBytes(eb, &p, kl, &endian); err != nil {
 				return err
 			}
+
 			// The 32-bit key version overrides the 8-bit key version.
 			// If at least 4 bytes are left after the other fields are read and they are non-zero
 			// this indicates the 32-bit version is present.
 			if len(eb)-p >= 4 {
-				// The 32-bit key may be present.
 				ri32, err := readInt32(eb, &p, &endian)
 				if err != nil {
 					return err
@@ -325,17 +319,19 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 				// Handles if the value from the last 4 bytes was zero and also if there are not the 4 bytes present. Makes sense to put the same value here as KVNO8.
 				ke.KVNO = uint32(ke.KVNO8)
 			}
+
 			// Add the entry to the keytab.
 			kt.Entries = append(kt.Entries, ke)
 		}
+
 		// Check if there are still 4 bytes left to read
 		// Also check that n is greater than zero.
 		if n < 0 || n > len(b) || len(b[n:]) < 4 {
 			break
 		}
+
 		// Read the size of the next entry.
-		l, err = readInt32(b, &n, &endian)
-		if err != nil {
+		if l, err = readInt32(b, &n, &endian); err != nil {
 			return err
 		}
 	}
@@ -343,9 +339,7 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 	return nil
 }
 
-func (e entry) marshal(v int) ([]byte, error) {
-	var b []byte
-
+func (e entry) marshal(v int) (b []byte, err error) {
 	pb, err := e.Principal.marshal(v)
 	if err != nil {
 		return b, err
@@ -353,24 +347,25 @@ func (e entry) marshal(v int) ([]byte, error) {
 
 	b = append(b, pb...)
 
-	var endian binary.ByteOrder
+	var endian binary.ByteOrder = binary.BigEndian
 
-	endian = binary.BigEndian
 	if v == 1 && isNativeEndianLittle() {
 		endian = binary.LittleEndian
 	}
 
 	t := make([]byte, 9)
 	endian.PutUint32(t[0:4], uint32(e.Timestamp.Unix()))
+
 	t[4] = e.KVNO8
+
 	endian.PutUint16(t[5:7], uint16(e.Key.KeyType))
 	endian.PutUint16(t[7:9], uint16(len(e.Key.KeyValue)))
+
 	b = append(b, t...)
 
 	buf := new(bytes.Buffer)
 
-	err = binary.Write(buf, endian, e.Key.KeyValue)
-	if err != nil {
+	if err = binary.Write(buf, endian, e.Key.KeyValue); err != nil {
 		return b, err
 	}
 
@@ -378,11 +373,12 @@ func (e entry) marshal(v int) ([]byte, error) {
 
 	t = make([]byte, 4)
 	endian.PutUint32(t, e.KVNO)
+
 	b = append(b, t...)
 
-	// Add the length header.
 	t = make([]byte, 4)
 	endian.PutUint32(t, uint32(len(b)))
+
 	b = append(t, b...)
 
 	return b, nil
@@ -522,7 +518,10 @@ func readInt8(b []byte, p *int, e *binary.ByteOrder) (i int8, err error) {
 	}
 
 	buf := bytes.NewBuffer(b[*p : *p+1])
-	binary.Read(buf, *e, &i)
+
+	if err = binary.Read(buf, *e, &i); err != nil {
+		return 0, fmt.Errorf("error reading bytes: %w", err)
+	}
 
 	*p++
 
@@ -540,7 +539,10 @@ func readInt16(b []byte, p *int, e *binary.ByteOrder) (i int16, err error) {
 	}
 
 	buf := bytes.NewBuffer(b[*p : *p+2])
-	binary.Read(buf, *e, &i)
+
+	if err = binary.Read(buf, *e, &i); err != nil {
+		return 0, fmt.Errorf("error reading bytes: %w", err)
+	}
 
 	*p += 2
 
@@ -558,7 +560,10 @@ func readInt32(b []byte, p *int, e *binary.ByteOrder) (i int32, err error) {
 	}
 
 	buf := bytes.NewBuffer(b[*p : *p+4])
-	binary.Read(buf, *e, &i)
+
+	if err = binary.Read(buf, *e, &i); err != nil {
+		return 0, fmt.Errorf("error occurred performing binary read: %w", err)
+	}
 
 	*p += 4
 
@@ -571,6 +576,7 @@ func readBytes(b []byte, p *int, s int, e *binary.ByteOrder) ([]byte, error) {
 	}
 
 	i := *p + s
+
 	if i > len(b) {
 		return nil, fmt.Errorf("%s's length is greater than %d", b, i)
 	}
@@ -578,6 +584,7 @@ func readBytes(b []byte, p *int, s int, e *binary.ByteOrder) ([]byte, error) {
 	buf := bytes.NewBuffer(b[*p:i])
 
 	r := make([]byte, s)
+
 	if err := binary.Read(buf, *e, &r); err != nil {
 		return nil, err
 	}
@@ -604,9 +611,10 @@ func isNativeEndianLittle() bool {
 }
 
 // JSON return information about the keys held in the keytab in a JSON format.
-func (kt *Keytab) JSON() (string, error) {
-	b, err := json.MarshalIndent(kt, "", "  ")
-	if err != nil {
+func (kt *Keytab) JSON() (data string, err error) {
+	var b []byte
+
+	if b, err = json.MarshalIndent(kt, "", "  "); err != nil {
 		return "", err
 	}
 

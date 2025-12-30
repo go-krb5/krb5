@@ -143,11 +143,6 @@ func S2KparamsToItertions(s2kparams string) (int, error) {
 	}
 
 	i = binary.BigEndian.Uint32(b)
-	// buf := bytes.NewBuffer(b)
-	// err = binary.Read(buf, binary.BigEndian, &i).
-	if err != nil {
-		return s2kParamsZero, errors.New("Invalid s2kparams, cannot convert to big endian int32")
-	}
 
 	return int(i), nil
 }

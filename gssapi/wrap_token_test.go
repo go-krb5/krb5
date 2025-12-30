@@ -47,13 +47,6 @@ func getChallengeReference() *WrapToken {
 	}
 }
 
-func getChallengeReferenceNoChksum() *WrapToken {
-	c := getChallengeReference()
-	c.CheckSum = nil
-
-	return c
-}
-
 func getResponseReference() *WrapToken {
 	response, _ := hex.DecodeString(testChallengeReplyFromInitiator)
 

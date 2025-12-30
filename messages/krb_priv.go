@@ -112,12 +112,12 @@ func (k *KRBPriv) EncryptEncPart(key types.EncryptionKey) error {
 func (k *KRBPriv) DecryptEncPart(key types.EncryptionKey) error {
 	b, err := crypto.DecryptEncPart(k.EncPart, key, keyusage.KRB_PRIV_ENCPART)
 	if err != nil {
-		return fmt.Errorf("error decrypting KRBPriv EncPart: %v", err)
+		return fmt.Errorf("error decrypting KRBPriv EncPart: %w", err)
 	}
 
 	err = k.DecryptedEncPart.Unmarshal(b)
 	if err != nil {
-		return fmt.Errorf("error unmarshaling encrypted part: %v", err)
+		return fmt.Errorf("error unmarshalling encrypted part: %w", err)
 	}
 
 	return nil

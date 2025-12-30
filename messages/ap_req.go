@@ -78,17 +78,16 @@ func encryptAuthenticator(a types.Authenticator, sessionKey types.EncryptionKey,
 
 // DecryptAuthenticator decrypts the Authenticator within the AP_REQ.
 // sessionKey may simply be the key within the decrypted EncPart of the ticket within the AP_REQ.
-func (a *APReq) DecryptAuthenticator(sessionKey types.EncryptionKey) error {
+func (a *APReq) DecryptAuthenticator(sessionKey types.EncryptionKey) (err error) {
 	usage := authenticatorKeyUsage(a.Ticket.SName)
 
-	ab, e := crypto.DecryptEncPart(a.EncryptedAuthenticator, sessionKey, uint32(usage))
-	if e != nil {
-		return fmt.Errorf("error decrypting authenticator: %v", e)
+	ab, err := crypto.DecryptEncPart(a.EncryptedAuthenticator, sessionKey, uint32(usage))
+	if err != nil {
+		return fmt.Errorf("error decrypting authenticator: %w", err)
 	}
 
-	err := a.Authenticator.Unmarshal(ab)
-	if err != nil {
-		return fmt.Errorf("error unmarshaling authenticator: %v", err)
+	if err = a.Authenticator.Unmarshal(ab); err != nil {
+		return fmt.Errorf("error unmarshalling authenticator: %w", err)
 	}
 
 	return nil
@@ -122,7 +121,7 @@ func (a *APReq) Unmarshal(b []byte) error {
 
 	a.Ticket, err = unmarshalTicket(m.Ticket.Bytes)
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "unmarshaling error of Ticket within AP_REQ")
+		return krberror.Errorf(err, krberror.EncodingError, "unmarshalling error of Ticket within AP_REQ")
 	}
 
 	return nil

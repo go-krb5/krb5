@@ -59,7 +59,7 @@ func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
 
 	negTokenInit, err := NewNegTokenInitKRB5(s.client, tkt, key)
 	if err != nil {
-		return &SPNEGOToken{}, fmt.Errorf("could not create NegTokenInit: %v", err)
+		return &SPNEGOToken{}, fmt.Errorf("could not create NegTokenInit: %w", err)
 	}
 
 	return &SPNEGOToken{
@@ -101,7 +101,7 @@ func (s *SPNEGO) AcceptSecContext(ct gssapi.ContextToken) (bool, context.Context
 }
 
 // Log will write to the service's logger if it is configured.
-func (s *SPNEGO) Log(format string, v ...interface{}) {
+func (s *SPNEGO) Log(format string, v ...any) {
 	if s.serviceSettings.Logger() != nil {
 		s.serviceSettings.Logger().Output(2, fmt.Sprintf(format, v...))
 	}
@@ -126,7 +126,7 @@ func (s *SPNEGOToken) Marshal() ([]byte, error) {
 
 		tb, err := s.NegTokenInit.Marshal()
 		if err != nil {
-			return b, fmt.Errorf("could not marshal NegTokenInit: %v", err)
+			return b, fmt.Errorf("could not marshal NegTokenInit: %w", err)
 		}
 
 		b = append(hb, tb...)
@@ -137,7 +137,7 @@ func (s *SPNEGOToken) Marshal() ([]byte, error) {
 	if s.Resp {
 		b, err := s.NegTokenResp.Marshal()
 		if err != nil {
-			return b, fmt.Errorf("could not marshal NegTokenResp: %v", err)
+			return b, fmt.Errorf("could not marshal NegTokenResp: %w", err)
 		}
 
 		return b, nil
@@ -164,7 +164,7 @@ func (s *SPNEGOToken) Unmarshal(b []byte) error {
 
 		r, err = asn1.UnmarshalWithParams(b, &oid, fmt.Sprintf("application,explicit,tag:%v", 0))
 		if err != nil {
-			return fmt.Errorf("not a valid SPNEGO token: %v", err)
+			return fmt.Errorf("not a valid SPNEGO token: %w", err)
 		}
 		// Check the OID is the SPNEGO OID value.
 		SPNEGOOID := gssapi.OIDSPNEGO.OID()

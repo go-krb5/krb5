@@ -39,7 +39,7 @@ type KRB5BasicAuthenticator struct {
 func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, err error) {
 	a.realm, a.username, a.password, err = parseBasicHeaderValue(a.BasicHeaderValue)
 	if err != nil {
-		err = fmt.Errorf("could not parse basic authentication header: %v", err)
+		err = fmt.Errorf("could not parse basic authentication header: %w", err)
 		return
 	}
 
@@ -48,19 +48,19 @@ func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, er
 	err = cl.Login()
 	if err != nil {
 		// Username and/or password could be wrong.
-		err = fmt.Errorf("error with user credentials during login: %v", err)
+		err = fmt.Errorf("error with user credentials during login: %w", err)
 		return
 	}
 
 	tkt, _, err := cl.GetServiceTicket(a.serviceSettings.SName())
 	if err != nil {
-		err = fmt.Errorf("could not get service ticket: %v", err)
+		err = fmt.Errorf("could not get service ticket: %w", err)
 		return
 	}
 
 	err = tkt.DecryptEncPart(a.serviceSettings.Keytab, a.serviceSettings.KeytabPrincipal())
 	if err != nil {
-		err = fmt.Errorf("could not decrypt service ticket: %v", err)
+		err = fmt.Errorf("could not decrypt service ticket: %w", err)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, er
 
 	isPAC, pac, err := tkt.GetPACType(a.serviceSettings.Keytab, a.serviceSettings.KeytabPrincipal(), a.serviceSettings.Logger())
 	if isPAC && err != nil {
-		err = fmt.Errorf("error processing PAC: %v", err)
+		err = fmt.Errorf("error processing PAC: %w", err)
 		return
 	}
 

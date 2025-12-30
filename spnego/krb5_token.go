@@ -54,7 +54,7 @@ func (m *KRB5Token) Marshal() ([]byte, error) {
 	case TOK_ID_KRB_AP_REQ:
 		tb, err = m.APReq.Marshal()
 		if err != nil {
-			return []byte{}, fmt.Errorf("error marshalling AP_REQ for MechToken: %v", err)
+			return []byte{}, fmt.Errorf("error marshalling AP_REQ for MechToken: %w", err)
 		}
 	case TOK_ID_KRB_AP_REP:
 		return []byte{}, errors.New("marshal of AP_REP GSSAPI MechToken not supported by krb5")
@@ -63,7 +63,7 @@ func (m *KRB5Token) Marshal() ([]byte, error) {
 	}
 
 	if err != nil {
-		return []byte{}, fmt.Errorf("error mashalling kerberos message within mech token: %v", err)
+		return []byte{}, fmt.Errorf("error mashalling kerberos message within mech token: %w", err)
 	}
 
 	b = append(b, tb...)
@@ -77,7 +77,7 @@ func (m *KRB5Token) Unmarshal(b []byte) error {
 
 	r, err := asn1.UnmarshalWithParams(b, &oid, fmt.Sprintf("application,explicit,tag:%v", 0))
 	if err != nil {
-		return fmt.Errorf("error unmarshalling KRB5Token OID: %v", err)
+		return fmt.Errorf("error unmarshalling KRB5Token OID: %w", err)
 	}
 
 	if !oid.Equal(gssapi.OIDKRB5.OID()) {
@@ -97,7 +97,7 @@ func (m *KRB5Token) Unmarshal(b []byte) error {
 
 		err = a.Unmarshal(r[2:])
 		if err != nil {
-			return fmt.Errorf("error unmarshalling KRB5Token AP_REQ: %v", err)
+			return fmt.Errorf("error unmarshalling KRB5Token AP_REQ: %w", err)
 		}
 
 		m.APReq = a
@@ -106,7 +106,7 @@ func (m *KRB5Token) Unmarshal(b []byte) error {
 
 		err = a.Unmarshal(r[2:])
 		if err != nil {
-			return fmt.Errorf("error unmarshalling KRB5Token AP_REP: %v", err)
+			return fmt.Errorf("error unmarshalling KRB5Token AP_REP: %w", err)
 		}
 
 		m.APRep = a
@@ -115,7 +115,7 @@ func (m *KRB5Token) Unmarshal(b []byte) error {
 
 		err = a.Unmarshal(r[2:])
 		if err != nil {
-			return fmt.Errorf("error unmarshalling KRB5Token KRBError: %v", err)
+			return fmt.Errorf("error unmarshalling KRB5Token KRBError: %w", err)
 		}
 
 		m.KRBError = a
@@ -177,7 +177,7 @@ func (m *KRB5Token) Context() context.Context {
 }
 
 // NewKRB5TokenAPREQ creates a new KRB5 token with AP_REQ.
-func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, GSSAPIFlags []int, APOptions []int) (KRB5Token, error) {
+func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flagsGSSAPI []int, optionsAP []int) (KRB5Token, error) {
 	// TODO consider providing the SPN rather than the specific tkt and key and get these from the krb client.
 	var m KRB5Token
 
@@ -185,7 +185,7 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 	tb, _ := hex.DecodeString(TOK_ID_KRB_AP_REQ)
 	m.tokID = tb
 
-	auth, err := krb5TokenAuthenticator(cl.Credentials, GSSAPIFlags)
+	auth, err := krb5TokenAuthenticator(cl.Credentials, flagsGSSAPI)
 	if err != nil {
 		return m, err
 	}
@@ -199,7 +199,7 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 		return m, err
 	}
 
-	for _, o := range APOptions {
+	for _, o := range optionsAP {
 		types.SetFlag(&APReq.APOptions, o)
 	}
 
@@ -236,7 +236,9 @@ func newAuthenticatorChksum(flags []int) []byte {
 		}
 
 		f := binary.LittleEndian.Uint32(a[20:24])
+
 		f |= uint32(i)
+
 		binary.LittleEndian.PutUint32(a[20:24], f)
 	}
 

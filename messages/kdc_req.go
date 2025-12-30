@@ -154,7 +154,7 @@ func NewASReq(realm string, c *config.Config, cname, sname types.PrincipalName) 
 	if !c.LibDefaults.NoAddresses {
 		ha, err := types.LocalHostAddresses()
 		if err != nil {
-			return a, fmt.Errorf("could not get local addresses: %v", err)
+			return a, fmt.Errorf("could not get local addresses: %w", err)
 		}
 
 		ha = append(ha, types.HostAddressesFromNetIPs(c.LibDefaults.ExtraAddresses)...)
@@ -233,7 +233,7 @@ func tgsReq(cname, sname types.PrincipalName, kdcRealm string, renewal bool, c *
 	if !c.LibDefaults.NoAddresses {
 		ha, err := types.LocalHostAddresses()
 		if err != nil {
-			return TGSReq{}, fmt.Errorf("could not get local addresses: %v", err)
+			return TGSReq{}, fmt.Errorf("could not get local addresses: %w", err)
 		}
 
 		ha = append(ha, types.HostAddressesFromNetIPs(c.LibDefaults.ExtraAddresses)...)
@@ -305,7 +305,7 @@ func (k *ASReq) Unmarshal(b []byte) error {
 
 	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.ASREQ))
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling AS_REQ")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling AS_REQ")
 	}
 
 	expectedMsgType := msgtype.KRB_AS_REQ
@@ -334,7 +334,7 @@ func (k *TGSReq) Unmarshal(b []byte) error {
 
 	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.TGSREQ))
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling TGS_REQ")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling TGS_REQ")
 	}
 
 	expectedMsgType := msgtype.KRB_TGS_REQ
@@ -363,7 +363,7 @@ func (k *KDCReqBody) Unmarshal(b []byte) error {
 
 	_, err := asn1.Unmarshal(b, &m, asn1.WithUnmarshalAllowTypeGeneralString(true))
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling KDC_REQ body")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling KDC_REQ body")
 	}
 
 	k.KDCOptions = m.KDCOptions
@@ -387,7 +387,7 @@ func (k *KDCReqBody) Unmarshal(b []byte) error {
 	if len(m.AdditionalTickets.Bytes) > 0 {
 		k.AdditionalTickets, err = unmarshalTicketsSequence(m.AdditionalTickets)
 		if err != nil {
-			return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling additional tickets")
+			return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling additional tickets")
 		}
 	}
 

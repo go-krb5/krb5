@@ -61,16 +61,17 @@ func fillerBytes() *[5]byte {
 
 // Marshal the MICToken into a byte slice.
 // The payload should have been set and the checksum computed, otherwise an error is returned.
-func (mt *MICToken) Marshal() ([]byte, error) {
+func (mt *MICToken) Marshal() (b []byte, err error) {
 	if mt.Checksum == nil {
 		return nil, errors.New("checksum has not been set")
 	}
 
-	bytes := make([]byte, micHdrLen+len(mt.Checksum))
-	copy(bytes[0:micHdrLen], mt.getMICChecksumHeader())
-	copy(bytes[micHdrLen:], mt.Checksum)
+	b = make([]byte, micHdrLen+len(mt.Checksum))
 
-	return bytes, nil
+	copy(b[0:micHdrLen], mt.getMICChecksumHeader())
+	copy(b[micHdrLen:], mt.Checksum)
+
+	return b, nil
 }
 
 // SetChecksum uses the passed encryption key and key usage to compute the checksum over the payload and
@@ -93,12 +94,13 @@ func (mt *MICToken) SetChecksum(key types.EncryptionKey, keyUsage uint32) error 
 
 // Compute and return the checksum of this token, computed using the passed key and key usage.
 // Note: This will NOT update the struct's Checksum field.
-func (mt *MICToken) checksum(key types.EncryptionKey, keyUsage uint32) ([]byte, error) {
+func (mt *MICToken) checksum(key types.EncryptionKey, keyUsage uint32) (sum []byte, err error) {
 	if mt.Payload == nil {
 		return nil, errors.New("cannot compute checksum with uninitialized payload")
 	}
 
 	d := make([]byte, micHdrLen+len(mt.Payload))
+
 	copy(d[0:], mt.Payload)
 	copy(d[len(mt.Payload):], mt.getMICChecksumHeader())
 
@@ -113,9 +115,13 @@ func (mt *MICToken) checksum(key types.EncryptionKey, keyUsage uint32) ([]byte, 
 // Build a header suitable for a checksum computation.
 func (mt *MICToken) getMICChecksumHeader() []byte {
 	header := make([]byte, micHdrLen)
+
 	copy(header[0:2], getGSSMICTokenID()[:])
+
 	header[2] = mt.Flags
+
 	copy(header[3:8], fillerBytes()[:])
+
 	binary.BigEndian.PutUint64(header[8:16], mt.SndSeqNum)
 
 	return header

@@ -473,7 +473,7 @@ func spnegoGet(cl *client.Client) error {
 
 	httpResp, err := http.DefaultClient.Do(r)
 	if err != nil {
-		return fmt.Errorf("request error: %v\n", err)
+		return fmt.Errorf("request error: %w", err)
 	}
 
 	if httpResp.StatusCode != http.StatusUnauthorized {
@@ -482,12 +482,12 @@ func spnegoGet(cl *client.Client) error {
 
 	err = spnego.SetSPNEGOHeader(cl, r, "HTTP/host.test.gokrb5")
 	if err != nil {
-		return fmt.Errorf("error setting client SPNEGO header: %v", err)
+		return fmt.Errorf("error setting client SPNEGO header: %w", err)
 	}
 
 	httpResp, err = http.DefaultClient.Do(r)
 	if err != nil {
-		return fmt.Errorf("request error: %v\n", err)
+		return fmt.Errorf("request error: %w", err)
 	}
 
 	if httpResp.StatusCode != http.StatusOK {
@@ -627,7 +627,7 @@ const (
 func login() error {
 	file, err := os.Create("/etc/krb5.conf")
 	if err != nil {
-		return fmt.Errorf("cannot open krb5.conf: %v", err)
+		return fmt.Errorf("cannot open krb5.conf: %w", err)
 	}
 	defer file.Close()
 
@@ -642,7 +642,7 @@ func login() error {
 
 	err = cmd.Start()
 	if err != nil {
-		return fmt.Errorf("could not start %s command: %v", kinitCmd, err)
+		return fmt.Errorf("could not start %s command: %w", kinitCmd, err)
 	}
 
 	go func() {
@@ -659,7 +659,7 @@ func login() error {
 
 	err = cmd.Wait()
 	if err != nil {
-		return fmt.Errorf("%s did not run successfully: %v stderr: %s", kinitCmd, err, errBuf.String())
+		return fmt.Errorf("%s did not run successfully: %w stderr: %s", kinitCmd, err, errBuf.String())
 	}
 
 	return nil
@@ -670,12 +670,12 @@ func getServiceTkt() error {
 
 	err := cmd.Start()
 	if err != nil {
-		return fmt.Errorf("could not start %s command: %v", kvnoCmd, err)
+		return fmt.Errorf("could not start %s command: %w", kvnoCmd, err)
 	}
 
 	err = cmd.Wait()
 	if err != nil {
-		return fmt.Errorf("%s did not run successfully: %v", kvnoCmd, err)
+		return fmt.Errorf("%s did not run successfully: %w", kvnoCmd, err)
 	}
 
 	return nil

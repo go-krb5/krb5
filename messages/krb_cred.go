@@ -76,7 +76,7 @@ func (k *KRBCred) Unmarshal(b []byte) error {
 	if len(m.Tickets.Bytes) > 0 {
 		k.Tickets, err = unmarshalTicketsSequence(m.Tickets)
 		if err != nil {
-			return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling tickets within KRB_CRED")
+			return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling tickets within KRB_CRED")
 		}
 	}
 
@@ -94,7 +94,7 @@ func (k *KRBCred) DecryptEncPart(key types.EncryptionKey) error {
 
 	err = denc.Unmarshal(b)
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling encrypted part of KRB_CRED")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling encrypted part of KRB_CRED")
 	}
 
 	k.DecryptedEncPart = denc
@@ -106,7 +106,7 @@ func (k *KRBCred) DecryptEncPart(key types.EncryptionKey) error {
 func (k *EncKrbCredPart) Unmarshal(b []byte) error {
 	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncKrbCredPart))
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "error unmarshaling EncKrbCredPart")
+		return krberror.Errorf(err, krberror.EncodingError, "error unmarshalling EncKrbCredPart")
 	}
 
 	return nil

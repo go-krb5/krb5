@@ -63,7 +63,7 @@ func (rw *output) Lines() []string {
 func login() error {
 	file, err := os.Create("/etc/krb5.conf")
 	if err != nil {
-		return fmt.Errorf("cannot open krb5.conf: %v", err)
+		return fmt.Errorf("cannot open krb5.conf: %w", err)
 	}
 	defer file.Close()
 
@@ -77,7 +77,7 @@ func login() error {
 	cmd.Stderr = stderrW
 
 	if err = cmd.Start(); err != nil {
-		return fmt.Errorf("could not start %s command: %v", kinitCmd, err)
+		return fmt.Errorf("could not start %s command: %w", kinitCmd, err)
 	}
 
 	go func() {
@@ -93,7 +93,7 @@ func login() error {
 	}()
 
 	if err = cmd.Wait(); err != nil {
-		return fmt.Errorf("%s did not run successfully: %v stderr: %s", kinitCmd, err, errBuf.String())
+		return fmt.Errorf("%s did not run successfully: %w stderr: %s", kinitCmd, err, errBuf.String())
 	}
 
 	return nil
@@ -103,11 +103,11 @@ func getServiceTkt() (err error) {
 	cmd := exec.Command(kvnoCmd, spn)
 
 	if err = cmd.Start(); err != nil {
-		return fmt.Errorf("could not start %s command: %v", kvnoCmd, err)
+		return fmt.Errorf("could not start %s command: %w", kvnoCmd, err)
 	}
 
 	if err = cmd.Wait(); err != nil {
-		return fmt.Errorf("%s did not run successfully: %v", kvnoCmd, err)
+		return fmt.Errorf("%s did not run successfully: %w", kvnoCmd, err)
 	}
 
 	return nil
@@ -120,11 +120,11 @@ func klist() (lines []string, err error) {
 	cmd.Stdout = stdout
 
 	if err = cmd.Start(); err != nil {
-		return []string{}, fmt.Errorf("could not start %s command: %v", klistCmd, err)
+		return []string{}, fmt.Errorf("could not start %s command: %w", klistCmd, err)
 	}
 
 	if err = cmd.Wait(); err != nil {
-		return []string{}, fmt.Errorf("%s did not run successfully: %v", klistCmd, err)
+		return []string{}, fmt.Errorf("%s did not run successfully: %w", klistCmd, err)
 	}
 
 	return stdout.Lines(), nil
