@@ -18,7 +18,7 @@ func ZeroPad(b []byte, m int) ([]byte, error) {
 		return nil, errors.New("Invalid message block size when padding")
 	}
 
-	if b == nil || len(b) == 0 {
+	if len(b) == 0 {
 		return nil, errors.New("Data not valid to pad: Zero size")
 	}
 
@@ -37,7 +37,7 @@ func PKCS7Pad(b []byte, m int) ([]byte, error) {
 		return nil, errors.New("Invalid message block size when padding")
 	}
 
-	if b == nil || len(b) == 0 {
+	if len(b) == 0 {
 		return nil, errors.New("Data not valid to pad: Zero size")
 	}
 
@@ -55,7 +55,7 @@ func PKCS7Unpad(b []byte, m int) ([]byte, error) {
 		return nil, errors.New("invalid message block size when unpadding")
 	}
 
-	if b == nil || len(b) == 0 {
+	if len(b) == 0 {
 		return nil, errors.New("padded data not valid: Zero size")
 	}
 
@@ -141,7 +141,7 @@ func getUsage(un uint32, o byte) []byte {
 
 // IterationsToS2Kparams converts the number of iterations as an integer to a string representation.
 func IterationsToS2Kparams(i uint32) string {
-	b := make([]byte, 4, 4)
+	b := make([]byte, 4)
 	binary.BigEndian.PutUint32(b, i)
 
 	return hex.EncodeToString(b)

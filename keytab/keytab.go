@@ -256,8 +256,8 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 	for l != 0 {
 		if l < 0 {
 			// Zero padded so skip over.
-			l = l * -1
-			n = n + int(l)
+			l *= -1
+			n += int(l)
 		} else {
 			if n < 0 {
 				return fmt.Errorf("%d can't be less than zero", n)
@@ -268,7 +268,7 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 			}
 
 			eb := b[n : n+int(l)]
-			n = n + int(l)
+			n += int(l)
 			ke := newEntry()
 			// p keeps track as to where we are in the byte stream.
 			var (
@@ -595,13 +595,9 @@ func isNativeEndianLittle() bool {
 	)
 
 	var endian bool
-	if bp[0] == 0x01 {
-		endian = false
-	} else if bp[0]&0xff == 0x78&0xff {
+
+	if bp[0]&0xff == 0x78&0xff {
 		endian = true
-	} else {
-		// Default to big endian.
-		endian = false
 	}
 
 	return endian

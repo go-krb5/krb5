@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/iana/etypeID"
@@ -22,7 +23,7 @@ func TestClient_SuccessfulLogin_AD(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_USER_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF_AD)
 	cl := NewWithKeytab("testuser1", "USER.GOKRB5", kt, c, DisablePAFXFAST(true))
@@ -38,7 +39,7 @@ func TestClient_SuccessfulLogin_AD_Without_PreAuth(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER3_USER_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF_AD)
 	cl := NewWithKeytab("testuser3", "USER.GOKRB5", kt, c, DisablePAFXFAST(true))
@@ -54,7 +55,7 @@ func TestClient_GetServiceTicket_AD(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_USER_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF_AD)
 	cl := NewWithKeytab("testuser1", "USER.GOKRB5", kt, c)
@@ -76,7 +77,7 @@ func TestClient_GetServiceTicket_AD(t *testing.T) {
 
 	b, _ = hex.DecodeString(testdata.KEYTAB_TESTUSER2_USER_GOKRB5)
 	skt := keytab.New()
-	skt.Unmarshal(b)
+	require.NoError(t, skt.Unmarshal(b))
 
 	sname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"testuser2"}}
 
@@ -103,7 +104,7 @@ func TestClient_GetServiceTicket_AD_TRUST_USER_DOMAIN(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_USER_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF_AD)
 	c.LibDefaults.Canonicalize = true
@@ -130,7 +131,7 @@ func TestClient_GetServiceTicket_AD_TRUST_USER_DOMAIN(t *testing.T) {
 
 	b, _ = hex.DecodeString(testdata.KEYTAB_SYSHTTP_RES_GOKRB5)
 	skt := keytab.New()
-	skt.Unmarshal(b)
+	require.NoError(t, skt.Unmarshal(b))
 
 	sname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"sysHTTP"}}
 
@@ -157,7 +158,7 @@ func TestClient_GetServiceTicket_AD_USER_DOMAIN(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_USER_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF_AD)
 	c.LibDefaults.Canonicalize = true
@@ -184,7 +185,7 @@ func TestClient_GetServiceTicket_AD_USER_DOMAIN(t *testing.T) {
 
 	b, _ = hex.DecodeString(testdata.KEYTAB_TESTUSER2_USER_GOKRB5)
 	skt := keytab.New()
-	skt.Unmarshal(b)
+	require.NoError(t, skt.Unmarshal(b))
 
 	sname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"testuser2"}}
 

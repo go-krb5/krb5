@@ -34,13 +34,15 @@ func GetHostAddress(s string) (HostAddress, error) {
 	ip := net.ParseIP(cAddr)
 
 	var ht int32
-	if ip.To4() != nil {
+
+	switch {
+	case ip.To4() != nil:
 		ht = addrtype.IPv4
 		ip = ip.To4()
-	} else if ip.To16() != nil {
+	case ip.To16() != nil:
 		ht = addrtype.IPv6
 		ip = ip.To16()
-	} else {
+	default:
 		return h, fmt.Errorf("could not determine client's address types: %v", err)
 	}
 

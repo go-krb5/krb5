@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/credentials"
@@ -73,7 +74,7 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 		t.Fatalf("Error creating authenticator: %v", err)
 	}
 
-	a.GenerateSeqNumberAndSubKey(etypeID, keyLen)
+	require.NoError(t, a.GenerateSeqNumberAndSubKey(etypeID, keyLen))
 	assert.Equal(t, int32(32771), a.Cksum.CksumType, "Checksum type in authenticator for SPNEGO mechtoken not as expected.")
 	assert.Equal(t, etypeID, a.SubKey.KeyType, "Subkey not of the expected type.")
 	assert.Equal(t, keyLen, len(a.SubKey.KeyValue), "Subkey value not of the right length")

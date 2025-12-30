@@ -2,10 +2,10 @@ package crypto
 
 import (
 	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDes3CbcSha1Kd_DR_DK(t *testing.T) {
@@ -34,16 +34,12 @@ func TestDes3CbcSha1Kd_DR_DK(t *testing.T) {
 		usage, _ := hex.DecodeString(test.usage)
 
 		derivedRandom, err := e.DeriveRandom(key, usage)
-		if err != nil {
-			t.Fatal(fmt.Sprintf("Error in deriveRandom: %v", err))
-		}
+		require.NoError(t, err)
 
 		assert.Equal(t, test.dr, hex.EncodeToString(derivedRandom), "DR not as expected")
 
 		derivedKey, err := e.DeriveKey(key, usage)
-		if err != nil {
-			t.Fatal(fmt.Sprintf("Error in deriveKey: %v", err))
-		}
+		require.NoError(t, err)
 
 		assert.Equal(t, test.dk, hex.EncodeToString(derivedKey), "DK not as expected")
 	}

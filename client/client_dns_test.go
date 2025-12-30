@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/test"
@@ -25,7 +27,7 @@ func TestClient_Login_DNSKDCs(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 	cl := NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)
 
 	err := cl.Login()

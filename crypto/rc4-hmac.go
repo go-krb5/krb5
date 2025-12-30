@@ -78,7 +78,7 @@ func (e RC4HMAC) StringToKey(secret string, salt string, s2kparams string) ([]by
 func (e RC4HMAC) RandomToKey(b []byte) []byte {
 	r := bytes.NewReader(b)
 	h := md4.New()
-	io.Copy(h, r)
+	_, _ = io.Copy(h, r)
 
 	return h.Sum(nil)
 }

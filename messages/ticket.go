@@ -169,7 +169,7 @@ func unmarshalTicketsSequence(in asn1.RawValue) ([]Ticket, error) {
 		tkts = append(tkts, t)
 	}
 
-	MarshalTicketSequence(tkts)
+	// MarshalTicketSequence(tkts).
 
 	return tkts, nil
 }

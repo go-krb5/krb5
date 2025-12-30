@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/crypto/md4"
+	"golang.org/x/crypto/md4" //nolint:gosec // TODO: Ensure this is not registered by default.
 )
 
 // StringToKey returns a key derived from the string provided according to the definition in RFC 4757.
 func StringToKey(secret string) ([]byte, error) {
-	b := make([]byte, len(secret)*2, len(secret)*2)
+	b := make([]byte, len(secret)*2)
 	for i, r := range secret {
 		u := fmt.Sprintf("%04x", r)
 

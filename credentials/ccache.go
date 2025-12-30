@@ -204,14 +204,14 @@ func parseCredential(b []byte, p *int, c *CCache, e *binary.ByteOrder) (cred *Cr
 	cred.TicketFlags.Bytes = readBytes(b, p, 4, e)
 	l := int(readInt32(b, p, e))
 
-	cred.Addresses = make([]types.HostAddress, l, l)
+	cred.Addresses = make([]types.HostAddress, l)
 	for i := range cred.Addresses {
 		cred.Addresses[i] = readAddress(b, p, e)
 	}
 
 	l = int(readInt32(b, p, e))
 
-	cred.AuthData = make([]types.AuthorizationDataEntry, l, l)
+	cred.AuthData = make([]types.AuthorizationDataEntry, l)
 	for i := range cred.AuthData {
 		cred.AuthData[i] = readAuthDataEntry(b, p, e)
 	}
@@ -378,13 +378,9 @@ func isNativeEndianLittle() bool {
 	)
 
 	var endian bool
-	if bp[0] == 0x01 {
-		endian = false
-	} else if bp[0]&0xff == 0x78&0xff {
+
+	if bp[0]&0xff == 0x78&0xff {
 		endian = true
-	} else {
-		// Default to big endian.
-		endian = false
 	}
 
 	return endian

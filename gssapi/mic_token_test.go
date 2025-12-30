@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/types"
@@ -118,7 +119,7 @@ func TestMICChallengeChecksumVerification(t *testing.T) {
 	challenge, _ := hex.DecodeString(testMICChallengeFromAcceptor)
 
 	var mt MICToken
-	mt.Unmarshal(challenge, true)
+	require.NoError(t, mt.Unmarshal(challenge, true))
 	mt.Payload, _ = hex.DecodeString(testMICPayload)
 	challengeOk, cErr := mt.Verify(getSessionKey(), acceptorSign)
 	assert.Nil(t, cErr, "Error occurred during checksum verification.")
@@ -131,7 +132,7 @@ func TestMICResponseChecksumVerification(t *testing.T) {
 	reply, _ := hex.DecodeString(testMICChallengeReplyFromInitiator)
 
 	var mt MICToken
-	mt.Unmarshal(reply, false)
+	require.NoError(t, mt.Unmarshal(reply, false))
 	mt.Payload, _ = hex.DecodeString(testMICPayload)
 	replyOk, rErr := mt.Verify(getSessionKey(), initiatorSign)
 	assert.Nil(t, rErr, "Error occurred during checksum verification.")
@@ -144,7 +145,7 @@ func TestMICChecksumVerificationFailure(t *testing.T) {
 	challenge, _ := hex.DecodeString(testMICChallengeFromAcceptor)
 
 	var mt MICToken
-	mt.Unmarshal(challenge, true)
+	require.NoError(t, mt.Unmarshal(challenge, true))
 
 	// Test a failure with the correct key but wrong keyusage:.
 	challengeOk, cErr := mt.Verify(getSessionKey(), initiatorSign)

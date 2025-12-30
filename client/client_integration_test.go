@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
@@ -38,7 +39,7 @@ func TestClient_SuccessfulLogin_Keytab(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -89,7 +90,7 @@ func TestClient_SuccessfulLogin_TCPOnly(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -113,7 +114,7 @@ func TestClient_ASExchange_TGSExchange_EncTypes_Keytab(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -201,7 +202,7 @@ func TestClient_FailedLogin(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5_WRONGPASSWD)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -224,7 +225,7 @@ func TestClient_SuccessfulLogin_UserRequiringPreAuth(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -247,7 +248,7 @@ func TestClient_SuccessfulLogin_UserRequiringPreAuth_TCPOnly(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER2_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -271,7 +272,7 @@ func TestClient_NetworkTimeout(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 	c.Realms[0].KDC = []string{testdata.KDC_IP_TEST_GOKRB5_BADADDR + ":88"}
@@ -288,7 +289,7 @@ func TestClient_NetworkTryNextKDC(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -320,7 +321,7 @@ func TestClient_GetServiceTicket(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -336,8 +337,6 @@ func TestClient_GetServiceTicket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-
-	spn := "HTTP/host.test.gokrb5"
 
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
@@ -362,7 +361,7 @@ func TestClient_GetServiceTicket_CanonicalizeTrue(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 	c.LibDefaults.Canonicalize = true
@@ -379,8 +378,6 @@ func TestClient_GetServiceTicket_CanonicalizeTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-
-	spn := "HTTP/host.test.gokrb5"
 
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
@@ -405,7 +402,7 @@ func TestClient_GetServiceTicket_InvalidSPN(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -433,7 +430,7 @@ func TestClient_GetServiceTicket_OlderKDC(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -450,8 +447,6 @@ func TestClient_GetServiceTicket_OlderKDC(t *testing.T) {
 		t.Fatalf("error on login: %v\n", err)
 	}
 
-	spn := "HTTP/host.test.gokrb5"
-
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
 		t.Fatalf("error getting service ticket: %v\n", err)
@@ -466,7 +461,7 @@ func TestMultiThreadedClientUse(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -586,7 +581,7 @@ func TestClient_GetServiceTicket_Trusted_Resource_Domain(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -629,7 +624,7 @@ func TestClient_GetServiceTicket_Trusted_Resource_Domain(t *testing.T) {
 
 	b, _ = hex.DecodeString(testdata.KEYTAB_SYSHTTP_RESDOM_GOKRB5)
 	skt := keytab.New()
-	skt.Unmarshal(b)
+	require.NoError(t, skt.Unmarshal(b))
 
 	err = tkt.DecryptEncPart(skt, nil)
 	if err != nil {
@@ -715,15 +710,15 @@ func login() error {
 	}
 
 	go func() {
-		io.WriteString(stdinW, "passwordvalue")
-		stdinW.Close()
+		_, _ = io.WriteString(stdinW, "passwordvalue")
+		_ = stdinW.Close()
 	}()
 
 	errBuf := new(bytes.Buffer)
 
 	go func() {
-		io.Copy(errBuf, stderrR)
-		stderrR.Close()
+		_, _ = io.Copy(errBuf, stderrR)
+		_ = stderrR.Close()
 	}()
 
 	err = cmd.Wait()
@@ -783,8 +778,6 @@ func TestGetServiceTicketFromCCacheTGT(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error generating client from ccache: %v", err)
 	}
-
-	spn := "HTTP/host.test.gokrb5"
 
 	tkt, key, err := cl.GetServiceTicket(spn)
 	if err != nil {
@@ -873,7 +866,7 @@ func TestClient_ChangePasswd(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 
@@ -920,7 +913,7 @@ func TestClient_Destroy(t *testing.T) {
 
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 	c.Realms[0].KDC = []string{addr + ":" + testdata.KDC_PORT_TEST_GOKRB5_SHORTTICKETS}
@@ -930,8 +923,6 @@ func TestClient_Destroy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error on login: %v\n", err)
 	}
-
-	spn := "HTTP/host.test.gokrb5"
 
 	_, _, err = cl.GetServiceTicket(spn)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/test/testdata"
@@ -31,7 +32,7 @@ func TestPACTypeVerify(t *testing.T) {
 
 	b, _ = hex.DecodeString(testdata.KEYTAB_SYSHTTP_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	pn, _ := types.ParseSPNString("sysHTTP")
 

@@ -65,9 +65,9 @@ func (k *SignatureData) Unmarshal(b []byte) (rb []byte, err error) {
 	}
 
 	// Create bytes with zeroed signature needed for checksum verification.
-	rb = make([]byte, len(b), len(b))
+	rb = make([]byte, len(b))
 	copy(rb, b)
-	z := make([]byte, len(b), len(b))
+	z := make([]byte, len(b))
 	copy(rb[4:4+c], z)
 
 	return

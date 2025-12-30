@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/types"
@@ -137,7 +138,7 @@ func TestChallengeChecksumVerification(t *testing.T) {
 	challenge, _ := hex.DecodeString(testChallengeFromAcceptor)
 
 	var wt WrapToken
-	wt.Unmarshal(challenge, true)
+	require.NoError(t, wt.Unmarshal(challenge, true))
 	challengeOk, cErr := wt.Verify(getSessionKey(), acceptorSeal)
 	assert.Nil(t, cErr, "Error occurred during checksum verification.")
 	assert.True(t, challengeOk, "Checksum verification failed.")
@@ -149,7 +150,7 @@ func TestResponseChecksumVerification(t *testing.T) {
 	reply, _ := hex.DecodeString(testChallengeReplyFromInitiator)
 
 	var wt WrapToken
-	wt.Unmarshal(reply, false)
+	require.NoError(t, wt.Unmarshal(reply, false))
 	replyOk, rErr := wt.Verify(getSessionKey(), initiatorSeal)
 	assert.Nil(t, rErr, "Error occurred during checksum verification.")
 	assert.True(t, replyOk, "Checksum verification failed.")
@@ -161,7 +162,7 @@ func TestChecksumVerificationFailure(t *testing.T) {
 	challenge, _ := hex.DecodeString(testChallengeFromAcceptor)
 
 	var wt WrapToken
-	wt.Unmarshal(challenge, true)
+	require.NoError(t, wt.Unmarshal(challenge, true))
 
 	// Test a failure with the correct key but wrong keyusage:.
 	challengeOk, cErr := wt.Verify(getSessionKey(), initiatorSeal)

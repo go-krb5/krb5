@@ -114,15 +114,16 @@ func parseBasicHeaderValue(s string) (domain, username, password string, err err
 	// <Username> - no domain specified
 	// <Domain>\<Username>
 	// <Username>@<Domain>.
-	if strings.Contains(vc[0], `\`) {
+	switch {
+	case strings.Contains(vc[0], `\'`):
 		u := strings.SplitN(vc[0], `\`, 2)
 		domain = u[0]
 		username = u[1]
-	} else if strings.Contains(vc[0], `@`) {
+	case strings.Contains(vc[0], `@`):
 		u := strings.SplitN(vc[0], `@`, 2)
 		domain = u[1]
 		username = u[0]
-	} else {
+	default:
 		username = vc[0]
 	}
 

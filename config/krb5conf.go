@@ -234,7 +234,7 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			p[1] = strings.TrimSpace(p[1])
 
 			v, err := strconv.ParseUint(p[1], 10, 32)
-			if err != nil || v < 0 || v > 4 {
+			if err != nil || v <= 0 || v > 4 {
 				return InvalidErrorf("libdefaults section line (%s)", line)
 			}
 
@@ -710,6 +710,7 @@ func NewFromScanner(scanner *bufio.Scanner) (*Config, error) {
 		lines          []string
 	)
 
+	// TODO: compile all regex patterns.
 	for scanner.Scan() {
 		// Skip comments and blank lines.
 		if matched, _ := regexp.MatchString(`^\s*(#|;|\n)`, scanner.Text()); matched {
@@ -841,7 +842,7 @@ func parseDuration(s string) (time.Duration, error) {
 				return time.Duration(0), errors.New("invalid time duration")
 			}
 
-			d = d + dp
+			d += dp
 		}
 
 		return d, nil
@@ -879,7 +880,7 @@ func parseDuration(s string) (time.Duration, error) {
 
 		d := time.Duration(i[0])*time.Hour + time.Duration(i[1])*time.Minute
 		if len(i) == 3 {
-			d = d + time.Duration(i[2])*time.Second
+			d += time.Duration(i[2]) * time.Second
 		}
 
 		return d, nil

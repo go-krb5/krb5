@@ -95,7 +95,7 @@ func (m *Reply) Unmarshal(b []byte) error {
 		}
 	} else {
 		m.IsKRBError = true
-		m.KRBError.Unmarshal(b[6:m.MessageLength])
+		_ = m.KRBError.Unmarshal(b[6:m.MessageLength])
 		m.ResultCode, m.Result = parseResponse(m.KRBError.EData)
 	}
 

@@ -70,11 +70,7 @@ func isFlagSet(f uint32, i uint32) bool {
 	fb := make([]byte, 4)
 	binary.LittleEndian.PutUint32(fb, f)
 
-	if fb[b]&(1<<p) != 0 {
-		return true
-	}
-
-	return false
+	return fb[b]&(1<<p) != 0
 }
 
 // SECPKGSupplementalCred implements https://msdn.microsoft.com/en-us/library/cc237956.aspx

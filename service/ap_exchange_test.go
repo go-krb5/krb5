@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
@@ -23,14 +24,14 @@ import (
 func TestVerifyAPREQ(t *testing.T) {
 	t.Parallel()
 
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 
@@ -70,14 +71,14 @@ func TestVerifyAPREQ(t *testing.T) {
 func TestVerifyAPREQWithPrincipalOverride(t *testing.T) {
 	t.Parallel()
 
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 
@@ -121,14 +122,14 @@ func TestVerifyAPREQWithPrincipalOverride(t *testing.T) {
 func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH(t *testing.T) {
 	t.Parallel()
 
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 
@@ -180,14 +181,14 @@ func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH(t *testing.T) {
 func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
 	t.Parallel()
 
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 
@@ -234,14 +235,14 @@ func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
 }
 
 func TestVerifyAPREQ_Replay(t *testing.T) {
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 
@@ -289,14 +290,14 @@ func TestVerifyAPREQ_Replay(t *testing.T) {
 func TestVerifyAPREQ_FutureTicket(t *testing.T) {
 	t.Parallel()
 
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 
@@ -344,14 +345,14 @@ func TestVerifyAPREQ_FutureTicket(t *testing.T) {
 func TestVerifyAPREQ_InvalidTicket(t *testing.T) {
 	t.Parallel()
 
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 	f := types.NewKrbFlags()
@@ -399,14 +400,14 @@ func TestVerifyAPREQ_InvalidTicket(t *testing.T) {
 func TestVerifyAPREQ_ExpiredTicket(t *testing.T) {
 	t.Parallel()
 
-	cl := getClient()
+	cl := getClient(t)
 	sname := types.PrincipalName{
 		NameType:   nametype.KRB_NT_PRINCIPAL,
 		NameString: []string{"HTTP", "host.test.gokrb5"},
 	}
 	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	st := time.Now().UTC()
 
@@ -461,10 +462,10 @@ func newTestAuthenticator(creds credentials.Credentials) types.Authenticator {
 	return auth
 }
 
-func getClient() *client.Client {
+func getClient(t *testing.T) *client.Client {
 	b, _ := hex.DecodeString(testdata.KEYTAB_TESTUSER1_TEST_GOKRB5)
 	kt := keytab.New()
-	kt.Unmarshal(b)
+	require.NoError(t, kt.Unmarshal(b))
 
 	c, _ := config.NewFromString(testdata.KRB5_CONF)
 	cl := client.NewWithKeytab("testuser1", "TEST.GOKRB5", kt, c)

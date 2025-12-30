@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -60,7 +61,7 @@ const (
  .test.gokrb5 = TEST.GOKRB5 #comment to be ignored
 
  test.gokrb5 = TEST.GOKRB5 ;comment to be ignored
- 
+
   .example.com = EXAMPLE.COM # comment to be ignored
  hostname1.example.com = EXAMPLE.COM ; comment to be ignored
  hostname2.example.com = TEST.GOKRB5
@@ -354,7 +355,7 @@ const (
 	.test.gokrb5 = TEST.GOKRB5
 
 	test.gokrb5 = TEST.GOKRB5
- 
+
 	.example.com = EXAMPLE.COM
 	hostname1.example.com = EXAMPLE.COM
 	hostname2.example.com = TEST.GOKRB5
@@ -423,7 +424,7 @@ const (
  .test.gokrb5 = TEST.GOKRB5
 
  test.gokrb5 = TEST.GOKRB5
- 
+
   .example.com = EXAMPLE.COM
  hostname1.example.com = EXAMPLE.COM
  hostname2.example.com = TEST.GOKRB5
@@ -448,7 +449,8 @@ func TestLoad(t *testing.T) {
 	cf, _ := os.CreateTemp(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
 
-	cf.WriteString(krb5Conf)
+	_, err := cf.WriteString(krb5Conf)
+	require.NoError(t, err)
 
 	c, err := Load(cf.Name())
 	if err != nil {
@@ -483,7 +485,8 @@ func TestLoadWithV4Lines(t *testing.T) {
 	cf, _ := os.CreateTemp(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
 
-	cf.WriteString(krb5ConfV4Lines)
+	_, err := cf.WriteString(krb5ConfV4Lines)
+	require.NoError(t, err)
 
 	c, err := Load(cf.Name())
 	if err == nil {
@@ -583,7 +586,8 @@ func TestLoadTabs(t *testing.T) {
 	cf, _ := os.CreateTemp(os.TempDir(), "TEST-krb5-krb5.conf")
 	defer os.Remove(cf.Name())
 
-	cf.WriteString(krb5ConfTabs)
+	_, err := cf.WriteString(krb5ConfTabs)
+	require.NoError(t, err)
 
 	c, err := Load(cf.Name())
 	if err != nil {

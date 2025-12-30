@@ -81,15 +81,15 @@ func login() error {
 	}
 
 	go func() {
-		io.WriteString(stdinW, "passwordvalue")
-		stdinW.Close()
+		_, _ = io.WriteString(stdinW, "passwordvalue")
+		_ = stdinW.Close()
 	}()
 
 	errBuf := new(bytes.Buffer)
 
 	go func() {
-		io.Copy(errBuf, stderrR)
-		stderrR.Close()
+		_, _ = io.Copy(errBuf, stderrR)
+		_ = stderrR.Close()
 	}()
 
 	err = cmd.Wait()

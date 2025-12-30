@@ -22,9 +22,9 @@ func MarshalLengthBytes(l int) []byte {
 	p := 1
 	for i := 1; i < 127; {
 		b = append([]byte{byte((l % (p * 256)) / p)}, b...)
-		p = p * 256
+		p *= 256
 
-		l = l - l%p
+		l -= l % p
 		if l <= 0 {
 			break
 		}
@@ -45,7 +45,7 @@ func GetLengthFromASN(b []byte) int {
 	l := 0
 	for i := len(lb) - 1; i >= 0; i-- {
 		l += int(lb[i]) * base
-		base = base * 256
+		base *= 256
 	}
 
 	return l

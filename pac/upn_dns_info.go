@@ -54,7 +54,7 @@ func (k *UPNDNSInfo) Unmarshal(b []byte) (err error) {
 	ub := mstypes.NewReader(bytes.NewReader(b[k.UPNOffset : k.UPNOffset+k.UPNLength]))
 	db := mstypes.NewReader(bytes.NewReader(b[k.DNSDomainNameOffset : k.DNSDomainNameOffset+k.DNSDomainNameLength]))
 
-	u := make([]rune, k.UPNLength/2, k.UPNLength/2)
+	u := make([]rune, k.UPNLength/2)
 	for i := 0; i < len(u); i++ {
 		var r uint16
 
@@ -68,7 +68,7 @@ func (k *UPNDNSInfo) Unmarshal(b []byte) (err error) {
 
 	k.UPN = string(u)
 
-	d := make([]rune, k.DNSDomainNameLength/2, k.DNSDomainNameLength/2)
+	d := make([]rune, k.DNSDomainNameLength/2)
 	for i := 0; i < len(d); i++ {
 		var r uint16
 

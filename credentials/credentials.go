@@ -131,11 +131,7 @@ func (c *Credentials) Password() string {
 
 // HasPassword queries if the Credentials has a password defined.
 func (c *Credentials) HasPassword() bool {
-	if c.password != "" {
-		return true
-	}
-
-	return false
+	return c.password != ""
 }
 
 // SetValidUntil sets the expiry time of the credentials.

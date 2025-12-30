@@ -40,7 +40,7 @@ func (c *Cache) getEntry(spn string) (CacheEntry, bool) {
 	c.mux.RLock()
 	defer c.mux.RUnlock()
 
-	e, ok := (*c).Entries[spn]
+	e, ok := c.Entries[spn]
 
 	return e, ok
 }
@@ -78,7 +78,7 @@ func (c *Cache) addEntry(tkt messages.Ticket, authTime, startTime, endTime, rene
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	(*c).Entries[spn] = CacheEntry{
+	c.Entries[spn] = CacheEntry{
 		SPN:        spn,
 		Ticket:     tkt,
 		AuthTime:   authTime,

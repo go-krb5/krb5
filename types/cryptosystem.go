@@ -64,7 +64,7 @@ func GenerateEncryptionKey(etype etype.EType) (EncryptionKey, error) {
 	k := EncryptionKey{
 		KeyType: etype.GetETypeID(),
 	}
-	b := make([]byte, etype.GetKeyByteSize(), etype.GetKeyByteSize())
+	b := make([]byte, etype.GetKeyByteSize())
 
 	_, err := rand.Read(b)
 	if err != nil {

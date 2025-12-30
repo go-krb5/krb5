@@ -343,7 +343,7 @@ func (cl *Client) Diagnostics(w io.Writer) error {
 		fmt.Fprintf(w, "TCP KDCs: %s\n", string(b))
 	}
 
-	if errs == nil || len(errs) < 1 {
+	if len(errs) < 1 {
 		return nil
 	}
 
