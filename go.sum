@@ -1,7 +1,7 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/go-crypt/x v0.4.10 h1:ObD6bG6qVL9Kphu4+Lftv6i3wnMP/ro9tpS6GZzdJ0M=
-github.com/go-crypt/x v0.4.10/go.mod h1:xN4WnD2Zz84Fg0/UjfuhKCT3cZv5MujbHffNQft2cQE=
+github.com/go-crypt/x v0.4.11 h1:xD9HUB7cS3JUE5BgmCon1XrLC3sB7DueughNl3Wjj/U=
+github.com/go-crypt/x v0.4.11/go.mod h1:W+qapAy/KRT/QQZvmtAvnrI5C/Rkdi8gPB8u6EjA2Y8=
 github.com/go-krb5/x v0.3.1 h1:LBbIV6gXESjcUmi6ImgyQDwYH0+0cxUAKWRsezCerVo=
 github.com/go-krb5/x v0.3.1/go.mod h1:u8ijrkzk7K22CzL/v+yy/QpKhzW6c0wAkgUegF+q3Rk=
 github.com/google/gofuzz v1.2.0 h1:xRy4A+RhZaiKjJ1bPfwQ8sedCA+YS2YcCHW6ec7JMi0=
