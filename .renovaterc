@@ -12,6 +12,8 @@
     ":semanticPrefixFixDepsChoreOthers",
     "workarounds:all"
   ],
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 100,
   "enabledManagers": [
     "docker-compose",
     "dockerfile",
