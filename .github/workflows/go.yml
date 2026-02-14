@@ -1,61 +1,62 @@
-name: "Go"
+name: 'Go'
 on:
   pull_request: {}
   push:
     branches:
-      - "master"
+      - 'master'
 permissions:
-  contents: "read"
+  contents: 'read'
 jobs:
   cover:
-    name: "Coverage"
-    runs-on: "ubuntu-latest"
+    name: 'Coverage'
+    runs-on: 'ubuntu-latest'
     steps:
-      - name: "Harden Runner"
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+      - name: 'Harden Runner'
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
-          egress-policy: "audit"
-      - name: "Set up Go"
+          egress-policy: 'audit'
+      - name: 'Set up Go'
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
-          go-version: 1.25
-      - name: "Checkout"
+          go-version: '1.26'
+      - name: 'Checkout'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: "Get Dependencies"
+      - name: 'Get Dependencies'
         run: |
-          go mod download
-      - name: "Test"
+          go get -v -t ./...
+      - name: 'Test'
         run: |
           go test -coverprofile=coverage.txt -v ./...
-      - name: "Coverage"
+      - name: 'Coverage'
         uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
   build:
-    name: "Build"
-    runs-on: "ubuntu-latest"
+    name: 'Build and Test'
+    runs-on: 'ubuntu-latest'
     strategy:
       matrix:
         go:
-          - "1.25"
+          - '1.25'
+          - '1.26'
       fail-fast: false
     steps:
-      - name: "Harden Runner"
-        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+      - name: 'Harden Runner'
+        uses: step-security/harden-runner@e3f713f2d8f53843e71c69a996d56f51aa9adfb9 # v2.14.1
         with:
-          egress-policy: "audit"
-      - name: "Set up Go ${{ matrix.go }}"
+          egress-policy: 'audit'
+      - name: 'Set up Go ${{ matrix.go }}'
         uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6.2.0
         with:
           go-version: ${{ matrix.go }}
-      - name: "Checkout"
+      - name: 'Checkout'
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: "Get Dependencies"
+      - name: 'Get Dependencies'
         run: |
           go get -v -t ./...
-      - name: "Build"
+      - name: 'Build'
         run: |
           go build -v ./...
-      - name: "Test"
+      - name: 'Test'
         run: |
-          go test -v -failfast ./...
+          go test -v ./...

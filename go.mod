@@ -2,7 +2,7 @@ module github.com/go-krb5/krb5
 
 go 1.25.0
 
-toolchain go1.25.7
+toolchain go1.26.0
 
 require (
 	github.com/go-crypt/x v0.4.11
@@ -17,6 +17,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/net v0.49.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
