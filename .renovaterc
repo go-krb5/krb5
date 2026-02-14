@@ -21,7 +21,8 @@
     "npm"
   ],
   "postUpdateOptions": [
-    "gomodTidy"
+    "gomodTidy",
+    "gomodMassage"
   ],
   "branchPrefix": "renovate-",
   "rebaseWhen": "conflicted",
