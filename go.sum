@@ -1,9 +1,9 @@
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
-github.com/go-crypt/x v0.4.11 h1:xD9HUB7cS3JUE5BgmCon1XrLC3sB7DueughNl3Wjj/U=
-github.com/go-crypt/x v0.4.11/go.mod h1:W+qapAy/KRT/QQZvmtAvnrI5C/Rkdi8gPB8u6EjA2Y8=
-github.com/go-krb5/x v0.3.1 h1:LBbIV6gXESjcUmi6ImgyQDwYH0+0cxUAKWRsezCerVo=
-github.com/go-krb5/x v0.3.1/go.mod h1:u8ijrkzk7K22CzL/v+yy/QpKhzW6c0wAkgUegF+q3Rk=
+github.com/go-crypt/x v0.4.12 h1:84mFpT7cdVxQUY8pTnBhAGvqrGxY/q8M+757zrMiXPM=
+github.com/go-crypt/x v0.4.12/go.mod h1:edbLOsFD4LEWC9wVvNb3k560JIMIhEJ7awb8NeTPHs8=
+github.com/go-krb5/x v0.3.2 h1:uIjmgkxEbIXoVwgKT1Xi+efVmtqiXcpQlCVuJ/hq2Z0=
+github.com/go-krb5/x v0.3.2/go.mod h1:h44nn9OxeR34A9Tu0UZfRmgwWizETfWwWy97K3RlxuI=
 github.com/google/gofuzz v1.2.0 h1:xRy4A+RhZaiKjJ1bPfwQ8sedCA+YS2YcCHW6ec7JMi0=
 github.com/google/gofuzz v1.2.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
@@ -18,8 +18,8 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 golang.org/x/crypto v0.48.0 h1:/VRzVqiRSggnhY7gNRxPauEQ5Drw9haKdM0jqfcCFts=
 golang.org/x/crypto v0.48.0/go.mod h1:r0kV5h3qnFPlQnBSrULhlsRfryS2pmewsg+XfMgkVos=
-golang.org/x/net v0.49.0 h1:eeHFmOGUTtaaPSGNmjBKpbng9MulQsJURQUAfUwY++o=
-golang.org/x/net v0.49.0/go.mod h1:/ysNB2EvaqvesRkuLAyjI1ycPZlQHM3q01F02UY/MV8=
+golang.org/x/net v0.50.0 h1:ucWh9eiCGyDR3vtzso0WMQinm2Dnt8cFMuQa9K33J60=
+golang.org/x/net v0.50.0/go.mod h1:UgoSli3F/pBgdJBHCTc+tp3gmrU4XswgGRgtnwWTfyM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
