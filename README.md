@@ -37,6 +37,7 @@ this is his org, and we're just the current stewards.
   * Parsing Keytab files
   * Parsing krb5.conf files
   * Parsing client credentials cache files such as `/tmp/krb5cc_$(id -u $(whoami))`
+  * SASL security layers (integrity and confidentiality) for the GSSAPI mechanism
 
 ## Support
 
