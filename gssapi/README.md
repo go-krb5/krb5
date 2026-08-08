@@ -17,3 +17,55 @@ The server side responds to this message with a one of four messages:
 | accept-incomplete  | At least one more message is needed from the client to establish security context.                                                                                                                          |
 | reject             | Negotiation is being terminated.                                                                                                                                                                            |
 | request-mic        | (this state can only be present in the first reply message from the target) indicates that the MIC token exchange is REQUIRED if per-message integrity services are available                               |
+
+# SASL Security Layers
+
+[RFC 4752](https://tools.ietf.org/html/rfc4752) defines the GSSAPI SASL mechanism, in which a client and a server may
+negotiate a security layer that protects every message exchanged after authentication. This is how protocols such as
+LDAP, IMAP, SMTP and Kafka protect a connection with Kerberos rather than with TLS, and it is the only way to protect
+an LDAP connection to an Active Directory domain controller on port 389.
+
+Three security layers exist. `SecurityLayerNone` authenticates only and leaves the messages unprotected,
+`SecurityLayerIntegrity` signs each message with a checksum, and `SecurityLayerConfidentiality` encrypts each message,
+which the encryption types of [RFC 3961](https://tools.ietf.org/html/rfc3961) integrity protect as well.
+
+This package implements the protection of the messages. Negotiating which layer to use is specific to the application
+protocol, so the negotiated layer, the maximum buffer size agreed with the peer and the session key of the established
+context are given to `NewSecurityLayerSession`:
+
+```go
+session, err := gssapi.NewSecurityLayerSession(key, gssapi.SecurityLayerConfidentiality, true, 65536)
+```
+
+The third argument distinguishes the initiator of the context, which for SASL is the client, from the acceptor. It
+selects the key usage values and the token direction flag of RFC 4121, so the two ends of a context must not agree on
+the same value. Where the sequence numbers of the context are known from the authenticator of the AP_REQ, or from the
+AP_REP, pass them with the `InitialSendSequenceNumber` and `InitialReceiveSequenceNumber` options.
+
+Individual messages are protected and verified with `Wrap` and `Unwrap`, which produce and consume the Wrap tokens of
+[RFC 4121](https://tools.ietf.org/html/rfc4121) section 4.2.6.2:
+
+```go
+token, err := session.Wrap([]byte("a request"))
+message, err := session.Unwrap(token)
+```
+
+`WrapWithSASLFraming` and `UnwrapFromSASLFraming` add and remove the four octet length prefix that
+[RFC 4422](https://tools.ietf.org/html/rfc4422) section 3.7 puts in front of each buffer of protected data. A whole
+connection can be protected by wrapping it in a `SecureConn`, which is a `net.Conn` that applies the framing and the
+security layer to everything written and read, splitting writes that are larger than the negotiated maximum buffer
+size across several buffers:
+
+```go
+conn = gssapi.NewSecureConn(conn, session)
+```
+
+A session verifies that each token it receives matches the negotiated security layer and was sent by the other end of
+the context, and that the sequence numbers of the tokens follow on from one another, so a message that is replayed,
+reordered or dropped is rejected. Where no receive sequence number was configured the session adopts the one carried
+by the first token it receives.
+
+Note that [MS-ADTS](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/) section 5.1.1.1 forbids a
+SASL security layer on a connection that is already protected by TLS, and an Active Directory domain controller
+rejects such a connection, even though [RFC 4513](https://tools.ietf.org/html/rfc4513) section 3.1 permits the
+combination and other directory servers accept it.
