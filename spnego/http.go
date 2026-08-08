@@ -27,12 +27,16 @@ import (
 
 // Client side functionality.
 
+// DefaultMaxRedirects is the number of redirects the SPNEGO client will follow when no other limit is configured.
+const DefaultMaxRedirects = 10
+
 // Client will negotiate authentication with a server using SPNEGO.
 type Client struct {
 	*http.Client
-	krb5Client *client.Client
-	spn        string
-	reqs       []*http.Request
+	krb5Client   *client.Client
+	spn          string
+	reqs         []*http.Request
+	maxRedirects int
 }
 
 type redirectErr struct {
@@ -53,7 +57,7 @@ type teeReadCloser struct {
 // Ensure reuse of the provided *http.Client is for the same user as a session cookie may have been added to
 // http.Client's cookie jar.
 // Incorrect reuse of the provided *http.Client could lead to access to the wrong user's session.
-func NewClient(krb5Cl *client.Client, httpCl *http.Client, spn string) *Client {
+func NewClient(krb5Cl *client.Client, httpCl *http.Client, spn string, settings ...func(*Client)) *Client {
 	if httpCl == nil {
 		httpCl = &http.Client{}
 	}
@@ -74,10 +78,31 @@ func NewClient(krb5Cl *client.Client, httpCl *http.Client, spn string) *Client {
 		return redirectErr{reqTarget: req}
 	}
 
-	return &Client{
-		Client:     httpCl,
-		krb5Client: krb5Cl,
-		spn:        spn,
+	c := &Client{
+		Client:       httpCl,
+		krb5Client:   krb5Cl,
+		spn:          spn,
+		maxRedirects: DefaultMaxRedirects,
+	}
+
+	for _, set := range settings {
+		set(c)
+	}
+
+	if c.maxRedirects < 1 {
+		c.maxRedirects = DefaultMaxRedirects
+	}
+
+	return c
+}
+
+// MaxRedirects configures the maximum number of redirects the SPNEGO client will follow. Values less than one
+// configure the client with DefaultMaxRedirects.
+//
+// cl := NewClient(krb5Cl, httpCl, spn, MaxRedirects(20)).
+func MaxRedirects(n int) func(*Client) {
+	return func(c *Client) {
+		c.maxRedirects = n
 	}
 }
 
@@ -99,10 +124,10 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 				e.reqTarget.Header.Del(HTTPHeaderAuthRequest)
 
 				c.reqs = append(c.reqs, e.reqTarget)
-				if len(c.reqs) >= 10 {
+				if len(c.reqs) >= c.maxRedirects {
 					c.reqs = c.reqs[:0]
 
-					return resp, errors.New("stopped after 10 redirects")
+					return resp, fmt.Errorf("stopped after %d redirects", c.maxRedirects)
 				}
 
 				if req.Body != nil {
