@@ -59,9 +59,14 @@ func TestVerifyAPREQ(t *testing.T) {
 	h, _ := types.GetHostAddress("127.0.0.1:1234")
 	s := NewSettings(kt, ClientAddress(h))
 
-	ok, _, err := VerifyAPREQ(&APReq, s)
+	ok, creds, err := VerifyAPREQ(&APReq, s)
 	assert.True(t, ok)
 	assert.NoError(t, err)
+
+	// The authenticated identity must be the one sealed into the ticket by the KDC.
+	require.NotNil(t, creds)
+	assert.Equal(t, "TEST.GOKRB5", creds.Domain())
+	assert.Equal(t, cl.Credentials.CName(), creds.CName())
 }
 
 func TestVerifyAPREQWithPrincipalOverride(t *testing.T) {
@@ -159,6 +164,57 @@ func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH(t *testing.T) {
 	} else {
 		t.Fatalf("Error is not a KRBError: %v", err)
 	}
+}
+
+// TestVerifyAPREQ_KRB_AP_ERR_BADMATCH_CRealm asserts that a client cannot claim an arbitrary realm by placing it in the
+// authenticator, which it seals itself, while presenting a ticket issued to it in its own realm. See RFC 4120 section
+// 3.2.3 and https://github.com/jcmturner/gokrb5/issues/577.
+func TestVerifyAPREQ_KRB_AP_ERR_BADMATCH_CRealm(t *testing.T) {
+	t.Parallel()
+
+	cl := getClient(t)
+	sname := types.PrincipalName{
+		NameType:   nametype.KRB_NT_PRINCIPAL,
+		NameString: []string{"HTTP", "host.test.gokrb5"},
+	}
+	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
+	kt := keytab.New()
+	require.NoError(t, kt.Unmarshal(b))
+
+	st := time.Now().UTC()
+
+	tkt, sessionKey, err := messages.NewTicket(cl.Credentials.CName(), cl.Credentials.Domain(),
+		sname, "TEST.GOKRB5",
+		types.NewKrbFlags(),
+		kt,
+		18,
+		1,
+		st,
+		st,
+		st.Add(time.Duration(24)*time.Hour),
+		st.Add(time.Duration(48)*time.Hour),
+	)
+	require.NoError(t, err)
+
+	a := newTestAuthenticator(t, *cl.Credentials)
+	a.CRealm = "ELEVATED.GOKRB5"
+
+	APReq, err := messages.NewAPReq(
+		tkt,
+		sessionKey,
+		a,
+	)
+	require.NoError(t, err)
+
+	h, _ := types.GetHostAddress("127.0.0.1:1234")
+	s := NewSettings(kt, ClientAddress(h))
+
+	ok, _, err := VerifyAPREQ(&APReq, s)
+	require.EqualError(t, err, "KRB Error: (36) KRB_AP_ERR_BADMATCH Ticket and authenticator don't match - CRealm in Authenticator does not match that in service ticket")
+	require.False(t, ok)
+
+	require.IsType(t, messages.KRBError{}, err)
+	assert.Equal(t, errorcode.KRB_AP_ERR_BADMATCH, err.(messages.KRBError).ErrorCode)
 }
 
 func TestVerifyAPREQ_LargeClockSkew(t *testing.T) {
