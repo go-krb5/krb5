@@ -5,6 +5,7 @@
 * [RFC 3961 Encryption and Checksum Specifications for Kerberos 5](https://tools.ietf.org/html/rfc3961)
 * [RFC 3962 Advanced Encryption Standard (AES) Encryption for Kerberos 5](https://tools.ietf.org/html/rfc3962)
 * [RFC 4121 The Kerberos Version 5 GSS-API Mechanism](https://tools.ietf.org/html/rfc4121)
+  * Note: DCE-style wrap tokens (RFC 4121 Section 4.2.4) rotate ciphertext by RRC bytes.
 * [RFC 4178 The Simple and Protected Generic Security Service Application Program Interface (GSS-API) Negotiation Mechanism](https://tools.ietf.org/html/rfc4178.html)
 * [RFC 4422 Simple Authentication and Security Layer (SASL)](https://tools.ietf.org/html/rfc4422)
 * [RFC 4513 Lightweight Directory Access Protocol (LDAP): Authentication Methods and Security Mechanisms](https://tools.ietf.org/html/rfc4513)

@@ -134,9 +134,14 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 		KeyValue: make([]byte, 32),
 	}
 
-	mt, err := NewKRB5TokenAPREQ(&cl, tkt, key, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{})
+	result, err := NewKRB5TokenAPREQ(&cl, tkt, key, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{})
 	require.NoError(t, err)
 
+	// Verify that we got a valid sequence number (30-bit masked).
+	assert.GreaterOrEqual(t, result.SeqNum, int64(0))
+	assert.LessOrEqual(t, result.SeqNum, int64(0x3fffffff))
+
+	mt := result.Token
 	mb, err := mt.Marshal()
 	require.NoError(t, err)
 
