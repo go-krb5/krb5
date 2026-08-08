@@ -18,10 +18,11 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/go-krb5/x/identity"
 	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/go-krb5/x/identity"
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"

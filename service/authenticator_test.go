@@ -3,8 +3,9 @@ package service
 import (
 	"testing"
 
-	"github.com/go-krb5/x/identity"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/go-krb5/x/identity"
 )
 
 func TestImplementsInterface(t *testing.T) {
