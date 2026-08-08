@@ -15,6 +15,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/go-krb5/x/identity"
@@ -316,6 +317,86 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
+}
+
+func TestSPNEGOHTTPClient_RedirectLimit(t *testing.T) {
+	testCases := []struct {
+		name     string
+		settings []func(*Client)
+		expected int
+	}{
+		{
+			name:     "ShouldDefaultToTenRedirects",
+			expected: 10,
+		},
+		{
+			name:     "ShouldUseConfiguredLimitAboveTheDefault",
+			settings: []func(*Client){MaxRedirects(20)},
+			expected: 20,
+		},
+		{
+			name:     "ShouldUseConfiguredLimitBelowTheDefault",
+			settings: []func(*Client){MaxRedirects(2)},
+			expected: 2,
+		},
+		{
+			name:     "ShouldDefaultWhenLimitIsZero",
+			settings: []func(*Client){MaxRedirects(0)},
+			expected: 10,
+		},
+		{
+			name:     "ShouldDefaultWhenLimitIsNegative",
+			settings: []func(*Client){MaxRedirects(-1)},
+			expected: 10,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int64
+
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				http.Redirect(w, r, "/redirected", http.StatusFound)
+			}))
+			defer s.Close()
+
+			spnegoCl := NewClient(nil, nil, "", tc.settings...)
+
+			resp, err := spnegoCl.Get(s.URL)
+			if resp != nil {
+				resp.Body.Close()
+			}
+
+			assert.EqualError(t, err, fmt.Sprintf("stopped after %d redirects", tc.expected))
+			assert.Equal(t, int64(tc.expected), requests.Load())
+		})
+	}
+}
+
+func TestSPNEGOHTTPClient_ShouldFollowMoreRedirectsThanTheDefaultWhenConfigured(t *testing.T) {
+	var requests atomic.Int64
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) <= 15 {
+			http.Redirect(w, r, "/redirected", http.StatusFound)
+
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer s.Close()
+
+	spnegoCl := NewClient(nil, nil, "", MaxRedirects(20))
+
+	resp, err := spnegoCl.Get(s.URL)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, int64(16), requests.Load())
 }
 
 func httpGet(t *testing.T, r *http.Request, wg *sync.WaitGroup) {
