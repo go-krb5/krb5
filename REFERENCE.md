@@ -1,6 +1,7 @@
 # References
 
 * [RFC 3244 Microsoft Windows 2000 Kerberos Change Password and Set Password Protocols](https://tools.ietf.org/html/rfc3244)
+* [draft-ietf-cat-kerb-chg-password-02 Kerberos Change Password Protocol](https://datatracker.ietf.org/doc/html/draft-ietf-cat-kerb-chg-password-02)
 * [RFC 4120 The Kerberos Network Authentication Service (V5)](https://tools.ietf.org/html/rfc4120)
 * [RFC 3961 Encryption and Checksum Specifications for Kerberos 5](https://tools.ietf.org/html/rfc3961)
 * [RFC 3962 Advanced Encryption Standard (AES) Encryption for Kerberos 5](https://tools.ietf.org/html/rfc3962)

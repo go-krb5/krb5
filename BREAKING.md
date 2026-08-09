@@ -58,3 +58,17 @@ change will be elaborated on in time):
   | `crypto.ChecksumETypeIDs`                | List the registered checksum type IDs in ascending order.   |
   | `crypto.RegisterDeprecatedRC4HMAC`       | Opt back in to `rc4-hmac` and `kerb-checksum-hmac-md5`.     |
   | `crypto.RegisterDeprecatedDes3CbcSha1Kd` | Opt back in to `des3-cbc-sha1-kd` and `hmac-sha1-des3-kd`.  |
+- `client.Client.ChangePasswd` and `kadmin.ChangePasswdMsg` now emit the original Kerberos change password protocol,
+  protocol version `0x0001`, whose KRB_PRIV user data is the new password in the clear. They previously emitted the
+  RFC 3244 set password protocol, protocol version `0xff80`, with the requestor's own principal name and realm in the
+  `targname` and `targrealm` fields of the `ChangePasswdData`. Setting a password is an administrative operation, so on
+  Active Directory the old message was rejected with `KRB5_KPASSWD_ACCESSDENIED` unless the requestor held the Reset
+  Password extended right, which meant a principal could not change its own password. Their signatures are unchanged.
+  This closes [jcmturner/gokrb5#387](https://github.com/jcmturner/gokrb5/issues/387) and
+  [go-krb5/krb5#69](https://github.com/go-krb5/krb5/issues/69).
+- Setting another principal's password is still available, now as an explicit operation rather than as the only thing
+  `ChangePasswd` could do: `client.Client.SetPasswd` and `kadmin.SetPasswdMsg` send the RFC 3244 set password message
+  naming a target principal. `kadmin.Request` has gained a `Version` field, set by `kadmin.ChangePasswdMsg` and
+  `kadmin.SetPasswdMsg`, which selects which of the two protocols `kadmin.Request.Marshal` writes. A `kadmin.Request`
+  constructed directly must set it to `kadmin.VersionChangePassword` or `kadmin.VersionSetPassword`; `Marshal` returns
+  an error for any other value rather than writing a version number the KDC will reject.

@@ -11,8 +11,24 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
-// Request message for changing password.
+// Protocol version numbers for the kpasswd request message.
+const (
+	// VersionChangePassword is the protocol version number of the original Kerberos change password protocol. The
+	// KRB_PRIV user data of such a request is the new password in the clear and the KDC changes the password of the
+	// principal that the AP_REQ ticket was issued to.
+	VersionChangePassword uint16 = 0x0001
+
+	// VersionSetPassword is the protocol version number of the set password protocol defined by RFC 3244. The
+	// KRB_PRIV user data of such a request is a marshaled ChangePasswdData and the KDC sets the password of the
+	// principal named by its targname, which requires the requestor to be authorized to administer that principal.
+	VersionSetPassword uint16 = 0xff80
+)
+
+// Request message for changing or setting a password.
 type Request struct {
+	// Version is the protocol version number of the request, which selects the operation the KDC performs. It must
+	// be VersionChangePassword or VersionSetPassword.
+	Version uint16
 	APREQ   messages.APReq
 	KRBPriv messages.KRBPriv
 }
@@ -32,7 +48,12 @@ type Reply struct {
 
 // Marshal a Request into a byte slice.
 func (m *Request) Marshal() (b []byte, err error) {
-	b = []byte{255, 128}
+	if m.Version != VersionChangePassword && m.Version != VersionSetPassword {
+		return nil, fmt.Errorf("invalid kadmin request protocol version number: %#04x", m.Version)
+	}
+
+	b = make([]byte, 2)
+	binary.BigEndian.PutUint16(b, m.Version)
 
 	ab, e := m.APREQ.Marshal()
 	if e != nil {
