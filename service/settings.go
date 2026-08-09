@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/types"
 )
@@ -20,6 +21,7 @@ type Settings struct {
 	maxClockSkew       time.Duration
 	logger             *log.Logger
 	sessionMgr         SessionMgr
+	channelBinding     *gssapi.ChannelBinding
 }
 
 // NewSettings creates a new service Settings.
@@ -152,6 +154,30 @@ func SessionManager(sm SessionMgr) func(*Settings) {
 // SessionManager returns any configured session manager.
 func (s *Settings) SessionManager() SessionMgr {
 	return s.sessionMgr
+}
+
+// RequireChannelBinding used to configure the service to require the GSS-API channel binding provided. The binding
+// is compared against the Bnd field of the AP_REQ authenticator checksum described by RFC 4121 Section 4.1.1.
+//
+// When configured, a request that carries no channel binding is rejected: requiring a binding means requiring it.
+// When left unset no verification is performed, which is the default.
+//
+// Passing a nil binding disables verification exactly as if this option were never supplied: there is no error and
+// no log line, the service simply accepts requests without checking a binding. The gssapi.NewChannelBinding*
+// constructors return a nil binding alongside a non-nil error in some cases (for example, no mTLS on the
+// connection, or a certificate whose signature algorithm such as Ed25519 has no single hash to bind to), so callers
+// must check that error rather than discarding it before passing the result here.
+//
+// s := NewSettings(kt, RequireChannelBinding(cb)).
+func RequireChannelBinding(cb *gssapi.ChannelBinding) func(*Settings) {
+	return func(s *Settings) {
+		s.channelBinding = cb
+	}
+}
+
+// RequireChannelBinding returns the channel binding the service requires, or nil if it does not require one.
+func (s *Settings) RequireChannelBinding() *gssapi.ChannelBinding {
+	return s.channelBinding
 }
 
 // SessionMgr must provide a ways to:

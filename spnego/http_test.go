@@ -15,15 +15,18 @@ import (
 	"net/http/httptest"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 
-	"github.com/go-krb5/x/identity"
 	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/x/identity"
+
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/service"
 	"github.com/go-krb5/krb5/test"
@@ -318,6 +321,86 @@ func TestService_SPNEGOKRB_Upload(t *testing.T) {
 	assert.Equal(t, http.StatusOK, httpResp.StatusCode)
 }
 
+func TestSPNEGOHTTPClient_RedirectLimit(t *testing.T) {
+	testCases := []struct {
+		name     string
+		settings []func(*Client)
+		expected int
+	}{
+		{
+			name:     "ShouldDefaultToTenRedirects",
+			expected: 10,
+		},
+		{
+			name:     "ShouldUseConfiguredLimitAboveTheDefault",
+			settings: []func(*Client){MaxRedirects(20)},
+			expected: 20,
+		},
+		{
+			name:     "ShouldUseConfiguredLimitBelowTheDefault",
+			settings: []func(*Client){MaxRedirects(2)},
+			expected: 2,
+		},
+		{
+			name:     "ShouldDefaultWhenLimitIsZero",
+			settings: []func(*Client){MaxRedirects(0)},
+			expected: 10,
+		},
+		{
+			name:     "ShouldDefaultWhenLimitIsNegative",
+			settings: []func(*Client){MaxRedirects(-1)},
+			expected: 10,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int64
+
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				http.Redirect(w, r, "/redirected", http.StatusFound)
+			}))
+			defer s.Close()
+
+			spnegoCl := NewClient(nil, nil, "", tc.settings...)
+
+			resp, err := spnegoCl.Get(s.URL)
+			if resp != nil {
+				resp.Body.Close()
+			}
+
+			assert.EqualError(t, err, fmt.Sprintf("stopped after %d redirects", tc.expected))
+			assert.Equal(t, int64(tc.expected), requests.Load())
+		})
+	}
+}
+
+func TestSPNEGOHTTPClient_ShouldFollowMoreRedirectsThanTheDefaultWhenConfigured(t *testing.T) {
+	var requests atomic.Int64
+
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) <= 15 {
+			http.Redirect(w, r, "/redirected", http.StatusFound)
+
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer s.Close()
+
+	spnegoCl := NewClient(nil, nil, "", MaxRedirects(20))
+
+	resp, err := spnegoCl.Get(s.URL)
+	require.NoError(t, err)
+
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, int64(16), requests.Load())
+}
+
 func httpGet(t *testing.T, r *http.Request, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -446,4 +529,81 @@ func (smgr SessionMgr) New(w http.ResponseWriter, r *http.Request, k any, v []by
 	s.Values[k] = v
 
 	return s.Save(r, w)
+}
+
+func TestClientShouldDeriveChannelBindingFromResponseTLS(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.Client().Get(srv.URL)
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = resp.Body.Close() })
+	require.NotNil(t, resp.TLS)
+
+	c := NewClient(nil, srv.Client(), "HTTP/localhost", ChannelBindingTLSServerEndPoint())
+
+	opts := c.requestTokenOptions(resp)
+	require.Len(t, opts, 1)
+
+	expected, err := gssapi.NewChannelBindingTLSServerEndPoint(resp.TLS.PeerCertificates[0])
+	require.NoError(t, err)
+
+	assert.Equal(t, expected.ApplicationData, newKRB5TokenOptions(opts...).channelBinding.ApplicationData)
+}
+
+// TestClientShouldNotDeriveChannelBindingWithoutTLS asserts a plaintext request proceeds unbound rather than
+// failing, because there is no channel to bind to.
+func TestClientShouldNotDeriveChannelBindingWithoutTLS(t *testing.T) {
+	t.Parallel()
+
+	c := NewClient(nil, nil, "HTTP/localhost", ChannelBindingTLSServerEndPoint())
+
+	assert.Empty(t, c.requestTokenOptions(&http.Response{}))
+}
+
+func TestClientShouldNotDeriveChannelBindingWhenNotConfigured(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.Client().Get(srv.URL)
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	c := NewClient(nil, srv.Client(), "HTTP/localhost")
+
+	assert.Empty(t, c.requestTokenOptions(resp))
+}
+
+// TestClientExplicitChannelBindingShouldWinOverAutoDerivation asserts the precedence rule from the spec.
+func TestClientExplicitChannelBindingShouldWinOverAutoDerivation(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.Client().Get(srv.URL)
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	explicit := &gssapi.ChannelBinding{ApplicationData: []byte("tls-exporter:explicit")}
+
+	c := NewClient(nil, srv.Client(), "HTTP/localhost",
+		ChannelBindingTLSServerEndPoint(),
+		TokenOptions(ChannelBinding(explicit)),
+	)
+
+	assert.Same(t, explicit, newKRB5TokenOptions(c.requestTokenOptions(resp)...).channelBinding)
 }

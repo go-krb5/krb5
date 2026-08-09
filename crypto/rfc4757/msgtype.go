@@ -17,7 +17,7 @@ func UsageToMSMsgType(usage uint32) []byte {
 	// Now convert to bytes.
 	tb := make([]byte, 4)
 
-	binary.PutUvarint(tb, uint64(usage))
+	binary.LittleEndian.PutUint32(tb, usage)
 
 	return tb
 }
