@@ -22,6 +22,16 @@ const (
 	FillerByte byte = 0xFF
 )
 
+// Wrap token attribute flags as defined in RFC 4121 section 4.2.2.
+const (
+	// FlagSentByAcceptor is set when the token was emitted by the context acceptor.
+	FlagSentByAcceptor byte = 0x01
+	// FlagSealed is set when the token's payload is encrypted rather than only integrity protected.
+	FlagSealed byte = 0x02
+	// FlagAcceptorSubkey is set when the acceptor asserted a subkey which is the key protecting the token.
+	FlagAcceptorSubkey byte = 0x04
+)
+
 // WrapToken represents a GSS API Wrap token, as defined in RFC 4121.
 // It contains the header fields, the payload and the checksum, and provides
 // the logic for converting to/from bytes plus computing and verifying checksums.
@@ -112,7 +122,7 @@ func (wt *WrapToken) computeCheckSum(key types.EncryptionKey, keyUsage uint32) (
 	copy(checksumMe[0:], wt.Payload)
 	copy(checksumMe[len(wt.Payload):], getChecksumHeader(wt.Flags, wt.SndSeqNum))
 
-	encType, err := crypto.GetEtype(key.KeyType)
+	encType, err := crypto.GetEType(key.KeyType)
 	if err != nil {
 		return nil, err
 	}
@@ -120,13 +130,23 @@ func (wt *WrapToken) computeCheckSum(key types.EncryptionKey, keyUsage uint32) (
 	return encType.GetChecksumHash(key.KeyValue, checksumMe, keyUsage)
 }
 
-// Build a header suitable for a checksum computation.
-func getChecksumHeader(flags byte, senderSeqNum uint64) []byte {
-	header := make([]byte, 16)
-	copy(header[0:], []byte{0x05, 0x04, flags, 0xFF, 0x00, 0x00, 0x00, 0x00})
-	binary.BigEndian.PutUint64(header[8:], senderSeqNum)
+// Build the 16 byte Wrap Token header described in RFC 4121 section 4.2.6.2.
+func wrapTokenHeader(flags byte, ec, rrc uint16, senderSeqNum uint64) []byte {
+	header := make([]byte, HdrLen)
+	copy(header[0:], getGssWrapTokenId()[:])
+	header[2] = flags
+	header[3] = FillerByte
+	binary.BigEndian.PutUint16(header[4:6], ec)
+	binary.BigEndian.PutUint16(header[6:8], rrc)
+	binary.BigEndian.PutUint64(header[8:16], senderSeqNum)
 
 	return header
+}
+
+// Build a header suitable for a checksum computation.
+// RFC 4121 section 4.2.4 requires both the EC and the RRC field to be zeroed for this purpose.
+func getChecksumHeader(flags byte, senderSeqNum uint64) []byte {
+	return wrapTokenHeader(flags, 0, 0, senderSeqNum)
 }
 
 // Verify computes the token's checksum with the provided key and usage,
@@ -198,7 +218,7 @@ func (wt *WrapToken) Unmarshal(b []byte, expectFromAcceptor bool) error {
 // Note that in certain circumstances you may need to provide a sequence number that has been defined earlier.
 // This is currently not supported.
 func NewInitiatorWrapToken(payload []byte, key types.EncryptionKey) (*WrapToken, error) {
-	encType, err := crypto.GetEtype(key.KeyType)
+	encType, err := crypto.GetEType(key.KeyType)
 	if err != nil {
 		return nil, err
 	}

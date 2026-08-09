@@ -3,8 +3,9 @@ package gssapi
 import (
 	"testing"
 
-	"github.com/go-krb5/x/encoding/asn1"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/go-krb5/x/encoding/asn1"
 )
 
 func TestOID(t *testing.T) {

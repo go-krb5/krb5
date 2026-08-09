@@ -257,7 +257,7 @@ func (k *TGSReq) setPAData(paRealm string, tgt Ticket, sessionKey types.Encrypti
 		return krberror.Errorf(err, krberror.EncodingError, "error marshaling TGS_REQ body")
 	}
 
-	etype, err := crypto.GetEtype(sessionKey.KeyType)
+	etype, err := crypto.GetEType(sessionKey.KeyType)
 	if err != nil {
 		return krberror.Errorf(err, krberror.EncryptingError, "error getting etype to encrypt authenticator")
 	}

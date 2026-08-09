@@ -66,3 +66,51 @@ func TestUnmarshalEncAPRepPart_optionalsNULL(t *testing.T) {
 	assert.Equal(t, tt, a.CTime)
 	assert.Equal(t, 123456, a.Cusec)
 }
+
+func TestMarshalAPRep(t *testing.T) {
+	t.Parallel()
+
+	var a APRep
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ap_rep)
+	require.NoError(t, err)
+
+	require.NoError(t, a.Unmarshal(b))
+
+	b2, err := a.Marshal()
+	require.NoError(t, err)
+
+	assert.Equal(t, b, b2)
+}
+
+func TestMarshalEncAPRepPart(t *testing.T) {
+	t.Parallel()
+
+	var a EncAPRepPart
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ap_rep_enc_part)
+	require.NoError(t, err)
+
+	require.NoError(t, a.Unmarshal(b))
+
+	b2, err := a.Marshal()
+	require.NoError(t, err)
+
+	assert.Equal(t, b, b2)
+}
+
+func TestMarshalEncAPRepPart_optionalsNULL(t *testing.T) {
+	t.Parallel()
+
+	var a EncAPRepPart
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ap_rep_enc_partOptionalsNULL)
+	require.NoError(t, err)
+
+	require.NoError(t, a.Unmarshal(b))
+
+	b2, err := a.Marshal()
+	require.NoError(t, err)
+
+	assert.Equal(t, b, b2)
+}

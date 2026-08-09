@@ -37,6 +37,7 @@ this is his org, and we're just the current stewards.
   * Parsing Keytab files
   * Parsing krb5.conf files
   * Parsing client credentials cache files such as `/tmp/krb5cc_$(id -u $(whoami))`
+  * SASL security layers (integrity and confidentiality) for the GSSAPI mechanism
 
 ## Support
 
@@ -97,7 +98,6 @@ The following section contains some implementation specific information.
 |         des-cbc-md5          | No (deprecated, insecure)  |       3       |      8      | [RFC3961], [RFC6649] |
 |         des3-cbc-md5         | No (deprecated, insecure)  |       5       |      8      | [RFC3961], [RFC8429] |
 |        des3-cbc-sha1         | No (deprecated, insecure)  |       7       |     13      | [RFC3961], [RFC8429] |
-|        des3-cbc-sha1         |             No             |       8       |     13      |      [RFC3961]       |
 |      dsaWithSHA1-CmsOID      |             No             |       9       |     10      |      [RFC3961]       |
 | md5WithRSAEncryption-CmsOID  |             No             |      10       |      7      |      [RFC3961]       |
 | sha1WithRSAEncryption-CmsOID |             No             |      11       |     14      |      [RFC3961]       |

@@ -106,7 +106,7 @@ func setPAData(cl *Client, krberr *messages.KRBError, req *messages.ASReq) error
 				etn = int32(cl.Config.LibDefaults.PreferredPreauthTypes[0])
 			}
 
-			et, err = crypto.GetEtype(etn)
+			et, err = crypto.GetEType(etn)
 			if err != nil {
 				return krberror.Errorf(err, krberror.EncryptingError, "error getting etype for pre-auth encryption")
 			}
@@ -200,7 +200,7 @@ Loop:
 		}
 	}
 
-	etype, e = crypto.GetEtype(etypeID)
+	etype, e = crypto.GetEType(etypeID)
 	if e != nil {
 		err = krberror.Errorf(e, krberror.EncryptingError, "error creating etype")
 		return
