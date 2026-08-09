@@ -123,6 +123,7 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 			// A ccache records no PA-SUPPORTED-ENCTYPES, so the application server's advertised encryption
 			// types are unknown for tickets loaded from one.
 			0,
+			cred.TicketFlags,
 		)
 	}
 

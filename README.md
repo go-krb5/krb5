@@ -128,6 +128,13 @@ The following section contains some implementation specific information.
 RFC 4121 Section 4.1.1 lets a client forward a ticket-granting ticket to the service it authenticates to, so the
 service can act as the client against a third party. This library implements both halves.
 
+`gssapi.ContextFlagDeleg` forwards unconditionally. `gssapi.ContextFlagDelegPolicy` forwards only where the KDC
+said the service may receive it, by setting `OK-AS-DELEGATE` on the service ticket; where the two disagree the
+policy flag wins, and a service ticket that is not in the client's cache is treated as not permitted. Prefer the
+policy flag against Active Directory, where `OK-AS-DELEGATE` reflects whether the account is trusted for
+delegation. Note that neither flag reports back whether forwarding actually happened, since this library has no
+`ret_flags` equivalent.
+
 As an initiator, request it with `gssapi.ContextFlagDeleg` or, for the SPNEGO client, the `spnego.Delegation()`
 option:
 

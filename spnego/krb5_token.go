@@ -255,7 +255,7 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 
 	opt := newKRB5TokenOptions(opts...)
 
-	if opt.delegation && !delegationRequested(flagsGSSAPI) {
+	if opt.delegation && !delegationFlagged(flagsGSSAPI) {
 		// Copied rather than appended in place: flagsGSSAPI belongs to the caller and may have spare capacity.
 		flagsGSSAPI = append(append([]int(nil), flagsGSSAPI...), gssapi.ContextFlagDeleg)
 	}
@@ -320,7 +320,7 @@ func krb5TokenAuthenticator(cl *client.Client, tkt messages.Ticket, sessionKey t
 
 	var deleg []byte
 
-	if delegationRequested(flags) {
+	if delegationRequested(cl, tkt, flags) {
 		if deleg, err = delegatedCredential(cl, tkt, sessionKey); err != nil {
 			return auth, err
 		}
@@ -336,19 +336,58 @@ func krb5TokenAuthenticator(cl *client.Client, tkt messages.Ticket, sessionKey t
 		Checksum:  chksum,
 	}
 
+	// MS-KILE Section 3.2.5.2 has a client that supplies channel bindings also advertise KERB_AP_OPTIONS_CBT in
+	// the authenticator's authorization data, which is how a Windows acceptor with ApplicationRequiresCBT tells a
+	// binding-capable client from one predating the feature. The Bnd field alone does not carry that: an unbound
+	// request and a request from a client that cannot bind at all look identical there.
+	if cb != nil {
+		if auth.AuthorizationData, err = types.ADAPOptions(types.ADAPOptionsCBT).AuthorizationData(); err != nil {
+			return auth, krberror.Errorf(err, krberror.EncodingError, "error generating authenticator authorization data")
+		}
+	}
+
 	return auth, nil
 }
 
 // delegationRequested reports whether any of the flags carries GSS_C_DELEG_FLAG. The bit is tested rather than the
 // value because callers may combine flags into a single slice element.
-func delegationRequested(flags []int) bool {
+func delegationRequested(cl *client.Client, tkt messages.Ticket, flags []int) bool {
+	deleg, policy := delegationFlags(flags)
+
+	// ContextFlagDelegPolicy asks that the KDC's opinion be honoured, so wherever it appears the ticket decides.
+	// MIT differs here: because its flag mask sets GSS_C_DELEG_FLAG unconditionally, a caller passing both flags
+	// delegates whether or not the ticket permits it, and only its enforce_ok_as_delegate configuration, which
+	// replaces one flag with the other, produces the gate. A caller that names the policy flag at all has asked
+	// for the gate, so honouring it is the reading that cannot surprise anyone into over-delegating.
+	if policy {
+		return cl.OKAsDelegate(tkt.SName)
+	}
+
+	return deleg
+}
+
+// delegationFlagged reports whether any delegation is being asked for, ignoring whether policy would permit it.
+// It exists to keep the option plumbing from adding a flag the caller already supplied.
+func delegationFlagged(flags []int) bool {
+	deleg, policy := delegationFlags(flags)
+
+	return deleg || policy
+}
+
+// delegationFlags reports which delegation flags appear. The bits are tested rather than the values, because
+// callers may combine flags into a single slice element.
+func delegationFlags(flags []int) (deleg, policy bool) {
 	for _, i := range flags {
 		if i&gssapi.ContextFlagDeleg != 0 {
-			return true
+			deleg = true
+		}
+
+		if i&gssapi.ContextFlagDelegPolicy != 0 {
+			policy = true
 		}
 	}
 
-	return false
+	return deleg, policy
 }
 
 // delegatedCredential obtains a forwarded TGT and marshals it as the KRB_CRED that RFC 4121 Section 4.1.1 carries

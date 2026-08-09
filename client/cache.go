@@ -7,8 +7,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/types"
+	"github.com/go-krb5/x/encoding/asn1"
 )
 
 // Cache for service tickets held by the client.
@@ -35,6 +37,11 @@ type CacheEntry struct {
 	// Excluded from the JSON rendering, like Ticket and SessionKey, so that Client.Diagnostics keeps the output
 	// it had before delegation existed.
 	SupportedETypes types.SupportedETypes `json:"-"`
+
+	// TicketFlags are the flags the KDC reported for this ticket in the TGS-REP. The client cannot read them from
+	// the ticket itself, which is encrypted to the service, so the reply is the only source. Excluded from the
+	// JSON rendering for the same reason as the fields above.
+	TicketFlags asn1.BitString `json:"-"`
 }
 
 // NewCache creates a new client ticket cache instance.
@@ -81,7 +88,7 @@ func (c *Cache) JSON() (string, error) {
 }
 
 // addEntry adds a ticket to the cache.
-func (c *Cache) addEntry(tkt messages.Ticket, authTime, startTime, endTime, renewTill time.Time, sessionKey types.EncryptionKey, supported types.SupportedETypes) CacheEntry {
+func (c *Cache) addEntry(tkt messages.Ticket, authTime, startTime, endTime, renewTill time.Time, sessionKey types.EncryptionKey, supported types.SupportedETypes, ticketFlags asn1.BitString) CacheEntry {
 	spn := tkt.SName.PrincipalNameString()
 
 	c.mux.Lock()
@@ -97,6 +104,7 @@ func (c *Cache) addEntry(tkt messages.Ticket, authTime, startTime, endTime, rene
 		SessionKey: sessionKey,
 
 		SupportedETypes: supported,
+		TicketFlags:     ticketFlags,
 	}
 
 	return c.Entries[spn]
@@ -164,4 +172,19 @@ func (cl *Client) renewTicket(e CacheEntry) (CacheEntry, error) {
 	cl.Log("ticket renewed for %s (EndTime: %v)", spn.PrincipalNameString(), e.EndTime)
 
 	return e, nil
+}
+
+// OKAsDelegate reports whether the cached service ticket for the principal given was issued with the
+// OK-AS-DELEGATE flag, which RFC 4120 Section 2.8 defines and MS-KILE Section 3.3.1.1 has the KDC set when the
+// service account is trusted for delegation.
+//
+// A ticket that is not cached reports false. The flag gates handing a service the client's whole identity, so an
+// unknown answer is treated as a refusal rather than as permission.
+func (cl *Client) OKAsDelegate(spn types.PrincipalName) bool {
+	e, ok := cl.cache.getEntry(spn.PrincipalNameString())
+	if !ok {
+		return false
+	}
+
+	return types.IsFlagSet(&e.TicketFlags, flags.OKAsDelegate)
 }

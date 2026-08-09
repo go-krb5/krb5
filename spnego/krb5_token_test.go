@@ -492,7 +492,7 @@ func TestNewNegTokenInitKRB5ShouldReturnAMatchableErrNotForwardable(t *testing.T
 // element, which is what the flags are: a bitmask. delegationRequested is the only thing deciding whether a KDC
 // round trip happens, so a value comparison here would silently skip the forwarding exchange for a caller passing
 // ContextFlagDeleg|ContextFlagInteg and produce the non-delegating token that this branch exists to prevent.
-func TestDelegationRequestedShouldTestTheBit(t *testing.T) {
+func TestDelegationFlaggedShouldTestTheBit(t *testing.T) {
 	t.Parallel()
 
 	testCases := []struct {
@@ -506,13 +506,15 @@ func TestDelegationRequestedShouldTestTheBit(t *testing.T) {
 		{"ShouldNotDetectOtherFlagsCombined", []int{gssapi.ContextFlagInteg | gssapi.ContextFlagConf}, false},
 		{"ShouldNotDetectOtherFlags", []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, false},
 		{"ShouldNotDetectAnythingInNoFlags", nil, false},
+		{"ShouldDetectThePolicyFlagOnItsOwn", []int{gssapi.ContextFlagDelegPolicy}, true},
+		{"ShouldDetectThePolicyFlagCombinedIntoOneElement", []int{gssapi.ContextFlagDelegPolicy | gssapi.ContextFlagInteg}, true},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, tc.expected, delegationRequested(tc.flags))
+			assert.Equal(t, tc.expected, delegationFlagged(tc.flags))
 		})
 	}
 }
@@ -643,4 +645,28 @@ func TestKRB5TokenVerifyShouldReportChannelBindingFailuresAsBadBindings(t *testi
 		assert.Equal(t, gssapi.StatusDefectiveToken, status.Code)
 		assert.NotEqual(t, gssapi.StatusBadBindings, status.Code)
 	})
+}
+
+// TestKrb5TokenAuthenticatorShouldAdvertiseCBTWhenBound asserts MS-KILE Section 3.2.5.2: a client supplying
+// channel bindings also sends AD-AUTH-DATA-AP-OPTIONS with KERB_AP_OPTIONS_CBT in the first AD-IF-RELEVANT
+// element. That advertisement, not the Bnd field, is what a Windows acceptor with ApplicationRequiresCBT uses to
+// tell a binding-capable client from one predating the feature.
+func TestKrb5TokenAuthenticatorShouldAdvertiseCBTWhenBound(t *testing.T) {
+	t.Parallel()
+
+	cl := getClient(t)
+	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
+
+	bound, err := krb5TokenAuthenticator(cl, messages.Ticket{}, types.EncryptionKey{},
+		[]int{gssapi.ContextFlagInteg}, cb)
+	require.NoError(t, err)
+
+	assert.True(t, types.ADAPOptionsFromAuthorizationData(bound.AuthorizationData).Has(types.ADAPOptionsCBT))
+
+	// Without a binding there is nothing to advertise, and the authenticator must be what it was before.
+	unbound, err := krb5TokenAuthenticator(cl, messages.Ticket{}, types.EncryptionKey{},
+		[]int{gssapi.ContextFlagInteg}, nil)
+	require.NoError(t, err)
+
+	assert.Empty(t, unbound.AuthorizationData)
 }
