@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,6 +22,15 @@ import (
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/types"
 )
+
+// TestMain registers the RFC 8429 deprecated encryption types, which crypto does not register by default. The security
+// layer tests exercise them deliberately because the library still implements them and callers may opt back in.
+func TestMain(m *testing.M) {
+	crypto.RegisterDeprecatedDes3CbcSha1Kd()
+	crypto.RegisterDeprecatedRC4HMAC()
+
+	os.Exit(m.Run())
+}
 
 // securityLayerEtypes are the encryption types a security layer session is exercised against. They cover the
 // ciphertext stealing types, the stream cipher and the one type whose message block size makes filler necessary.
@@ -38,7 +48,7 @@ var securityLayerEtypes = []int32{
 func testSecurityLayerKey(t *testing.T, id int32) types.EncryptionKey {
 	t.Helper()
 
-	et, err := crypto.GetEtype(id)
+	et, err := crypto.GetEType(id)
 	require.NoError(t, err)
 
 	kv := make([]byte, et.GetKeyByteSize())

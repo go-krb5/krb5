@@ -30,7 +30,7 @@ func ChangePasswdMsg(cname types.PrincipalName, realm, password string, tkt mess
 		return
 	}
 
-	etype, err := crypto.GetEtype(sessionKey.KeyType)
+	etype, err := crypto.GetEType(sessionKey.KeyType)
 	if err != nil {
 		err = krberror.Errorf(err, krberror.KRBMsgError, "error generating subkey etype")
 		return

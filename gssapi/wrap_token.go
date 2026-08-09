@@ -122,7 +122,7 @@ func (wt *WrapToken) computeCheckSum(key types.EncryptionKey, keyUsage uint32) (
 	copy(checksumMe[0:], wt.Payload)
 	copy(checksumMe[len(wt.Payload):], getChecksumHeader(wt.Flags, wt.SndSeqNum))
 
-	encType, err := crypto.GetEtype(key.KeyType)
+	encType, err := crypto.GetEType(key.KeyType)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func (wt *WrapToken) Unmarshal(b []byte, expectFromAcceptor bool) error {
 // Note that in certain circumstances you may need to provide a sequence number that has been defined earlier.
 // This is currently not supported.
 func NewInitiatorWrapToken(payload []byte, key types.EncryptionKey) (*WrapToken, error) {
-	encType, err := crypto.GetEtype(key.KeyType)
+	encType, err := crypto.GetEType(key.KeyType)
 	if err != nil {
 		return nil, err
 	}

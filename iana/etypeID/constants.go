@@ -76,9 +76,13 @@ var ETypesByName = map[string]int32{
 	"subkey-keymaterial":           SUBKEY_KEYMATERIAL,
 }
 
-// EtypeSupported resolves the etype name string to the etype ID.
+// ETypeSupported resolves the etype name string to the etype ID.
 // If zero is returned the etype is not supported by krb5.
-func EtypeSupported(etype string) int32 {
+//
+// Deprecated: this reports the fixed set of encryption types the library implements, which is not the same as the set
+// it will use. Which encryption types are usable is decided by the crypto package registry and is configurable at
+// runtime, so resolve the name with ETypesByName and then check crypto.GetEType instead.
+func ETypeSupported(etype string) int32 {
 	// Slice of supported enctype IDs.
 	s := []int32{
 		AES128_CTS_HMAC_SHA1_96,

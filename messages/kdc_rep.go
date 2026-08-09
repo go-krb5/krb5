@@ -329,7 +329,7 @@ func (k *ASRep) Verify(cfg *config.Config, creds *credentials.Credentials, asReq
 					return false, krberror.Errorf(err, krberror.EncodingError, "KDC FAST negotiation response error, could not unmarshal PA_REQ_ENC_PA_REP")
 				}
 
-				etype, err := crypto.GetChksumEtype(pafast.ChksumType)
+				etype, err := crypto.GetChecksumEType(pafast.ChksumType)
 				if err != nil {
 					return false, krberror.Errorf(err, krberror.ChksumError, "KDC FAST negotiation response error")
 				}

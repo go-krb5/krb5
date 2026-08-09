@@ -104,7 +104,7 @@ func (mt *MICToken) checksum(key types.EncryptionKey, keyUsage uint32) (sum []by
 	copy(d[0:], mt.Payload)
 	copy(d[len(mt.Payload):], mt.getMICChecksumHeader())
 
-	encType, err := crypto.GetEtype(key.KeyType)
+	encType, err := crypto.GetEType(key.KeyType)
 	if err != nil {
 		return nil, err
 	}

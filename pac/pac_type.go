@@ -274,7 +274,7 @@ func (pac *PACType) verify(key types.EncryptionKey) (bool, error) {
 		return false, errors.New("PAC Info Buffers does not contain a ClientInfo")
 	}
 
-	etype, err := crypto.GetChksumEtype(int32(pac.ServerChecksum.SignatureType))
+	etype, err := crypto.GetChecksumEType(int32(pac.ServerChecksum.SignatureType))
 	if err != nil {
 		return false, err
 	}

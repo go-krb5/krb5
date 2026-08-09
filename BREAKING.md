@@ -18,3 +18,43 @@ change will be elaborated on in time):
   KDC-sealed encrypted part of the ticket rather than from the client-supplied authenticator. This closes
   [jcmturner/gokrb5#577](https://github.com/jcmturner/gokrb5/issues/577), where a client could authenticate with a
   ticket for its own principal while presenting an arbitrary realm as its identity.
+- Which encryption types the library will use is now decided by a configurable registry in the
+  `github.com/go-krb5/krb5/crypto` package rather than being fixed at compile time, and the encryption types RFC 8429
+  deprecates are no longer registered by default. `des3-cbc-sha1-kd` and `rc4-hmac` (with their `hmac-sha1-des3-kd` and
+  `kerb-checksum-hmac-md5` checksum types) are still implemented but must be opted back in with
+  `crypto.RegisterDeprecatedDes3CbcSha1Kd()` or `crypto.RegisterDeprecatedRC4HMAC()` during application start up. Until
+  they are, `crypto.GetEType` and `crypto.GetChecksumEType` reject them, and `config.LibDefaults.DefaultTktEnctypeIDs`,
+  `DefaultTGSEnctypeIDs` and `PermittedEnctypeIDs` exclude them so they are never advertised to a KDC. Active Directory
+  deployments that have not been migrated off `rc4-hmac` will need the opt in.
+- The encryption type lookup functions have been renamed so that `EType` is spelled consistently across the module, and
+  the abbreviation `Chksum` is spelled out. Callers must be updated; there are no aliases under the old names:
+
+  | Before                        | After                         |
+  |:------------------------------|:------------------------------|
+  | `crypto.GetEtype`             | `crypto.GetEType`             |
+  | `crypto.GetChksumEtype`       | `crypto.GetChecksumEType`     |
+  | `iana/etypeID.EtypeSupported` | `iana/etypeID.ETypeSupported` |
+
+  The signatures are otherwise unchanged, except that `crypto.GetEType` and `crypto.GetChecksumEType` now return the
+  single registered instance of an implementation rather than a fresh copy per call. The implementations this module
+  provides are stateless empty structs so this is not observable for them, but an implementation registered by an
+  application must be stateless and safe for concurrent use. Both functions also now return a pointer to the
+  implementation, so a type assertion against the value type, such as `e.(crypto.Aes256CtsHmacSha96)`, must become
+  `e.(*crypto.Aes256CtsHmacSha96)`.
+- `iana/etypeID.ETypeSupported` is deprecated in addition to being renamed. It reports the fixed set of encryption types
+  the module implements, which is no longer the same as the set it will use. Resolve the name with
+  `etypeID.ETypesByName` and then check `crypto.GetEType` instead.
+- The following functions are new in `github.com/go-krb5/krb5/crypto` and make up the registry. They are listed here
+  only because they are the replacement for behaviour that used to be fixed at compile time; they break nothing on
+  their own:
+
+  | Function                                 | Purpose                                                     |
+  |:-----------------------------------------|:------------------------------------------------------------|
+  | `crypto.AddEType`                        | Register an encryption type implementation against an ID.   |
+  | `crypto.DeleteEType`                     | Unregister an encryption type ID.                           |
+  | `crypto.ETypeIDs`                        | List the registered encryption type IDs in ascending order. |
+  | `crypto.AddChecksumEType`                | Register a checksum type implementation against an ID.      |
+  | `crypto.DeleteChecksumEType`             | Unregister a checksum type ID.                              |
+  | `crypto.ChecksumETypeIDs`                | List the registered checksum type IDs in ascending order.   |
+  | `crypto.RegisterDeprecatedRC4HMAC`       | Opt back in to `rc4-hmac` and `kerb-checksum-hmac-md5`.     |
+  | `crypto.RegisterDeprecatedDes3CbcSha1Kd` | Opt back in to `des3-cbc-sha1-kd` and `hmac-sha1-des3-kd`.  |
