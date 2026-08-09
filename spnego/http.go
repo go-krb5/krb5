@@ -124,6 +124,14 @@ func TokenOptions(opts ...KRB5TokenOption) func(*Client) {
 // Requests that are not over TLS, or whose peer sent no certificate, proceed without a channel binding: there is no
 // channel to bind to. A binding configured explicitly through TokenOptions takes precedence over the derived one.
 //
+// A request that is over TLS but whose certificate yields no binding also proceeds without one, logging the reason
+// through the krb5 client. RFC 5929 Section 4.1 leaves the binding undefined for a certificate whose signature
+// algorithm has no single hash function, Ed25519 being the case in practice. This is a silent downgrade in both
+// directions: against a service that requires a binding the request fails authentication with nothing in the response
+// naming the certificate as the cause, and against a service that does not, the protection this option was enabled
+// for is simply absent. Callers who need the guarantee rather than the attempt should derive the binding themselves
+// with gssapi.NewChannelBindingTLSServerEndPoint, which reports the error, and pass it through TokenOptions.
+//
 // cl := NewClient(krb5Cl, httpCl, spn, ChannelBindingTLSServerEndPoint()).
 func ChannelBindingTLSServerEndPoint() func(*Client) {
 	return func(c *Client) {

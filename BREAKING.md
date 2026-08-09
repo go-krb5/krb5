@@ -72,3 +72,11 @@ change will be elaborated on in time):
   `kadmin.SetPasswdMsg`, which selects which of the two protocols `kadmin.Request.Marshal` writes. A `kadmin.Request`
   constructed directly must set it to `kadmin.VersionChangePassword` or `kadmin.VersionSetPassword`; `Marshal` returns
   an error for any other value rather than writing a version number the KDC will reject.
+- `spnego.NewKRB5TokenAPREQ` now returns an error, `spnego.ErrDelegationUnimplemented`, when `flagsGSSAPI` contains
+  `gssapi.ContextFlagDeleg`, where previously it returned a token. RFC 4121 §4.1.1 requires an initiator that sets the
+  delegation flag to populate the `DlgOpt`, `Dlgth` and `Deleg` fields that follow the context flags with the
+  delegation option identifier and a `KRB_CRED`; this library emitted the flag with all three zeroed. MIT rejects that
+  token with `GSS_S_FAILURE` once it reads `DlgOpt` as `0`, so no working deployment loses functionality — the change
+  converts an opaque remote failure into a local one that names the cause. Credential delegation is not implemented;
+  nothing in this library requests the flag, so only a caller passing `flagsGSSAPI` to `NewKRB5TokenAPREQ` directly is
+  affected.

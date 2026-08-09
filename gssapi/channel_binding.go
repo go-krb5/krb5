@@ -5,13 +5,26 @@ import (
 	"encoding/binary"
 )
 
-// Channel binding address types as assigned by RFC 2744 Section 3.11.
+// Channel binding address types for the InitiatorAddrType and AcceptorAddrType fields. RFC 2744 Section 3.11 names
+// the address families those fields may carry; the numeric values are assigned by the gssapi.h header RFC 2744
+// publishes in Appendix A, which is also where the GSS_C_AF_ prefixed names these mirror come from. The set below is
+// the RFC 2744 families this library declares for callers building their own, non-TLS channel bindings, plus the
+// MIT/Heimdal IPv6 value described below; this library itself only ever references AddressTypeUnspecified and
+// AddressTypeIPv4.
+//
+// AddressTypeIPv6 is the exception: RFC 2744 predates IPv6 and assigns no value for it anywhere. 24 is the value MIT
+// Kerberos and Heimdal both give GSS_C_AF_INET6, and is declared for interoperability with them rather than on the
+// authority of the RFC.
+//
+// The TLS binding types of RFC 5929 and RFC 9266 use only AddressTypeUnspecified: they leave both address fields
+// unset and carry everything in ApplicationData.
 const (
 	AddressTypeUnspecified uint32 = 0
 	AddressTypeLocal       uint32 = 1
 	AddressTypeIPv4        uint32 = 2
 	AddressTypeDECnet      uint32 = 12
 	AddressTypeIPv6        uint32 = 24
+	AddressTypeNullAddr    uint32 = 255
 )
 
 // channelBindingFieldLen is the width of each address type and length field in the marshalled structure.
@@ -39,6 +52,10 @@ type ChannelBinding struct {
 
 // Bytes returns the channel bindings marshalled as described by RFC 1964 Section 1.1.1, with every integer in
 // little-endian order. The length prefix of a field is written even when that field is empty.
+//
+// Each field must be no longer than 4294967295 octets, the limit RFC 4121 Section 4.1.1.2 places on interoperable
+// channel binding buffers, because the length prefix is four octets wide. No TLS binding type comes close: the
+// longest is tls-server-end-point over a SHA-512 signed certificate, at 85 octets.
 //
 // It returns nil if the receiver is nil.
 func (c *ChannelBinding) Bytes() []byte {
@@ -71,7 +88,16 @@ func (c *ChannelBinding) Bnd() [16]byte {
 }
 
 // appendChannelBindingField appends a little-endian length prefix followed by the field itself.
+//
+// The length prefix is four octets wide because RFC 1964 Section 1.1.1 fixes it there, which is also why RFC 4121
+// Section 4.1.1.2 limits interoperable channel binding buffers to 4294967295 octets. A field longer than that cannot
+// be represented and is not rejected here: Bytes has no error to return, and returning a short or empty marshalling
+// instead would yield a Bnd that collides with a legitimate one, which is worse than a length that cannot occur. See
+// the documented limit on Bytes.
 func appendChannelBindingField(b, field []byte) []byte {
+	//nolint:gosec // G115: len cannot exceed math.MaxUint32 here for any channel binding that RFC 4121 Section
+	// 4.1.1.2 considers interoperable, and on a 32 bit platform int cannot exceed it at all. Reaching this would
+	// require a single field over 4GiB; the longest TLS binding type is 85 octets.
 	b = binary.LittleEndian.AppendUint32(b, uint32(len(field)))
 
 	return append(b, field...)

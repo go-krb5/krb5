@@ -130,6 +130,13 @@ func (m *KRB5Token) Verify() (bool, gssapi.Status) {
 	case TOK_ID_KRB_AP_REQ:
 		ok, creds, err := service.VerifyAPREQ(&m.APReq, m.settings)
 		if err != nil {
+			// RFC 2743 Section 2.2.2 separates a credential presented over the wrong channel from a malformed
+			// token. Reporting a channel binding failure as a defective token would leave the initiator unable to
+			// tell the two apart, and unable to tell that it is the channel rather than its credential at fault.
+			if errors.Is(err, service.ErrBadChannelBinding) {
+				return false, gssapi.Status{Code: gssapi.StatusBadBindings, Message: err.Error()}
+			}
+
 			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
 		}
 
@@ -248,20 +255,44 @@ func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int, cb *gss
 		return auth, krberror.Errorf(err, krberror.KRBMsgError, "error generating new authenticator")
 	}
 
+	chksum, err := newAuthenticatorChksum(flags, cb)
+	if err != nil {
+		return auth, err
+	}
+
 	auth.Cksum = types.Checksum{
 		CksumType: chksumtype.GSSAPI,
-		Checksum:  newAuthenticatorChksum(flags, cb),
+		Checksum:  chksum,
 	}
 
 	return auth, nil
 }
 
+// ErrDelegationUnimplemented is returned when gssapi.ContextFlagDeleg is requested. RFC 4121 Section 4.1.1 requires
+// the delegation option identifier in DlgOpt and a KRB_CRED in Deleg whenever the flag is set; this library
+// implements neither, so it refuses the request rather than emitting a checksum that claims a delegation it cannot
+// perform. Callers match against it with errors.Is.
+var ErrDelegationUnimplemented = errors.New("credential delegation is not implemented")
+
 // newAuthenticatorChksum creates the authenticator checksum for a kerberos MechToken as described by RFC 4121
-// Section 4.1.1: a four byte length of 16, the sixteen byte Bnd channel bindings hash, the four byte context flags
-// and, when delegation is requested, the optional delegation fields.
+// Section 4.1.1: a four byte Lgth of 16, the sixteen byte Bnd channel bindings hash and the four byte context flags.
+// The result is always 24 bytes.
 //
 // A nil channel binding leaves Bnd as the sixteen zero bytes that mean no channel bindings.
-func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding) []byte {
+//
+// Requesting gssapi.ContextFlagDeleg returns ErrDelegationUnimplemented. Setting the flag obliges the initiator to
+// populate the DlgOpt, Dlgth and Deleg fields that follow Flags, and this library has no KRB_CRED to put there:
+// messages.KRBCred can be received but not emitted, and nothing acquires a forwarded TGT. Emitting the flag with
+// those fields zeroed is what this used to do, and MIT rejects it with GSS_S_FAILURE on reading DlgOpt as 0, so the
+// refusal costs no working deployment anything. Nothing in this library requests the flag: both SPNEGO paths ask for
+// ContextFlagInteg and ContextFlagConf only.
+func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding) ([]byte, error) {
+	for _, i := range flags {
+		if i&gssapi.ContextFlagDeleg != 0 {
+			return nil, fmt.Errorf("%w: RFC 4121 Section 4.1.1 requires DlgOpt to carry the delegation option identifier 1 and Deleg to carry a KRB_CRED", ErrDelegationUnimplemented)
+		}
+	}
+
 	a := make([]byte, 24)
 	binary.LittleEndian.PutUint32(a[:4], 16)
 
@@ -269,11 +300,6 @@ func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding) []byte {
 	copy(a[4:20], bnd[:])
 
 	for _, i := range flags {
-		if i == gssapi.ContextFlagDeleg {
-			x := make([]byte, 28-len(a))
-			a = append(a, x...)
-		}
-
 		f := binary.LittleEndian.Uint32(a[20:24])
 
 		f |= uint32(i)
@@ -281,5 +307,5 @@ func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding) []byte {
 		binary.LittleEndian.PutUint32(a[20:24], f)
 	}
 
-	return a
+	return a, nil
 }

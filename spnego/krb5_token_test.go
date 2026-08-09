@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,9 @@ import (
 	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
+	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/messages"
+	"github.com/go-krb5/krb5/service"
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
 )
@@ -50,7 +53,8 @@ func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
 	b, err := hex.DecodeString(AuthChksum)
 	require.NoError(t, err)
 
-	cb := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	cb, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	require.NoError(t, err)
 	assert.Equal(t, b, cb)
 }
 
@@ -217,7 +221,8 @@ func TestNewAuthenticatorChksumShouldEmbedTheChannelBinding(t *testing.T) {
 
 	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
 
-	c := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, cb)
+	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, cb)
+	require.NoError(t, err)
 
 	require.Len(t, c, 24)
 	assert.Equal(t, uint32(16), binary.LittleEndian.Uint32(c[:4]))
@@ -233,12 +238,99 @@ func TestNewAuthenticatorChksumShouldEmbedTheChannelBinding(t *testing.T) {
 func TestNewAuthenticatorChksumShouldZeroBndWithoutAChannelBinding(t *testing.T) {
 	t.Parallel()
 
-	c := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	require.NoError(t, err)
 
 	require.Len(t, c, 24)
 	assert.Equal(t, uint32(16), binary.LittleEndian.Uint32(c[:4]))
 	assert.Equal(t, make([]byte, 16), c[4:20])
 	assert.Equal(t, uint32(gssapi.ContextFlagInteg|gssapi.ContextFlagConf), binary.LittleEndian.Uint32(c[20:24]))
+}
+
+// TestNewAuthenticatorChksumShouldRefuseDelegation asserts the library refuses to claim a delegation it cannot
+// perform. RFC 4121 Section 4.1.1 requires DlgOpt to carry the delegation option identifier 1 and Deleg to carry a
+// KRB_CRED whenever the delegation flag is set. This library implements neither, and the 28 zeroed octets it used to
+// emit are rejected by MIT with GSS_S_FAILURE once it reads DlgOpt as 0. Failing here names the cause at the call
+// site instead.
+func TestNewAuthenticatorChksumShouldRefuseDelegation(t *testing.T) {
+	t.Parallel()
+
+	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagDeleg}, nil)
+
+	require.ErrorIs(t, err, ErrDelegationUnimplemented)
+	assert.Nil(t, c, "no checksum is returned when the flags cannot be honoured")
+	assert.Contains(t, err.Error(), "RFC 4121")
+}
+
+// TestNewAuthenticatorChksumShouldRefuseCombinedDelegationBitmask asserts the guard tests the bit rather than the
+// value. The flags loop below the guard accumulates ORed values with f |= uint32(i), so a caller passing a combined
+// bitmask in a single slice element is an invited call style, not a misuse. A guard written as i ==
+// gssapi.ContextFlagDeleg misses that case: ContextFlagDeleg|ContextFlagInteg reaches the flags loop unrefused and
+// sets GSS_C_DELEG_FLAG in the emitted checksum with none of the delegation fields populated, which is exactly the
+// false claim of delegation this refusal exists to prevent.
+func TestNewAuthenticatorChksumShouldRefuseCombinedDelegationBitmask(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		flags       []int
+		wantRefused bool
+	}{
+		{
+			name:        "DelegationAlone",
+			flags:       []int{gssapi.ContextFlagDeleg},
+			wantRefused: true,
+		},
+		{
+			name:        "DelegationCombinedWithIntegInOneElement",
+			flags:       []int{gssapi.ContextFlagDeleg | gssapi.ContextFlagInteg},
+			wantRefused: true,
+		},
+		{
+			name:        "IntegAndConfCombinedWithoutDelegationMustStillSucceed",
+			flags:       []int{gssapi.ContextFlagInteg | gssapi.ContextFlagConf},
+			wantRefused: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			c, err := newAuthenticatorChksum(tt.flags, nil)
+
+			if tt.wantRefused {
+				require.ErrorIs(t, err, ErrDelegationUnimplemented)
+				assert.Nil(t, c, "no checksum is returned when the flags cannot be honoured")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, c, 24)
+		})
+	}
+}
+
+// TestNewKRB5TokenAPREQShouldSurfaceDelegationRefusal covers the propagation hop rather than only the leaf: the error
+// has to travel newAuthenticatorChksum -> krb5TokenAuthenticator -> NewKRB5TokenAPREQ to reach a caller.
+func TestNewKRB5TokenAPREQShouldSurfaceDelegationRefusal(t *testing.T) {
+	t.Parallel()
+
+	creds := credentials.New("hftsai", testdata.TEST_REALM)
+	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
+	cl := &client.Client{Credentials: creds}
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
+
+	_, err = NewKRB5TokenAPREQ(cl, tkt, key, []int{gssapi.ContextFlagDeleg}, []int{})
+	require.ErrorIs(t, err, ErrDelegationUnimplemented)
 }
 
 func TestNewKRB5TokenOptionsShouldDefaultToNoChannelBinding(t *testing.T) {
@@ -253,4 +345,118 @@ func TestChannelBindingOptionShouldSetTheBinding(t *testing.T) {
 	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-exporter:test")}
 
 	assert.Same(t, cb, newKRB5TokenOptions(ChannelBinding(cb)).channelBinding)
+}
+
+// TestKRB5TokenVerifyShouldReportChannelBindingFailuresAsBadBindings asserts the GSS-API major status an acceptor
+// reports for each outcome. RFC 2743 Section 2.2.2 gives channel binding failures their own status,
+// GSS_S_BAD_BINDINGS, so that an initiator can tell "your credential is fine but you are on the wrong channel" from
+// "your token is malformed". Collapsing both onto GSS_S_DEFECTIVE_TOKEN loses exactly the signal that distinguishes
+// a misconfigured proxy from an attacker relaying a captured token onto another channel.
+func TestKRB5TokenVerifyShouldReportChannelBindingFailuresAsBadBindings(t *testing.T) {
+	t.Parallel()
+
+	sname := types.PrincipalName{
+		NameType:   nametype.KRB_NT_PRINCIPAL,
+		NameString: []string{"HTTP", "host.test.gokrb5"},
+	}
+
+	b, err := hex.DecodeString(testdata.HTTP_KEYTAB)
+	require.NoError(t, err)
+
+	kt := keytab.New()
+	require.NoError(t, kt.Unmarshal(b))
+
+	sent := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:sent")}
+	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
+
+	// newTokenWithTicketTimes seals an AP_REQ carrying the Bnd of the binding provided (or the sixteen zero bytes
+	// meaning "no channel bindings" when it is nil) into a KRB5Token whose acceptor settings require want. The
+	// ticket's StartTime and EndTime are caller controlled so that tests can produce a ticket APReq.Verify rejects
+	// for reasons other than channel binding, such as expiry.
+	newTokenWithTicketTimes := func(t *testing.T, cb *gssapi.ChannelBinding, start, end time.Time) *KRB5Token {
+		t.Helper()
+
+		cl := getClient(t)
+		st := time.Now().UTC()
+
+		tkt, sessionKey, err := messages.NewTicket(cl.Credentials.CName(), cl.Credentials.Domain(),
+			sname, "TEST.GOKRB5", types.NewKrbFlags(), kt, 18, 1,
+			st, start, end, st.Add(48*time.Hour),
+		)
+		require.NoError(t, err)
+
+		auth, err := types.NewAuthenticator(cl.Credentials.Domain(), cl.Credentials.CName())
+		require.NoError(t, err)
+		require.NoError(t, auth.GenerateSeqNumberAndSubKey(18, 32))
+
+		chksum, err := newAuthenticatorChksum(nil, cb)
+		require.NoError(t, err)
+
+		auth.Cksum = types.Checksum{CksumType: chksumtype.GSSAPI, Checksum: chksum}
+
+		apreq, err := messages.NewAPReq(tkt, sessionKey, auth)
+		require.NoError(t, err)
+
+		tb, err := hex.DecodeString(TOK_ID_KRB_AP_REQ)
+		require.NoError(t, err)
+
+		return &KRB5Token{
+			tokID:    tb,
+			APReq:    apreq,
+			settings: service.NewSettings(kt, service.RequireChannelBinding(want)),
+		}
+	}
+
+	// newToken is newTokenWithTicketTimes with a ticket that is valid now, for the subtests below that exercise
+	// channel binding rather than ticket validity.
+	newToken := func(t *testing.T, cb *gssapi.ChannelBinding) *KRB5Token {
+		t.Helper()
+
+		st := time.Now().UTC()
+
+		return newTokenWithTicketTimes(t, cb, st, st.Add(24*time.Hour))
+	}
+
+	t.Run("MismatchedBinding", func(t *testing.T) {
+		t.Parallel()
+
+		ok, status := newToken(t, sent).Verify()
+		assert.False(t, ok)
+		assert.Equal(t, gssapi.StatusBadBindings, status.Code)
+		assert.Contains(t, status.Message, "channel binding mismatch")
+	})
+
+	// An initiator that sent no bindings at all is still a bad-bindings failure rather than a defective token: the
+	// token is well formed, it simply does not match the bindings the acceptor supplied.
+	t.Run("NoBindingSent", func(t *testing.T) {
+		t.Parallel()
+
+		ok, status := newToken(t, nil).Verify()
+		assert.False(t, ok)
+		assert.Equal(t, gssapi.StatusBadBindings, status.Code)
+	})
+
+	t.Run("MatchingBinding", func(t *testing.T) {
+		t.Parallel()
+
+		ok, status := newToken(t, want).Verify()
+		assert.True(t, ok)
+		assert.Equal(t, gssapi.StatusComplete, status.Code)
+	})
+
+	// A VerifyAPREQ failure that is not a channel binding failure must still surface as GSS_S_DEFECTIVE_TOKEN even
+	// when the binding sent matches the binding required. An expired ticket exercises this: APReq.Verify rejects it
+	// in messages.Ticket.Valid before verifyChannelBinding is ever reached, so the only way this subtest could see
+	// StatusBadBindings is if the errors.Is(err, service.ErrBadChannelBinding) discrimination in KRB5Token.Verify were
+	// broadened to match unconditionally.
+	t.Run("ExpiredTicketWithMatchingBindingIsNotABadBindingsFailure", func(t *testing.T) {
+		t.Parallel()
+
+		past := time.Now().UTC().Add(-24 * time.Hour)
+
+		ok, status := newTokenWithTicketTimes(t, want, past, past.Add(time.Hour)).Verify()
+		assert.False(t, ok)
+		assert.Equal(t, gssapi.StatusDefectiveToken, status.Code)
+		assert.NotEqual(t, gssapi.StatusBadBindings, status.Code)
+	})
 }

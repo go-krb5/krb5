@@ -542,8 +542,12 @@ func TestVerifyAPREQWithChannelBindingConfigured(t *testing.T) {
 		require.False(t, ok)
 		require.EqualError(t, err, "KRB Error: (36) KRB_AP_ERR_BADMATCH Ticket and authenticator don't match - channel binding mismatch")
 
-		require.IsType(t, messages.KRBError{}, err)
-		assert.Equal(t, errorcode.KRB_AP_ERR_BADMATCH, err.(messages.KRBError).ErrorCode)
+		require.ErrorIs(t, err, ErrBadChannelBinding)
+
+		var krberr messages.KRBError
+
+		require.ErrorAs(t, err, &krberr)
+		assert.Equal(t, errorcode.KRB_AP_ERR_BADMATCH, krberr.ErrorCode)
 	})
 
 	t.Run("NoBindingConfigured", func(t *testing.T) {
@@ -601,42 +605,70 @@ func TestVerifyChannelBindingShouldRejectAMismatchedBinding(t *testing.T) {
 	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
 
 	err := verifyChannelBinding(testAPReqWithChecksum(chksumtype.GSSAPI, testGSSAPIChecksum(sent)), want)
-	require.Error(t, err)
+	require.ErrorIs(t, err, ErrBadChannelBinding)
 	assert.Contains(t, err.Error(), "channel binding mismatch")
 }
 
 // TestVerifyChannelBindingShouldRejectAnUnboundRequest asserts that configuring a requirement actually requires it:
 // an initiator that sent the sixteen zero bytes meaning "no channel bindings" must be rejected.
+//
+// The checksum is built with a nil binding rather than as 24 zero bytes because an unbound initiator still writes
+// Lgth, which RFC 4121 Section 4.1.1 fixes at 16 as the width of the Bnd field regardless of whether any bindings
+// were supplied. Only Bnd itself goes to zero. A wholly zeroed checksum would be rejected for its Lgth before the
+// comparison this test is about was ever reached.
 func TestVerifyChannelBindingShouldRejectAnUnboundRequest(t *testing.T) {
 	t.Parallel()
 
 	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
 
-	err := verifyChannelBinding(testAPReqWithChecksum(chksumtype.GSSAPI, make([]byte, 24)), want)
-	require.Error(t, err)
+	cksum := testGSSAPIChecksum(nil)
+	require.Equal(t, uint32(16), binary.LittleEndian.Uint32(cksum[:4]))
+	require.Equal(t, make([]byte, 16), cksum[4:20])
+
+	err := verifyChannelBinding(testAPReqWithChecksum(chksumtype.GSSAPI, cksum), want)
+	require.ErrorIs(t, err, ErrBadChannelBinding)
 	assert.Contains(t, err.Error(), "channel binding mismatch")
 }
+
+// wantMsgNoGSSAPIChecksum is the message verifyChannelBinding reports when the authenticator's checksum is not a
+// usable RFC 4121 Section 4.1.1 GSS-API checksum: wrong checksum type, or too short to carry one.
+const wantMsgNoGSSAPIChecksum = "does not contain a GSSAPI checksum"
 
 func TestVerifyChannelBindingShouldRejectAMalformedChecksum(t *testing.T) {
 	t.Parallel()
 
 	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
 
+	// lgthChecksum builds an otherwise well formed checksum whose four octet Lgth field declares the width given
+	// rather than the 16 RFC 4121 Section 4.1.1 fixes.
+	lgthChecksum := func(lgth uint32) []byte {
+		c := testGSSAPIChecksum(want)
+		binary.LittleEndian.PutUint32(c[:4], lgth)
+
+		return c
+	}
+
 	for _, tc := range []struct {
 		name      string
 		cksumType int32
 		checksum  []byte
+		wantMsg   string
 	}{
-		{"WrongType", chksumtype.HMAC_SHA1_96_AES256, make([]byte, 24)},
-		{"TooShort", chksumtype.GSSAPI, make([]byte, 23)},
-		{"Empty", chksumtype.GSSAPI, nil},
+		{"WrongType", chksumtype.HMAC_SHA1_96_AES256, make([]byte, 24), wantMsgNoGSSAPIChecksum},
+		{"TooShort", chksumtype.GSSAPI, make([]byte, 23), wantMsgNoGSSAPIChecksum},
+		{"Empty", chksumtype.GSSAPI, nil, wantMsgNoGSSAPIChecksum},
+		// A zero, short or oversized Lgth must be rejected on its own terms even when the Bnd octets that follow
+		// would have matched, so that a malformed checksum is never reported as a binding mismatch.
+		{"ZeroLgth", chksumtype.GSSAPI, lgthChecksum(0), "declares a Bnd length of 0 rather than 16"},
+		{"ShortLgth", chksumtype.GSSAPI, lgthChecksum(8), "declares a Bnd length of 8 rather than 16"},
+		{"LongLgth", chksumtype.GSSAPI, lgthChecksum(32), "declares a Bnd length of 32 rather than 16"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
 			err := verifyChannelBinding(testAPReqWithChecksum(tc.cksumType, tc.checksum), want)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "does not contain a GSSAPI checksum")
+			require.ErrorIs(t, err, ErrBadChannelBinding)
+			assert.Contains(t, err.Error(), tc.wantMsg)
 		})
 	}
 }
