@@ -22,3 +22,10 @@ func (c *ChangePasswdData) Marshal() ([]byte, error) {
 
 	return b, nil
 }
+
+// Unmarshal bytes b into the ChangePasswdData struct.
+func (c *ChangePasswdData) Unmarshal(b []byte) error {
+	_, err := asn1.Unmarshal(b, c)
+
+	return err
+}
