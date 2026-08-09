@@ -12,16 +12,17 @@ import (
 
 // Settings defines service side configuration settings.
 type Settings struct {
-	Keytab             *keytab.Keytab
-	ktprinc            *types.PrincipalName
-	sname              string
-	requireHostAddr    bool
-	disablePACDecoding bool
-	cAddr              types.HostAddress
-	maxClockSkew       time.Duration
-	logger             *log.Logger
-	sessionMgr         SessionMgr
-	channelBinding     *gssapi.ChannelBinding
+	Keytab                *keytab.Keytab
+	ktprinc               *types.PrincipalName
+	sname                 string
+	requireHostAddr       bool
+	disablePACDecoding    bool
+	cAddr                 types.HostAddress
+	maxClockSkew          time.Duration
+	logger                *log.Logger
+	sessionMgr            SessionMgr
+	channelBinding        *gssapi.ChannelBinding
+	channelBindingSupport bool
 }
 
 // NewSettings creates a new service Settings.
@@ -178,6 +179,33 @@ func RequireChannelBinding(cb *gssapi.ChannelBinding) func(*Settings) {
 // RequireChannelBinding returns the channel binding the service requires, or nil if it does not require one.
 func (s *Settings) RequireChannelBinding() *gssapi.ChannelBinding {
 	return s.channelBinding
+}
+
+// RequireChannelBindingSupport applies the weaker rule MS-KILE Section 3.4.5.3 gives an application server whose
+// ApplicationRequiresCBT parameter is set: reject a request whose channel binding is all zero AND which does not
+// advertise KERB_AP_OPTIONS_CBT, and accept everything else.
+//
+// This is deliberately NOT what RequireChannelBinding does, and the two are not interchangeable.
+// RequireChannelBinding demands that the binding match, so a stripped binding is refused. This setting only
+// demands that the peer be capable of binding, so a client that advertises KERB_AP_OPTIONS_CBT and then sends no
+// binding is accepted — which is the stripped-binding downgrade RequireChannelBinding exists to prevent. It is
+// offered for parity with Windows deployments that must still admit such clients, and is the weaker of the two.
+//
+// Prefer RequireChannelBinding. Reach for this one only when a peer you cannot change forces it.
+//
+// If both are configured RequireChannelBinding is applied and this is ignored, since a binding that must match
+// already satisfies a rule asking only that the peer could have bound.
+//
+//	s := NewSettings(kt, RequireChannelBindingSupport(true)).
+func RequireChannelBindingSupport(b bool) func(*Settings) {
+	return func(s *Settings) {
+		s.channelBindingSupport = b
+	}
+}
+
+// RequireChannelBindingSupport indicates whether the service requires peers to advertise channel binding support.
+func (s *Settings) RequireChannelBindingSupport() bool {
+	return s.channelBindingSupport
 }
 
 // SessionMgr must provide a ways to:

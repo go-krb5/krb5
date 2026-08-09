@@ -11,6 +11,12 @@ const (
 	ContextFlagConf     = 16
 	ContextFlagInteg    = 32
 	ContextFlagAnon     = 64
+
+	// ContextFlagDelegPolicy requests delegation only where the KDC has said the service may receive it, by
+	// setting OK-AS-DELEGATE on the service ticket. It is not an IANA assignment: it originates with Microsoft's
+	// SSPI and is implemented by MIT, and its value falls in the 4096 to 524288 range RFC 4121 Section 4.1.1.1
+	// reserves for legacy vendor-specific extensions, which is why the authenticator checksum may carry it.
+	ContextFlagDelegPolicy = 0x8000
 )
 
 // ContextFlags flags for GSSAPI

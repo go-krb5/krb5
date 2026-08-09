@@ -9,10 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/messages"
+	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
+	"github.com/go-krb5/x/encoding/asn1"
 )
 
 func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
@@ -37,7 +41,7 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 			KeyValue: []byte{byte(i)},
 		}
 		go func(i int) {
-			e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key, 0)
+			e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key, 0, asn1.BitString{})
 			assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN)
 			wg.Done()
 		}(i)
@@ -133,7 +137,7 @@ func TestCache_JSON(t *testing.T) {
 			KeyType:  1,
 			KeyValue: []byte{byte(i)},
 		}
-		e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key, 0)
+		e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key, 0, asn1.BitString{})
 		assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN)
 	}
 
@@ -181,9 +185,37 @@ func TestCacheShouldRetainTheServerSupportedEncryptionTypes(t *testing.T) {
 	}
 
 	c.addEntry(tkt, time.Unix(0, 0).UTC(), time.Unix(10, 0).UTC(), time.Unix(20, 0).UTC(), time.Unix(30, 0).UTC(),
-		types.EncryptionKey{}, want)
+		types.EncryptionKey{}, want, asn1.BitString{})
 
 	e, ok := c.getEntry("HTTP/host.test.gokrb5")
 	require.True(t, ok)
 	assert.Equal(t, want, e.SupportedETypes)
+}
+
+// TestOKAsDelegateShouldReportTheCachedTicketFlag asserts the gate ContextFlagDelegPolicy consults. The flag lives
+// in the ticket's encrypted part, which the client cannot read, so the TGS-REP is the only source and it has to
+// survive into the cache.
+func TestOKAsDelegateShouldReportTheCachedTicketFlag(t *testing.T) {
+	t.Parallel()
+
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
+
+	cl := NewWithPassword("testuser1", "TEST.GOKRB5", "passwordvalue", c)
+	spn := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"HTTP", "host.test.gokrb5"}}
+
+	assert.False(t, cl.OKAsDelegate(spn), "a ticket that is not cached must not be treated as delegable")
+
+	tkt := messages.Ticket{SName: spn}
+
+	cl.cache.addEntry(tkt, time.Unix(0, 0).UTC(), time.Unix(10, 0).UTC(), time.Unix(20, 0).UTC(),
+		time.Unix(30, 0).UTC(), types.EncryptionKey{}, 0, types.NewKrbFlags())
+	assert.False(t, cl.OKAsDelegate(spn))
+
+	okFlags := types.NewKrbFlags()
+	types.SetFlag(&okFlags, flags.OKAsDelegate)
+
+	cl.cache.addEntry(tkt, time.Unix(0, 0).UTC(), time.Unix(10, 0).UTC(), time.Unix(20, 0).UTC(),
+		time.Unix(30, 0).UTC(), types.EncryptionKey{}, 0, okFlags)
+	assert.True(t, cl.OKAsDelegate(spn))
 }

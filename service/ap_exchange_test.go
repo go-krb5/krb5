@@ -943,3 +943,76 @@ func getClient(t *testing.T) *client.Client {
 
 	return cl
 }
+
+// testAPReqAdvertisingCBT builds an AP_REQ whose checksum carries the binding given and whose authenticator
+// advertises KERB_AP_OPTIONS_CBT, as MS-KILE Section 3.2.5.2 has a binding-capable client do.
+func testAPReqAdvertisingCBT(t *testing.T, cb *gssapi.ChannelBinding) *messages.APReq {
+	t.Helper()
+
+	r := testAPReqWithChecksum(chksumtype.GSSAPI, testGSSAPIChecksum(cb))
+
+	ad, err := types.ADAPOptions(types.ADAPOptionsCBT).AuthorizationData()
+	require.NoError(t, err)
+
+	r.Authenticator.AuthorizationData = ad
+
+	return r
+}
+
+// TestVerifyChannelBindingSupportShouldRejectOnlyWhenBothConditionsHold pins the MS-KILE Section 3.4.5.3 rule this
+// mode implements: reject when the binding is all zero AND the client does not advertise KERB_AP_OPTIONS_CBT.
+// Either condition alone is not a rejection, which is exactly what makes this weaker than verifyChannelBinding.
+func TestVerifyChannelBindingSupportShouldRejectOnlyWhenBothConditionsHold(t *testing.T) {
+	t.Parallel()
+
+	bound := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
+
+	t.Run("UnboundAndUnadvertisedIsRejected", func(t *testing.T) {
+		t.Parallel()
+
+		err := verifyChannelBindingSupport(testAPReqWithChecksum(chksumtype.GSSAPI, testGSSAPIChecksum(nil)))
+		require.ErrorIs(t, err, ErrBadChannelBinding)
+		assert.Contains(t, err.Error(), "KERB_AP_OPTIONS_CBT")
+	})
+
+	t.Run("UnboundButAdvertisedIsAccepted", func(t *testing.T) {
+		t.Parallel()
+
+		// This is the case that separates this mode from RequireChannelBinding, which refuses it.
+		assert.NoError(t, verifyChannelBindingSupport(testAPReqAdvertisingCBT(t, nil)))
+	})
+
+	t.Run("BoundIsAcceptedEvenWithoutTheAdvertisement", func(t *testing.T) {
+		t.Parallel()
+
+		assert.NoError(t, verifyChannelBindingSupport(testAPReqWithChecksum(chksumtype.GSSAPI, testGSSAPIChecksum(bound))))
+	})
+
+	t.Run("BoundAndAdvertisedIsAccepted", func(t *testing.T) {
+		t.Parallel()
+
+		assert.NoError(t, verifyChannelBindingSupport(testAPReqAdvertisingCBT(t, bound)))
+	})
+}
+
+// TestVerifyChannelBindingShouldStillRefuseAnAdvertisedButUnboundRequest is the guard on the distinction between
+// the two modes. The strict setting must NOT inherit MS-KILE's leniency: a peer that advertises CBT and then sends
+// no binding is the stripped-binding downgrade RequireChannelBinding exists to prevent.
+func TestVerifyChannelBindingShouldStillRefuseAnAdvertisedButUnboundRequest(t *testing.T) {
+	t.Parallel()
+
+	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
+
+	err := verifyChannelBinding(testAPReqAdvertisingCBT(t, nil), want)
+
+	require.ErrorIs(t, err, ErrBadChannelBinding)
+	assert.Contains(t, err.Error(), "channel binding mismatch")
+}
+
+// TestSettingsRequireChannelBindingSupportShouldDefaultToFalse asserts the weaker mode is opt-in.
+func TestSettingsRequireChannelBindingSupportShouldDefaultToFalse(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, NewSettings(nil).RequireChannelBindingSupport())
+	assert.True(t, NewSettings(nil, RequireChannelBindingSupport(true)).RequireChannelBindingSupport())
+}

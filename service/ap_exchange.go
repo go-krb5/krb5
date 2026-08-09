@@ -32,6 +32,10 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 		if err = verifyChannelBinding(APReq, cb); err != nil {
 			return false, creds, err
 		}
+	} else if s.RequireChannelBindingSupport() {
+		if err = verifyChannelBindingSupport(APReq); err != nil {
+			return false, creds, err
+		}
 	}
 
 	// Check for replay.
@@ -254,4 +258,41 @@ func decryptDelegatedCredential(cred *messages.KRBCred, APReq *messages.APReq) e
 	}
 
 	return fmt.Errorf("could not decrypt the delegated credential with the authenticator subkey or the ticket session key: %w", err)
+}
+
+// verifyChannelBindingSupport applies the rule MS-KILE Section 3.4.5.3 gives an application server whose
+// ApplicationRequiresCBT parameter is set: "return GSS_S_BAD_BINDINGS whenever the AP exchange request message
+// contains an all-zero channel binding value and does not contain the AD-IF-RELEVANT element
+// KERB_AP_OPTIONS_CBT".
+//
+// Both conditions must hold for a rejection, which makes this strictly weaker than verifyChannelBinding: a peer
+// that advertises KERB_AP_OPTIONS_CBT and then supplies no binding passes here and would fail there. That is
+// Microsoft's compatibility compromise, not an equivalent check, and the setting that reaches this documents the
+// difference.
+//
+// A binding that is present but wrong is not this function's concern. It cannot be: this mode has no binding to
+// compare against, which is the other reason it is weaker.
+func verifyChannelBindingSupport(APReq *messages.APReq) error {
+	cksum := APReq.Authenticator.Cksum.Checksum
+
+	if APReq.Authenticator.Cksum.CksumType != chksumtype.GSSAPI || len(cksum) < gssapi.ChecksumMinLen {
+		return newBadChannelBindingError(APReq, "authenticator does not contain a GSSAPI checksum carrying channel bindings")
+	}
+
+	var c gssapi.AuthenticatorChecksum
+
+	if err := c.Unmarshal(cksum); err != nil {
+		return newBadChannelBindingError(APReq, fmt.Sprintf("authenticator GSSAPI checksum could not be read: %s", err.Error()))
+	}
+
+	if c.Bnd != ([16]byte{}) {
+		return nil
+	}
+
+	if types.ADAPOptionsFromAuthorizationData(APReq.Authenticator.AuthorizationData).Has(types.ADAPOptionsCBT) {
+		return nil
+	}
+
+	return newBadChannelBindingError(APReq,
+		"authenticator carries no channel binding and does not advertise KERB_AP_OPTIONS_CBT, so the client cannot bind to the outer channel")
 }
