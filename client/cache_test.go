@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/iana/flags"
@@ -16,7 +18,6 @@ import (
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
-	"github.com/go-krb5/x/encoding/asn1"
 )
 
 func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
