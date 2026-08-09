@@ -22,11 +22,11 @@ func Nfold(m []byte, n int) []byte {
 
 	// Get the lowest common multiple of the two bit sizes.
 	lcm := lcm(n, k)
-	relicate := lcm / k
+	replicate := lcm / k
 
 	var sumBytes []byte
 
-	for i := 0; i < relicate; i++ {
+	for i := 0; i < replicate; i++ {
 		rotation := 13 * i
 		sumBytes = append(sumBytes, rotateRight(m, rotation)...)
 	}

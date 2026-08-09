@@ -329,7 +329,7 @@ func (cl *Client) Diagnostics(w io.Writer) error {
 		fmt.Fprintf(w, "UDP KDCs: %s\n", string(b))
 	}
 
-	tcpCnt, tcpKDC, err := cl.Config.GetKDCs(cl.Credentials.Realm(), false)
+	tcpCnt, tcpKDC, err := cl.Config.GetKDCs(cl.Credentials.Realm(), true)
 	if err != nil {
 		errs = append(errs, fmt.Sprintf("error when resolving KDCs for TCP communication: %v", err))
 	}

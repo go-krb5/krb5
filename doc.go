@@ -3,7 +3,7 @@ Package krb5 provides a Kerberos 5 implementation for Go.
 
 This is a pure Go implementation and does not have dependencies on native libraries.
 
-Feature include:
+Features include:
 
 # Server Side
 

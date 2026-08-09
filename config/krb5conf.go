@@ -59,7 +59,7 @@ type LibDefaults struct {
 	// Clockskew is the max allowed skew in seconds and has a default value of 300.
 	Clockskew time.Duration
 
-	// DefaultClientKeytabName has a default vakue of /usr/local/var/krb5/user/%{euid}/client.keytab.
+	// DefaultClientKeytabName has a default value of /usr/local/var/krb5/user/%{euid}/client.keytab.
 	DefaultClientKeytabName string
 
 	// DefaultKeytabName has a default value of /etc/krb5.keytab.

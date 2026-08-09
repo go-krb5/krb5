@@ -69,7 +69,7 @@ func New() *Keytab {
 }
 
 // GetEncryptionKey returns the EncryptionKey from the Keytab for the newest entry with the required kvno, etype and matching principal.
-// If the kvno is zero then the latest kvno will be returned. The kvno is also returned for.
+// If the kvno is zero then the latest kvno will be returned. The kvno is also returned.
 func (kt *Keytab) GetEncryptionKey(princName types.PrincipalName, realm string, kvno int, etype int32) (types.EncryptionKey, int, error) {
 	var (
 		key types.EncryptionKey

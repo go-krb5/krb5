@@ -131,10 +131,14 @@ func parseHeader(b []byte, p *int, c *CCache, e *binary.ByteOrder) error {
 	h := header{}
 
 	h.length = uint16(readInt16(b, p, e))
-	for *p <= int(h.length) {
+	endOfHeader := *p + int(h.length)
+	for *p <= endOfHeader-4 {
 		f := headerField{}
 		f.tag = uint16(readInt16(b, p, e))
 		f.length = uint16(readInt16(b, p, e))
+		if *p+int(f.length) > len(b) {
+			return errors.New("credential cache header field extends beyond buffer")
+		}
 		f.value = b[*p : *p+int(f.length)]
 
 		*p += int(f.length)
@@ -144,6 +148,7 @@ func parseHeader(b []byte, p *int, c *CCache, e *binary.ByteOrder) error {
 
 		h.fields = append(h.fields, f)
 	}
+	*p = endOfHeader
 
 	c.Header = h
 

@@ -94,7 +94,7 @@ func (a *APReq) DecryptAuthenticator(sessionKey types.EncryptionKey) (err error)
 }
 
 func authenticatorKeyUsage(pn types.PrincipalName) int {
-	if pn.NameString[0] == "krbtgt" {
+	if len(pn.NameString) > 0 && pn.NameString[0] == "krbtgt" {
 		return keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR
 	}
 

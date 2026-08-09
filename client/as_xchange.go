@@ -172,7 +172,7 @@ func preAuthEType(krberr *messages.KRBError) (etype etype.EType, err error) {
 
 	e := pas.Unmarshal(krberr.EData)
 	if e != nil {
-		err = krberror.Errorf(e, krberror.EncodingError, "error unmashalling KRBError data")
+		err = krberror.Errorf(e, krberror.EncodingError, "error unmarshalling KRBError data")
 		return
 	}
 
@@ -182,7 +182,7 @@ Loop:
 		case patype.PA_ETYPE_INFO2:
 			info, e := pa.GetETypeInfo2()
 			if e != nil {
-				err = krberror.Errorf(e, krberror.EncodingError, "error unmashalling ETYPE-INFO2 data")
+				err = krberror.Errorf(e, krberror.EncodingError, "error unmarshalling ETYPE-INFO2 data")
 				return
 			}
 
@@ -192,7 +192,7 @@ Loop:
 		case patype.PA_ETYPE_INFO:
 			info, e := pa.GetETypeInfo()
 			if e != nil {
-				err = krberror.Errorf(e, krberror.EncodingError, "error unmashalling ETYPE-INFO data")
+				err = krberror.Errorf(e, krberror.EncodingError, "error unmarshalling ETYPE-INFO data")
 				return
 			}
 

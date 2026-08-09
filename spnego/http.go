@@ -55,7 +55,7 @@ type teeReadCloser struct {
 }
 
 // NewClient returns a SPNEGO enabled HTTP client.
-// Be careful when passing in the *http.Client if it is beginning reused in multiple calls to this function.
+// Be careful when passing in the *http.Client if it is being reused in multiple calls to this function.
 // Ensure reuse of the provided *http.Client is for the same user as a session cookie may have been added to
 // http.Client's cookie jar.
 // Incorrect reuse of the provided *http.Client could lead to access to the wrong user's session.
