@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/krberror"
@@ -42,6 +43,18 @@ func (a *APRep) Unmarshal(b []byte) error {
 	return nil
 }
 
+// Marshal the APRep struct.
+func (a *APRep) Marshal() ([]byte, error) {
+	b, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	if err != nil {
+		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling AP_REP")
+	}
+
+	b = asn1tools.AddASNAppTag(b, asn1apptag.APREP)
+
+	return b, nil
+}
+
 // Unmarshal bytes b into the APRep encrypted part struct.
 func (a *EncAPRepPart) Unmarshal(b []byte) error {
 	_, err := asn1.UnmarshalWithParams(b, a, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.EncAPRepPart))
@@ -50,4 +63,16 @@ func (a *EncAPRepPart) Unmarshal(b []byte) error {
 	}
 
 	return nil
+}
+
+// Marshal the APRep encrypted part struct.
+func (a *EncAPRepPart) Marshal() ([]byte, error) {
+	b, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	if err != nil {
+		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling EncAPRepPart")
+	}
+
+	b = asn1tools.AddASNAppTag(b, asn1apptag.EncAPRepPart)
+
+	return b, nil
 }
