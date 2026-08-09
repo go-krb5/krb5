@@ -1,6 +1,7 @@
 package spnego
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"math"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/messages"
@@ -48,7 +50,7 @@ func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
 	b, err := hex.DecodeString(AuthChksum)
 	require.NoError(t, err)
 
-	cb := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
+	cb := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
 	assert.Equal(t, b, cb)
 }
 
@@ -63,7 +65,7 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 
 	keyLen := 32
 
-	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
+	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
 	require.NoError(t, err)
 
 	require.NoError(t, a.GenerateSeqNumberAndSubKey(etypeID, keyLen))
@@ -97,7 +99,7 @@ func TestKRB5Token_newAuthenticator(t *testing.T) {
 	creds := credentials.New("hftsai", testdata.TEST_REALM)
 	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
 
-	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf})
+	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(32771), a.Cksum.CksumType)
@@ -149,4 +151,106 @@ func TestNewAPREQKRB5Token_and_Marshal(t *testing.T) {
 	assert.Equal(t, testdata.TEST_REALM, mt.APReq.Ticket.Realm)
 	assert.Equal(t, testdata.TEST_PRINCIPALNAME_NAMESTRING, mt.APReq.Ticket.SName.NameString)
 	assert.Equal(t, int32(18), mt.APReq.EncryptedAuthenticator.EType)
+}
+
+// TestNewNegTokenInitKRB5ShouldForwardChannelBindingToTheSealedAPREQ asserts that a ChannelBinding option supplied
+// to NewNegTokenInitKRB5 actually reaches the AP_REQ it seals, exercising both the negotiation_token.go ->
+// NewKRB5TokenAPREQ forwarding hop and the krb5TokenAuthenticator -> newAuthenticatorChksum hop beneath it.
+//
+// A bare inequality between the two calls' MechTokenBytes would not prove this: types.NewAuthenticator embeds a
+// fresh random SeqNumber and a CTime with microsecond resolution on every call, so the two AP_REQs (and therefore
+// their encrypted, and marshalled, bytes) are all but certain to differ regardless of whether the channel binding
+// is forwarded at all. Instead this decrypts each authenticator with the same session key used to seal it and reads
+// the Bnd field out of its GSS-API checksum directly, which isolates exactly the value the binding option controls.
+func TestNewNegTokenInitKRB5ShouldForwardChannelBindingToTheSealedAPREQ(t *testing.T) {
+	t.Parallel()
+
+	creds := credentials.New("hftsai", testdata.TEST_REALM)
+	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
+	cl := &client.Client{Credentials: creds}
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{
+		KeyType:  18,
+		KeyValue: make([]byte, 32),
+	}
+
+	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
+
+	// sealedBnd unmarshals the NegTokenInit's MechTokenBytes, decrypts the authenticator sealed inside it with the
+	// same session key used to seal it, and returns the Bnd bytes carried in its GSS-API checksum.
+	sealedBnd := func(t *testing.T, nti NegTokenInit) []byte {
+		t.Helper()
+
+		var mt KRB5Token
+
+		require.NoError(t, mt.Unmarshal(nti.MechTokenBytes))
+		require.NoError(t, mt.APReq.DecryptAuthenticator(key))
+		require.Equal(t, chksumtype.GSSAPI, mt.APReq.Authenticator.Cksum.CksumType)
+		require.Len(t, mt.APReq.Authenticator.Cksum.Checksum, 24)
+
+		return mt.APReq.Authenticator.Cksum.Checksum[4:20]
+	}
+
+	bound, err := NewNegTokenInitKRB5(cl, tkt, key, ChannelBinding(cb))
+	require.NoError(t, err)
+
+	unbound, err := NewNegTokenInitKRB5(cl, tkt, key)
+	require.NoError(t, err)
+
+	boundBnd := sealedBnd(t, bound)
+	unboundBnd := sealedBnd(t, unbound)
+
+	bnd := cb.Bnd()
+	assert.Equal(t, bnd[:], boundBnd, "the AP_REQ sealed with ChannelBinding must carry the binding's Bnd hash")
+	assert.Equal(t, make([]byte, 16), unboundBnd, "the AP_REQ sealed without ChannelBinding must carry the all-zero Bnd meaning no channel bindings")
+	assert.NotEqual(t, boundBnd, unboundBnd)
+}
+
+func TestNewAuthenticatorChksumShouldEmbedTheChannelBinding(t *testing.T) {
+	t.Parallel()
+
+	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
+
+	c := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, cb)
+
+	require.Len(t, c, 24)
+	assert.Equal(t, uint32(16), binary.LittleEndian.Uint32(c[:4]))
+
+	bnd := cb.Bnd()
+	assert.Equal(t, bnd[:], c[4:20])
+
+	assert.Equal(t, uint32(gssapi.ContextFlagInteg|gssapi.ContextFlagConf), binary.LittleEndian.Uint32(c[20:24]))
+}
+
+// TestNewAuthenticatorChksumShouldZeroBndWithoutAChannelBinding is the regression guard for the default path: with
+// no binding the checksum must be byte for byte what it was before this feature existed.
+func TestNewAuthenticatorChksumShouldZeroBndWithoutAChannelBinding(t *testing.T) {
+	t.Parallel()
+
+	c := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+
+	require.Len(t, c, 24)
+	assert.Equal(t, uint32(16), binary.LittleEndian.Uint32(c[:4]))
+	assert.Equal(t, make([]byte, 16), c[4:20])
+	assert.Equal(t, uint32(gssapi.ContextFlagInteg|gssapi.ContextFlagConf), binary.LittleEndian.Uint32(c[20:24]))
+}
+
+func TestNewKRB5TokenOptionsShouldDefaultToNoChannelBinding(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, newKRB5TokenOptions().channelBinding)
+}
+
+func TestChannelBindingOptionShouldSetTheBinding(t *testing.T) {
+	t.Parallel()
+
+	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-exporter:test")}
+
+	assert.Same(t, cb, newKRB5TokenOptions(ChannelBinding(cb)).channelBinding)
 }

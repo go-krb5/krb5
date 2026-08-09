@@ -1,9 +1,12 @@
 package service
 
 import (
+	"crypto/hmac"
 	"time"
 
 	"github.com/go-krb5/krb5/credentials"
+	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/messages"
 )
@@ -20,6 +23,12 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 	if s.RequireHostAddr() && len(APReq.Ticket.DecryptedEncPart.CAddr) < 1 {
 		return false, creds,
 			messages.NewKRBError(APReq.Ticket.SName, APReq.Ticket.Realm, errorcode.KRB_AP_ERR_BADADDR, "ticket does not contain HostAddress values required")
+	}
+
+	if cb := s.RequireChannelBinding(); cb != nil {
+		if err = verifyChannelBinding(APReq, cb); err != nil {
+			return false, creds, err
+		}
 	}
 
 	// Check for replay.
@@ -61,4 +70,22 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 	}
 
 	return true, creds, nil
+}
+
+// verifyChannelBinding compares the Bnd field of the AP_REQ authenticator's GSS-API checksum against the channel
+// binding the service requires, as described by RFC 4121 Section 4.1.1. The comparison is constant time.
+func verifyChannelBinding(APReq *messages.APReq, cb *gssapi.ChannelBinding) error {
+	if APReq.Authenticator.Cksum.CksumType != chksumtype.GSSAPI || len(APReq.Authenticator.Cksum.Checksum) < 24 {
+		return messages.NewKRBError(APReq.Ticket.SName, APReq.Ticket.Realm, errorcode.KRB_AP_ERR_BADMATCH,
+			"authenticator does not contain a GSSAPI checksum carrying channel bindings")
+	}
+
+	expected := cb.Bnd()
+
+	if !hmac.Equal(APReq.Authenticator.Cksum.Checksum[4:20], expected[:]) {
+		return messages.NewKRBError(APReq.Ticket.SName, APReq.Ticket.Realm, errorcode.KRB_AP_ERR_BADMATCH,
+			"channel binding mismatch")
+	}
+
+	return nil
 }

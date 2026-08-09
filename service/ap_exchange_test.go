@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"testing"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
+	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/nametype"
@@ -463,6 +466,193 @@ func TestVerifyAPREQ_ExpiredTicket(t *testing.T) {
 	} else {
 		t.Fatalf("Error is not a KRBError: %v", err)
 	}
+}
+
+// TestVerifyAPREQWithChannelBindingConfigured exercises the s.RequireChannelBinding() guard inside VerifyAPREQ end
+// to end, against a real AP_REQ sealed against the test keytab: a matching binding is accepted, a mismatched one is
+// rejected with KRB_AP_ERR_BADMATCH, and leaving the requirement unset (the guard's false branch) reproduces the
+// unchanged, no-verification behaviour of TestVerifyAPREQ.
+func TestVerifyAPREQWithChannelBindingConfigured(t *testing.T) {
+	t.Parallel()
+
+	cl := getClient(t)
+	sname := types.PrincipalName{
+		NameType:   nametype.KRB_NT_PRINCIPAL,
+		NameString: []string{"HTTP", "host.test.gokrb5"},
+	}
+	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
+	kt := keytab.New()
+	require.NoError(t, kt.Unmarshal(b))
+
+	sentBinding := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:sent")}
+
+	newSealedAPReq := func(t *testing.T) messages.APReq {
+		t.Helper()
+
+		st := time.Now().UTC()
+
+		tkt, sessionKey, err := messages.NewTicket(cl.Credentials.CName(), cl.Credentials.Domain(),
+			sname, "TEST.GOKRB5",
+			types.NewKrbFlags(),
+			kt,
+			18,
+			1,
+			st,
+			st,
+			st.Add(time.Duration(24)*time.Hour),
+			st.Add(time.Duration(48)*time.Hour),
+		)
+		require.NoError(t, err)
+
+		a := newTestAuthenticator(t, *cl.Credentials)
+		a.Cksum = types.Checksum{CksumType: chksumtype.GSSAPI, Checksum: testGSSAPIChecksum(sentBinding)}
+
+		APReq, err := messages.NewAPReq(tkt, sessionKey, a)
+		require.NoError(t, err)
+
+		return APReq
+	}
+
+	t.Run("MatchingBindingConfigured", func(t *testing.T) {
+		t.Parallel()
+
+		APReq := newSealedAPReq(t)
+
+		h, _ := types.GetHostAddress("127.0.0.1:1234")
+		s := NewSettings(kt, ClientAddress(h), RequireChannelBinding(sentBinding))
+
+		ok, creds, err := VerifyAPREQ(&APReq, s)
+		assert.True(t, ok)
+		assert.NoError(t, err)
+		require.NotNil(t, creds)
+		assert.Equal(t, cl.Credentials.CName(), creds.CName())
+	})
+
+	t.Run("MismatchedBindingConfigured", func(t *testing.T) {
+		t.Parallel()
+
+		APReq := newSealedAPReq(t)
+
+		wantBinding := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
+
+		h, _ := types.GetHostAddress("127.0.0.1:1234")
+		s := NewSettings(kt, ClientAddress(h), RequireChannelBinding(wantBinding))
+
+		ok, _, err := VerifyAPREQ(&APReq, s)
+		require.False(t, ok)
+		require.EqualError(t, err, "KRB Error: (36) KRB_AP_ERR_BADMATCH Ticket and authenticator don't match - channel binding mismatch")
+
+		require.IsType(t, messages.KRBError{}, err)
+		assert.Equal(t, errorcode.KRB_AP_ERR_BADMATCH, err.(messages.KRBError).ErrorCode)
+	})
+
+	t.Run("NoBindingConfigured", func(t *testing.T) {
+		t.Parallel()
+
+		APReq := newSealedAPReq(t)
+
+		h, _ := types.GetHostAddress("127.0.0.1:1234")
+		s := NewSettings(kt, ClientAddress(h))
+
+		ok, creds, err := VerifyAPREQ(&APReq, s)
+		assert.True(t, ok)
+		assert.NoError(t, err)
+		require.NotNil(t, creds)
+		assert.Equal(t, cl.Credentials.CName(), creds.CName())
+	})
+}
+
+// testAPReqWithChecksum builds the minimum AP_REQ needed to exercise channel binding verification.
+func testAPReqWithChecksum(cksumType int32, checksum []byte) *messages.APReq {
+	return &messages.APReq{
+		Ticket: messages.Ticket{
+			Realm: "EXAMPLE.ORG",
+			SName: types.PrincipalName{NameType: 1, NameString: []string{"HTTP", "host.example.org"}},
+		},
+		Authenticator: types.Authenticator{
+			Cksum: types.Checksum{CksumType: cksumType, Checksum: checksum},
+		},
+	}
+}
+
+// testGSSAPIChecksum builds an RFC 4121 Section 4.1.1 checksum carrying the binding provided.
+func testGSSAPIChecksum(cb *gssapi.ChannelBinding) []byte {
+	c := make([]byte, 24)
+	binary.LittleEndian.PutUint32(c[:4], 16)
+
+	bnd := cb.Bnd()
+	copy(c[4:20], bnd[:])
+
+	return c
+}
+
+func TestVerifyChannelBindingShouldAcceptAMatchingBinding(t *testing.T) {
+	t.Parallel()
+
+	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
+
+	require.NoError(t, verifyChannelBinding(testAPReqWithChecksum(chksumtype.GSSAPI, testGSSAPIChecksum(cb)), cb))
+}
+
+func TestVerifyChannelBindingShouldRejectAMismatchedBinding(t *testing.T) {
+	t.Parallel()
+
+	sent := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:sent")}
+	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
+
+	err := verifyChannelBinding(testAPReqWithChecksum(chksumtype.GSSAPI, testGSSAPIChecksum(sent)), want)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "channel binding mismatch")
+}
+
+// TestVerifyChannelBindingShouldRejectAnUnboundRequest asserts that configuring a requirement actually requires it:
+// an initiator that sent the sixteen zero bytes meaning "no channel bindings" must be rejected.
+func TestVerifyChannelBindingShouldRejectAnUnboundRequest(t *testing.T) {
+	t.Parallel()
+
+	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
+
+	err := verifyChannelBinding(testAPReqWithChecksum(chksumtype.GSSAPI, make([]byte, 24)), want)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "channel binding mismatch")
+}
+
+func TestVerifyChannelBindingShouldRejectAMalformedChecksum(t *testing.T) {
+	t.Parallel()
+
+	want := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:want")}
+
+	for _, tc := range []struct {
+		name      string
+		cksumType int32
+		checksum  []byte
+	}{
+		{"WrongType", chksumtype.HMAC_SHA1_96_AES256, make([]byte, 24)},
+		{"TooShort", chksumtype.GSSAPI, make([]byte, 23)},
+		{"Empty", chksumtype.GSSAPI, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := verifyChannelBinding(testAPReqWithChecksum(tc.cksumType, tc.checksum), want)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "does not contain a GSSAPI checksum")
+		})
+	}
+}
+
+func TestSettingsRequireChannelBindingShouldDefaultToNil(t *testing.T) {
+	t.Parallel()
+
+	assert.Nil(t, NewSettings(nil).RequireChannelBinding())
+}
+
+func TestSettingsRequireChannelBindingShouldRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-exporter:test")}
+
+	assert.Same(t, cb, NewSettings(nil, RequireChannelBinding(cb)).RequireChannelBinding())
 }
 
 func newTestAuthenticator(t *testing.T, creds credentials.Credentials) types.Authenticator {

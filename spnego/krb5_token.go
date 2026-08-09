@@ -176,8 +176,40 @@ func (m *KRB5Token) Context() context.Context {
 	return m.context
 }
 
+// KRB5TokenOption configures optional content of a KRB5Token.
+type KRB5TokenOption func(*krb5TokenOptions)
+
+// krb5TokenOptions holds the resolved options for creating a KRB5Token.
+type krb5TokenOptions struct {
+	channelBinding *gssapi.ChannelBinding
+}
+
+// ChannelBinding configures the GSS-API channel binding to bind the AP_REQ to. The hash of the binding is carried in
+// the Bnd field of the authenticator checksum described by RFC 4121 Section 4.1.1.
+//
+// A nil binding means no channel bindings, which is the default.
+//
+//	cb, err := gssapi.NewChannelBindingTLSServerEndPointFromState(&state)
+//	s := SPNEGOClient(cl, spn, ChannelBinding(cb)).
+func ChannelBinding(cb *gssapi.ChannelBinding) KRB5TokenOption {
+	return func(o *krb5TokenOptions) {
+		o.channelBinding = cb
+	}
+}
+
+// newKRB5TokenOptions resolves the options provided, applying them in order so that the last value wins.
+func newKRB5TokenOptions(opts ...KRB5TokenOption) *krb5TokenOptions {
+	o := new(krb5TokenOptions)
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	return o
+}
+
 // NewKRB5TokenAPREQ creates a new KRB5 token with AP_REQ.
-func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flagsGSSAPI []int, optionsAP []int) (KRB5Token, error) {
+func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flagsGSSAPI []int, optionsAP []int, opts ...KRB5TokenOption) (KRB5Token, error) {
 	// TODO consider providing the SPN rather than the specific tkt and key and get these from the krb client.
 	var m KRB5Token
 
@@ -185,7 +217,7 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 	tb, _ := hex.DecodeString(TOK_ID_KRB_AP_REQ)
 	m.tokID = tb
 
-	auth, err := krb5TokenAuthenticator(cl.Credentials, flagsGSSAPI)
+	auth, err := krb5TokenAuthenticator(cl.Credentials, flagsGSSAPI, newKRB5TokenOptions(opts...).channelBinding)
 	if err != nil {
 		return m, err
 	}
@@ -209,7 +241,7 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 }
 
 // krb5TokenAuthenticator creates a new kerberos authenticator for kerberos MechToken.
-func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int) (types.Authenticator, error) {
+func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int, cb *gssapi.ChannelBinding) (types.Authenticator, error) {
 	// RFC 4121 Section 4.1.1.
 	auth, err := types.NewAuthenticator(creds.Domain(), creds.CName())
 	if err != nil {
@@ -218,16 +250,23 @@ func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int) (types.
 
 	auth.Cksum = types.Checksum{
 		CksumType: chksumtype.GSSAPI,
-		Checksum:  newAuthenticatorChksum(flags),
+		Checksum:  newAuthenticatorChksum(flags, cb),
 	}
 
 	return auth, nil
 }
 
-// Create new authenticator checksum for kerberos MechToken.
-func newAuthenticatorChksum(flags []int) []byte {
+// newAuthenticatorChksum creates the authenticator checksum for a kerberos MechToken as described by RFC 4121
+// Section 4.1.1: a four byte length of 16, the sixteen byte Bnd channel bindings hash, the four byte context flags
+// and, when delegation is requested, the optional delegation fields.
+//
+// A nil channel binding leaves Bnd as the sixteen zero bytes that mean no channel bindings.
+func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding) []byte {
 	a := make([]byte, 24)
 	binary.LittleEndian.PutUint32(a[:4], 16)
+
+	bnd := cb.Bnd()
+	copy(a[4:20], bnd[:])
 
 	for _, i := range flags {
 		if i == gssapi.ContextFlagDeleg {

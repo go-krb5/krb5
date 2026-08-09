@@ -77,7 +77,7 @@ func TestMarshalRoundTripV3(t *testing.T) {
 // bytes even when a caller-built credential leaves TicketFlags unset (nil
 // Bytes). Writing the raw Bytes instead would emit zero bytes here, shifting
 // every following field by four and causing the parser to read a garbage
-// authorization-data count — an out-of-range panic in readAuthDataEntry. This
+// authorization-data count; an out-of-range panic in readAuthDataEntry. This
 // reproduces a caller-built v4 cache (empty AuthData, unset flags).
 func TestMarshalRoundTripUnsetTicketFlags(t *testing.T) {
 	t.Parallel()
