@@ -33,10 +33,12 @@ const DefaultMaxRedirects = 10
 // Client will negotiate authentication with a server using SPNEGO.
 type Client struct {
 	*http.Client
-	krb5Client   *client.Client
-	spn          string
-	reqs         []*http.Request
-	maxRedirects int
+	krb5Client         *client.Client
+	spn                string
+	reqs               []*http.Request
+	maxRedirects       int
+	tokenOptions       []KRB5TokenOption
+	autoChannelBinding bool
 }
 
 type redirectErr struct {
@@ -106,6 +108,37 @@ func MaxRedirects(n int) func(*Client) {
 	}
 }
 
+// TokenOptions configures options applied to every AP_REQ the client creates.
+//
+// cl := NewClient(krb5Cl, httpCl, spn, TokenOptions(ChannelBinding(cb))).
+func TokenOptions(opts ...KRB5TokenOption) func(*Client) {
+	return func(c *Client) {
+		c.tokenOptions = append(c.tokenOptions, opts...)
+	}
+}
+
+// ChannelBindingTLSServerEndPoint configures the client to derive a tls-server-end-point channel binding, as
+// described by RFC 5929 Section 4, from the TLS state of the response that challenged it. This is what Microsoft's
+// Extended Protection for Authentication requires and it needs no further configuration.
+//
+// Requests that are not over TLS, or whose peer sent no certificate, proceed without a channel binding: there is no
+// channel to bind to. A binding configured explicitly through TokenOptions takes precedence over the derived one.
+//
+// A request that is over TLS but whose certificate yields no binding also proceeds without one, logging the reason
+// through the krb5 client. RFC 5929 Section 4.1 leaves the binding undefined for a certificate whose signature
+// algorithm has no single hash function, Ed25519 being the case in practice. This is a silent downgrade in both
+// directions: against a service that requires a binding the request fails authentication with nothing in the response
+// naming the certificate as the cause, and against a service that does not, the protection this option was enabled
+// for is simply absent. Callers who need the guarantee rather than the attempt should derive the binding themselves
+// with gssapi.NewChannelBindingTLSServerEndPoint, which reports the error, and pass it through TokenOptions.
+//
+// cl := NewClient(krb5Cl, httpCl, spn, ChannelBindingTLSServerEndPoint()).
+func ChannelBindingTLSServerEndPoint() func(*Client) {
+	return func(c *Client) {
+		c.autoChannelBinding = true
+	}
+}
+
 // Do is the SPNEGO enabled HTTP client's equivalent of the http.Client's Do method.
 func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	var body bytes.Buffer
@@ -143,7 +176,7 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	}
 
 	if respUnauthorizedNegotiate(resp) {
-		if err = SetSPNEGOHeader(c.krb5Client, req, c.spn); err != nil {
+		if err = SetSPNEGOHeader(c.krb5Client, req, c.spn, c.requestTokenOptions(resp)...); err != nil {
 			return resp, err
 		}
 
@@ -160,6 +193,26 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	c.reqs = c.reqs[:0]
 
 	return resp, err
+}
+
+// requestTokenOptions returns the token options to use for the response that challenged the client, deriving a
+// channel binding from its TLS state when the client is configured to. Derived options come first so that anything
+// configured explicitly overrides them.
+func (c *Client) requestTokenOptions(resp *http.Response) []KRB5TokenOption {
+	var opts []KRB5TokenOption
+
+	if c.autoChannelBinding && resp.TLS != nil && len(resp.TLS.PeerCertificates) > 0 {
+		cb, err := gssapi.NewChannelBindingTLSServerEndPoint(resp.TLS.PeerCertificates[0])
+		if err != nil && c.krb5Client != nil {
+			c.krb5Client.Log("could not derive tls-server-end-point channel binding: %v", err)
+		}
+
+		if cb != nil {
+			opts = append(opts, ChannelBinding(cb))
+		}
+	}
+
+	return append(opts, c.tokenOptions...)
 }
 
 // Get is the SPNEGO enabled HTTP client's equivalent of the http.Client's Get method.
@@ -245,7 +298,7 @@ func setRequestSPN(r *http.Request) (types.PrincipalName, error) {
 
 // SetSPNEGOHeader gets the service ticket and sets it as the SPNEGO authorization header on HTTP request object.
 // To auto generate the SPN from the request object pass a null string "".
-func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string) error {
+func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) error {
 	if spn == "" {
 		pn, err := setRequestSPN(r)
 		if err != nil {
@@ -256,7 +309,7 @@ func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string) error {
 	}
 
 	cl.Log("using SPN %s", spn)
-	s := SPNEGOClient(cl, spn)
+	s := SPNEGOClient(cl, spn, opts...)
 
 	err := s.AcquireCred()
 	if err != nil {

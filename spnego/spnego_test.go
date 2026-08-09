@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/x/encoding/asn1"
+
+	"github.com/go-krb5/krb5/gssapi"
 )
 
 const (
@@ -93,4 +95,24 @@ func TestMarshal_SPNEGO_RespTarg(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
+}
+
+func TestSPNEGOClientShouldRetainTokenOptions(t *testing.T) {
+	t.Parallel()
+
+	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
+
+	s := SPNEGOClient(nil, "HTTP/host.example.org", ChannelBinding(cb))
+
+	require.Len(t, s.tokenOptions, 1)
+	assert.Same(t, cb, newKRB5TokenOptions(s.tokenOptions...).channelBinding)
+}
+
+func TestSPNEGOClientShouldDefaultToNoTokenOptions(t *testing.T) {
+	t.Parallel()
+
+	s := SPNEGOClient(nil, "HTTP/host.example.org")
+
+	assert.Empty(t, s.tokenOptions)
+	assert.Nil(t, newKRB5TokenOptions(s.tokenOptions...).channelBinding)
 }

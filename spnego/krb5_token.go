@@ -130,6 +130,13 @@ func (m *KRB5Token) Verify() (bool, gssapi.Status) {
 	case TOK_ID_KRB_AP_REQ:
 		ok, creds, err := service.VerifyAPREQ(&m.APReq, m.settings)
 		if err != nil {
+			// RFC 2743 Section 2.2.2 separates a credential presented over the wrong channel from a malformed
+			// token. Reporting a channel binding failure as a defective token would leave the initiator unable to
+			// tell the two apart, and unable to tell that it is the channel rather than its credential at fault.
+			if errors.Is(err, service.ErrBadChannelBinding) {
+				return false, gssapi.Status{Code: gssapi.StatusBadBindings, Message: err.Error()}
+			}
+
 			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
 		}
 
@@ -176,8 +183,40 @@ func (m *KRB5Token) Context() context.Context {
 	return m.context
 }
 
+// KRB5TokenOption configures optional content of a KRB5Token.
+type KRB5TokenOption func(*krb5TokenOptions)
+
+// krb5TokenOptions holds the resolved options for creating a KRB5Token.
+type krb5TokenOptions struct {
+	channelBinding *gssapi.ChannelBinding
+}
+
+// ChannelBinding configures the GSS-API channel binding to bind the AP_REQ to. The hash of the binding is carried in
+// the Bnd field of the authenticator checksum described by RFC 4121 Section 4.1.1.
+//
+// A nil binding means no channel bindings, which is the default.
+//
+//	cb, err := gssapi.NewChannelBindingTLSServerEndPointFromState(&state)
+//	s := SPNEGOClient(cl, spn, ChannelBinding(cb)).
+func ChannelBinding(cb *gssapi.ChannelBinding) KRB5TokenOption {
+	return func(o *krb5TokenOptions) {
+		o.channelBinding = cb
+	}
+}
+
+// newKRB5TokenOptions resolves the options provided, applying them in order so that the last value wins.
+func newKRB5TokenOptions(opts ...KRB5TokenOption) *krb5TokenOptions {
+	o := new(krb5TokenOptions)
+
+	for _, opt := range opts {
+		opt(o)
+	}
+
+	return o
+}
+
 // NewKRB5TokenAPREQ creates a new KRB5 token with AP_REQ.
-func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flagsGSSAPI []int, optionsAP []int) (KRB5Token, error) {
+func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flagsGSSAPI []int, optionsAP []int, opts ...KRB5TokenOption) (KRB5Token, error) {
 	// TODO consider providing the SPN rather than the specific tkt and key and get these from the krb client.
 	var m KRB5Token
 
@@ -185,7 +224,7 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 	tb, _ := hex.DecodeString(TOK_ID_KRB_AP_REQ)
 	m.tokID = tb
 
-	auth, err := krb5TokenAuthenticator(cl.Credentials, flagsGSSAPI)
+	auth, err := krb5TokenAuthenticator(cl.Credentials, flagsGSSAPI, newKRB5TokenOptions(opts...).channelBinding)
 	if err != nil {
 		return m, err
 	}
@@ -209,32 +248,58 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 }
 
 // krb5TokenAuthenticator creates a new kerberos authenticator for kerberos MechToken.
-func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int) (types.Authenticator, error) {
+func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int, cb *gssapi.ChannelBinding) (types.Authenticator, error) {
 	// RFC 4121 Section 4.1.1.
 	auth, err := types.NewAuthenticator(creds.Domain(), creds.CName())
 	if err != nil {
 		return auth, krberror.Errorf(err, krberror.KRBMsgError, "error generating new authenticator")
 	}
 
+	chksum, err := newAuthenticatorChksum(flags, cb)
+	if err != nil {
+		return auth, err
+	}
+
 	auth.Cksum = types.Checksum{
 		CksumType: chksumtype.GSSAPI,
-		Checksum:  newAuthenticatorChksum(flags),
+		Checksum:  chksum,
 	}
 
 	return auth, nil
 }
 
-// Create new authenticator checksum for kerberos MechToken.
-func newAuthenticatorChksum(flags []int) []byte {
+// ErrDelegationUnimplemented is returned when gssapi.ContextFlagDeleg is requested. RFC 4121 Section 4.1.1 requires
+// the delegation option identifier in DlgOpt and a KRB_CRED in Deleg whenever the flag is set; this library
+// implements neither, so it refuses the request rather than emitting a checksum that claims a delegation it cannot
+// perform. Callers match against it with errors.Is.
+var ErrDelegationUnimplemented = errors.New("credential delegation is not implemented")
+
+// newAuthenticatorChksum creates the authenticator checksum for a kerberos MechToken as described by RFC 4121
+// Section 4.1.1: a four byte Lgth of 16, the sixteen byte Bnd channel bindings hash and the four byte context flags.
+// The result is always 24 bytes.
+//
+// A nil channel binding leaves Bnd as the sixteen zero bytes that mean no channel bindings.
+//
+// Requesting gssapi.ContextFlagDeleg returns ErrDelegationUnimplemented. Setting the flag obliges the initiator to
+// populate the DlgOpt, Dlgth and Deleg fields that follow Flags, and this library has no KRB_CRED to put there:
+// messages.KRBCred can be received but not emitted, and nothing acquires a forwarded TGT. Emitting the flag with
+// those fields zeroed is what this used to do, and MIT rejects it with GSS_S_FAILURE on reading DlgOpt as 0, so the
+// refusal costs no working deployment anything. Nothing in this library requests the flag: both SPNEGO paths ask for
+// ContextFlagInteg and ContextFlagConf only.
+func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding) ([]byte, error) {
+	for _, i := range flags {
+		if i&gssapi.ContextFlagDeleg != 0 {
+			return nil, fmt.Errorf("%w: RFC 4121 Section 4.1.1 requires DlgOpt to carry the delegation option identifier 1 and Deleg to carry a KRB_CRED", ErrDelegationUnimplemented)
+		}
+	}
+
 	a := make([]byte, 24)
 	binary.LittleEndian.PutUint32(a[:4], 16)
 
-	for _, i := range flags {
-		if i == gssapi.ContextFlagDeleg {
-			x := make([]byte, 28-len(a))
-			a = append(a, x...)
-		}
+	bnd := cb.Bnd()
+	copy(a[4:20], bnd[:])
 
+	for _, i := range flags {
 		f := binary.LittleEndian.Uint32(a[20:24])
 
 		f |= uint32(i)
@@ -242,5 +307,5 @@ func newAuthenticatorChksum(flags []int) []byte {
 		binary.LittleEndian.PutUint32(a[20:24], f)
 	}
 
-	return a
+	return a, nil
 }

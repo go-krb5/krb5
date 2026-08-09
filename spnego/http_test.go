@@ -26,6 +26,7 @@ import (
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/service"
 	"github.com/go-krb5/krb5/test"
@@ -528,4 +529,81 @@ func (smgr SessionMgr) New(w http.ResponseWriter, r *http.Request, k any, v []by
 	s.Values[k] = v
 
 	return s.Save(r, w)
+}
+
+func TestClientShouldDeriveChannelBindingFromResponseTLS(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.Client().Get(srv.URL)
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = resp.Body.Close() })
+	require.NotNil(t, resp.TLS)
+
+	c := NewClient(nil, srv.Client(), "HTTP/localhost", ChannelBindingTLSServerEndPoint())
+
+	opts := c.requestTokenOptions(resp)
+	require.Len(t, opts, 1)
+
+	expected, err := gssapi.NewChannelBindingTLSServerEndPoint(resp.TLS.PeerCertificates[0])
+	require.NoError(t, err)
+
+	assert.Equal(t, expected.ApplicationData, newKRB5TokenOptions(opts...).channelBinding.ApplicationData)
+}
+
+// TestClientShouldNotDeriveChannelBindingWithoutTLS asserts a plaintext request proceeds unbound rather than
+// failing, because there is no channel to bind to.
+func TestClientShouldNotDeriveChannelBindingWithoutTLS(t *testing.T) {
+	t.Parallel()
+
+	c := NewClient(nil, nil, "HTTP/localhost", ChannelBindingTLSServerEndPoint())
+
+	assert.Empty(t, c.requestTokenOptions(&http.Response{}))
+}
+
+func TestClientShouldNotDeriveChannelBindingWhenNotConfigured(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.Client().Get(srv.URL)
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	c := NewClient(nil, srv.Client(), "HTTP/localhost")
+
+	assert.Empty(t, c.requestTokenOptions(resp))
+}
+
+// TestClientExplicitChannelBindingShouldWinOverAutoDerivation asserts the precedence rule from the spec.
+func TestClientExplicitChannelBindingShouldWinOverAutoDerivation(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+
+	resp, err := srv.Client().Get(srv.URL)
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = resp.Body.Close() })
+
+	explicit := &gssapi.ChannelBinding{ApplicationData: []byte("tls-exporter:explicit")}
+
+	c := NewClient(nil, srv.Client(), "HTTP/localhost",
+		ChannelBindingTLSServerEndPoint(),
+		TokenOptions(ChannelBinding(explicit)),
+	)
+
+	assert.Same(t, explicit, newKRB5TokenOptions(c.requestTokenOptions(resp)...).channelBinding)
 }

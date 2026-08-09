@@ -20,13 +20,20 @@ type SPNEGO struct {
 	serviceSettings *service.Settings
 	client          *client.Client
 	spn             string
+	tokenOptions    []KRB5TokenOption
 }
 
 // SPNEGOClient configures the SPNEGO mechanism suitable for client side use.
-func SPNEGOClient(cl *client.Client, spn string) *SPNEGO {
+//
+// Pass ChannelBinding to bind the context to the transport channel underneath it:
+//
+//	cb, err := gssapi.NewChannelBindingTLSServerEndPointFromState(&state)
+//	s := SPNEGOClient(cl, spn, ChannelBinding(cb)).
+func SPNEGOClient(cl *client.Client, spn string, opts ...KRB5TokenOption) *SPNEGO {
 	s := new(SPNEGO)
 	s.client = cl
 	s.spn = spn
+	s.tokenOptions = opts
 	s.serviceSettings = service.NewSettings(nil, service.SName(spn))
 
 	return s
@@ -57,7 +64,7 @@ func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
 		return &SPNEGOToken{}, err
 	}
 
-	negTokenInit, err := NewNegTokenInitKRB5(s.client, tkt, key)
+	negTokenInit, err := NewNegTokenInitKRB5(s.client, tkt, key, s.tokenOptions...)
 	if err != nil {
 		return &SPNEGOToken{}, fmt.Errorf("could not create NegTokenInit: %w", err)
 	}
