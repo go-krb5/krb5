@@ -13,9 +13,11 @@ import (
 	"github.com/go-krb5/x/encoding/asn1"
 
 	"github.com/go-krb5/krb5/client"
+	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana/chksumtype"
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/keytab"
@@ -53,7 +55,7 @@ func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
 	b, err := hex.DecodeString(AuthChksum)
 	require.NoError(t, err)
 
-	cb, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	cb, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, b, cb)
 }
@@ -62,14 +64,12 @@ func TestKRB5Token_newAuthenticatorChksum(t *testing.T) {
 func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 	t.Parallel()
 
-	creds := credentials.New("hftsai", testdata.TEST_REALM)
-	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
-
 	var etypeID int32 = 18
 
 	keyLen := 32
 
-	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	a, err := krb5TokenAuthenticator(getClient(t), messages.Ticket{}, types.EncryptionKey{},
+		[]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
 	require.NoError(t, err)
 
 	require.NoError(t, a.GenerateSeqNumberAndSubKey(etypeID, keyLen))
@@ -100,10 +100,8 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 func TestKRB5Token_newAuthenticator(t *testing.T) {
 	t.Parallel()
 
-	creds := credentials.New("hftsai", testdata.TEST_REALM)
-	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
-
-	a, err := krb5TokenAuthenticator(creds, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	a, err := krb5TokenAuthenticator(getClient(t), messages.Ticket{}, types.EncryptionKey{},
+		[]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(32771), a.Cksum.CksumType)
@@ -221,7 +219,7 @@ func TestNewAuthenticatorChksumShouldEmbedTheChannelBinding(t *testing.T) {
 
 	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
 
-	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, cb)
+	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, cb, nil)
 	require.NoError(t, err)
 
 	require.Len(t, c, 24)
@@ -238,7 +236,7 @@ func TestNewAuthenticatorChksumShouldEmbedTheChannelBinding(t *testing.T) {
 func TestNewAuthenticatorChksumShouldZeroBndWithoutAChannelBinding(t *testing.T) {
 	t.Parallel()
 
-	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
+	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil, nil)
 	require.NoError(t, err)
 
 	require.Len(t, c, 24)
@@ -247,79 +245,66 @@ func TestNewAuthenticatorChksumShouldZeroBndWithoutAChannelBinding(t *testing.T)
 	assert.Equal(t, uint32(gssapi.ContextFlagInteg|gssapi.ContextFlagConf), binary.LittleEndian.Uint32(c[20:24]))
 }
 
-// TestNewAuthenticatorChksumShouldRefuseDelegation asserts the library refuses to claim a delegation it cannot
-// perform. RFC 4121 Section 4.1.1 requires DlgOpt to carry the delegation option identifier 1 and Deleg to carry a
-// KRB_CRED whenever the delegation flag is set. This library implements neither, and the 28 zeroed octets it used to
-// emit are rejected by MIT with GSS_S_FAILURE once it reads DlgOpt as 0. Failing here names the cause at the call
-// site instead.
-func TestNewAuthenticatorChksumShouldRefuseDelegation(t *testing.T) {
+// TestNewAuthenticatorChksumShouldCarryTheDelegatedCredential asserts the delegation fields of RFC 4121 Section
+// 4.1.1 follow Flags when a credential is supplied. The refusal this replaces existed because those fields used to
+// be emitted zeroed.
+func TestNewAuthenticatorChksumShouldCarryTheDelegatedCredential(t *testing.T) {
 	t.Parallel()
 
-	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg, gssapi.ContextFlagDeleg}, nil)
+	deleg := []byte("a marshalled KRB_CRED")
 
-	require.ErrorIs(t, err, ErrDelegationUnimplemented)
-	assert.Nil(t, c, "no checksum is returned when the flags cannot be honoured")
-	assert.Contains(t, err.Error(), "RFC 4121")
+	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagInteg}, nil, deleg)
+	require.NoError(t, err)
+
+	require.Len(t, c, 28+len(deleg))
+	assert.Equal(t, uint32(gssapi.ContextFlagInteg|gssapi.ContextFlagDeleg), binary.LittleEndian.Uint32(c[20:24]))
+	assert.Equal(t, uint16(1), binary.LittleEndian.Uint16(c[24:26]))
+	assert.Equal(t, deleg, c[28:])
 }
 
-// TestNewAuthenticatorChksumShouldRefuseCombinedDelegationBitmask asserts the guard tests the bit rather than the
-// value. The flags loop below the guard accumulates ORed values with f |= uint32(i), so a caller passing a combined
-// bitmask in a single slice element is an invited call style, not a misuse. A guard written as i ==
-// gssapi.ContextFlagDeleg misses that case: ContextFlagDeleg|ContextFlagInteg reaches the flags loop unrefused and
-// sets GSS_C_DELEG_FLAG in the emitted checksum with none of the delegation fields populated, which is exactly the
-// false claim of delegation this refusal exists to prevent.
-func TestNewAuthenticatorChksumShouldRefuseCombinedDelegationBitmask(t *testing.T) {
+// TestNewAuthenticatorChksumShouldStillRefuseTheFlagWithoutACredential asserts the original defect stays
+// unrepresentable now that the flag is honoured rather than refused.
+func TestNewAuthenticatorChksumShouldStillRefuseTheFlagWithoutACredential(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name        string
-		flags       []int
-		wantRefused bool
-	}{
-		{
-			name:        "DelegationAlone",
-			flags:       []int{gssapi.ContextFlagDeleg},
-			wantRefused: true,
-		},
-		{
-			name:        "DelegationCombinedWithIntegInOneElement",
-			flags:       []int{gssapi.ContextFlagDeleg | gssapi.ContextFlagInteg},
-			wantRefused: true,
-		},
-		{
-			name:        "IntegAndConfCombinedWithoutDelegationMustStillSucceed",
-			flags:       []int{gssapi.ContextFlagInteg | gssapi.ContextFlagConf},
-			wantRefused: false,
-		},
-	}
+	c, err := newAuthenticatorChksum([]int{gssapi.ContextFlagDeleg}, nil, nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			c, err := newAuthenticatorChksum(tt.flags, nil)
-
-			if tt.wantRefused {
-				require.ErrorIs(t, err, ErrDelegationUnimplemented)
-				assert.Nil(t, c, "no checksum is returned when the flags cannot be honoured")
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Len(t, c, 24)
-		})
-	}
+	require.ErrorIs(t, err, gssapi.ErrDelegationMissing)
+	assert.Nil(t, c)
 }
 
-// TestNewKRB5TokenAPREQShouldSurfaceDelegationRefusal covers the propagation hop rather than only the leaf: the error
-// has to travel newAuthenticatorChksum -> krb5TokenAuthenticator -> NewKRB5TokenAPREQ to reach a caller.
-func TestNewKRB5TokenAPREQShouldSurfaceDelegationRefusal(t *testing.T) {
+// TestNewKRB5TokenAPREQShouldSurfaceADelegationFailure covers the propagation hop rather than only the leaf: the
+// error has to travel delegatedCredential -> krb5TokenAuthenticator -> NewKRB5TokenAPREQ to reach a caller. This
+// matters because, unlike MIT, which silently clears GSS_C_DELEG_FLAG when forwarding fails, this library returns
+// the failure; a caller that never sees it would believe a delegation had happened that had not.
+//
+// A bare client.Client{Credentials: creds} literal cannot exercise this: its unexported *sessions field is a nil
+// pointer rather than a nil-safe map, so cl.ForwardedTGT panics inside sessions.get before it ever returns an
+// error. client.NewWithPassword initialises that field properly. To still fail locally, without a KDC round trip,
+// the realm's KDC list is cleared after parsing testdata.KRB5_CONF: client.Client.IsConfigured then rejects the
+// login synchronously with "client krb5 config does not have any defined KDCs for the default realm", before any
+// socket is opened. This is the same local-failure shape TestForwardedTGTShouldRefuseANonForwardableSession in
+// client/forwarding_test.go exploits, one layer up: the config check rather than the forwardable check.
+func TestNewKRB5TokenAPREQShouldSurfaceADelegationFailure(t *testing.T) {
 	t.Parallel()
 
-	creds := credentials.New("hftsai", testdata.TEST_REALM)
-	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
-	cl := &client.Client{Credentials: creds}
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
+
+	var cleared bool
+
+	for i := range c.Realms {
+		if c.Realms[i].Realm == "TEST.GOKRB5" {
+			c.Realms[i].KDC = nil
+			cleared = true
+
+			break
+		}
+	}
+
+	require.True(t, cleared, "test fixture must clear the KDC list of the realm it authenticates against")
+
+	cl := client.NewWithPassword("testuser1", "TEST.GOKRB5", "passwordvalue", c)
 
 	var tkt messages.Ticket
 
@@ -329,8 +314,207 @@ func TestNewKRB5TokenAPREQShouldSurfaceDelegationRefusal(t *testing.T) {
 
 	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
 
-	_, err = NewKRB5TokenAPREQ(cl, tkt, key, []int{gssapi.ContextFlagDeleg}, []int{})
-	require.ErrorIs(t, err, ErrDelegationUnimplemented)
+	start := time.Now()
+	mt, err := NewKRB5TokenAPREQ(cl, tkt, key, []int{gssapi.ContextFlagDeleg}, []int{})
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "obtaining a forwarded TGT to delegate",
+		"the error must name the propagation hop it travelled, not just any failure")
+	assert.ErrorContains(t, err, "does not have any defined KDCs",
+		"the error must name the underlying cause")
+	// The underlying failure is a configuration error with no sentinel of its own, so it is matched on its text.
+	// What errors.Is can say about it is that it is not the one delegation failure that does have a sentinel, which
+	// is what a caller deciding whether to tell the operator about forwardable = true needs to know.
+	assert.NotErrorIs(t, err, client.ErrNotForwardable,
+		"a missing KDC must not be classified as a non-forwardable TGT")
+	assert.Empty(t, mt.APReq.Ticket.Realm, "no usable token is returned alongside the error")
+	assert.Less(t, elapsed, 1*time.Second,
+		"a client with no KDCs configured must be rejected locally, without attempting a KDC round trip")
+}
+
+// ccacheClient builds a client the way a delegating caller does, from a credential cache, with the captured test
+// vector's credential times shifted forward so the TGT is currently valid and no KDC exchange is needed to establish
+// the session. forwardable selects whether the TGT keeps the FORWARDABLE flag the KDC issued it with.
+//
+// The realm's KDCs are cleared so that anything reaching the network fails locally rather than dialling.
+func ccacheClient(t *testing.T, forwardable bool) *client.Client {
+	t.Helper()
+
+	b, err := hex.DecodeString(testdata.CCACHE_TEST)
+	require.NoError(t, err)
+
+	cc := new(credentials.CCache)
+	require.NoError(t, cc.Unmarshal(b))
+
+	spn := types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{"krbtgt", "TEST.GOKRB5"}}
+
+	tgt, ok := cc.GetEntry(spn)
+	require.True(t, ok, "the ccache test vector must contain a TGT")
+	require.True(t, types.IsFlagSet(&tgt.TicketFlags, flags.Forwardable),
+		"the ccache test vector's TGT must be forwardable for this fixture to control the flag")
+
+	if !forwardable {
+		types.UnsetFlag(&tgt.TicketFlags, flags.Forwardable)
+	}
+
+	offset := time.Now().UTC().Add(-1 * time.Hour).Sub(tgt.AuthTime)
+
+	for _, cred := range cc.Credentials {
+		cred.AuthTime = cred.AuthTime.Add(offset)
+		cred.StartTime = cred.StartTime.Add(offset)
+		cred.EndTime = cred.EndTime.Add(offset)
+		cred.RenewTill = cred.RenewTill.Add(offset)
+	}
+
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
+
+	var cleared bool
+
+	for i := range c.Realms {
+		if c.Realms[i].Realm == "TEST.GOKRB5" {
+			c.Realms[i].KDC = nil
+			cleared = true
+
+			break
+		}
+	}
+
+	require.True(t, cleared, "test fixture must clear the KDC list of the realm it authenticates against")
+
+	cl, err := client.NewFromCCache(cc, c)
+	require.NoError(t, err)
+
+	return cl
+}
+
+// TestNewKRB5TokenAPREQShouldHonourTheDelegationOption pins the option on the entry point that consumes it. The
+// option used to be read only by NewNegTokenInitKRB5, so passing Delegation() here returned a perfectly valid
+// 24 octet non-delegating checksum and no error: an unobservable downgrade for a caller that believed it had
+// delegated. Reaching the forwarding exchange at all is the proof the option was honoured; the exchange itself
+// cannot succeed against a fixture with no KDCs.
+func TestNewKRB5TokenAPREQShouldHonourTheDelegationOption(t *testing.T) {
+	t.Parallel()
+
+	cl := ccacheClient(t, true)
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
+
+	_, err = NewKRB5TokenAPREQ(cl, tkt, key, []int{gssapi.ContextFlagInteg}, nil, Delegation())
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "obtaining a forwarded TGT to delegate",
+		"Delegation() passed to NewKRB5TokenAPREQ must reach the forwarding exchange")
+}
+
+// TestNewKRB5TokenAPREQShouldNotDelegateWithoutTheOption is the counterpart: without Delegation() and without
+// gssapi.ContextFlagDeleg no forwarding is attempted and the checksum is the 24 octet form.
+func TestNewKRB5TokenAPREQShouldNotDelegateWithoutTheOption(t *testing.T) {
+	t.Parallel()
+
+	cl := ccacheClient(t, true)
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
+
+	mt, err := NewKRB5TokenAPREQ(cl, tkt, key, []int{gssapi.ContextFlagInteg}, nil)
+	require.NoError(t, err)
+
+	// The authenticator is sealed under the same session key it was encrypted with, so the checksum has to be
+	// decrypted back out to be read.
+	require.NoError(t, mt.APReq.DecryptAuthenticator(key))
+
+	assert.Equal(t, chksumtype.GSSAPI, mt.APReq.Authenticator.Cksum.CksumType)
+	assert.Len(t, mt.APReq.Authenticator.Cksum.Checksum, 24,
+		"a token that was not asked to delegate must carry no delegation fields")
+}
+
+// TestNewKRB5TokenAPREQShouldReturnAMatchableErrNotForwardable asserts the one delegation failure with an
+// operator-actionable remedy stays classifiable at the outermost public call. It used to be wrapped with
+// krberror.Errorf, which flattens what it wraps into strings and has no Unwrap, so errors.Is failed and a caller
+// could only tell "the operator needs forwardable = true" from any other KDC failure by matching on substrings.
+func TestNewKRB5TokenAPREQShouldReturnAMatchableErrNotForwardable(t *testing.T) {
+	t.Parallel()
+
+	cl := ccacheClient(t, false)
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
+
+	_, err = NewKRB5TokenAPREQ(cl, tkt, key, []int{gssapi.ContextFlagDeleg}, nil)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, client.ErrNotForwardable,
+		"the sentinel must survive every wrap between client.ForwardedTGT and NewKRB5TokenAPREQ")
+	assert.ErrorContains(t, err, "forwardable = true",
+		"the error must still name the setting that fixes it")
+}
+
+// TestNewNegTokenInitKRB5ShouldReturnAMatchableErrNotForwardable covers the SPNEGO entry point, which wraps once
+// more on the way out.
+func TestNewNegTokenInitKRB5ShouldReturnAMatchableErrNotForwardable(t *testing.T) {
+	t.Parallel()
+
+	cl := ccacheClient(t, false)
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
+
+	_, err = NewNegTokenInitKRB5(cl, tkt, key, Delegation())
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, client.ErrNotForwardable)
+}
+
+// TestDelegationRequestedShouldTestTheBit pins that callers may combine GSS-API context flags into one slice
+// element, which is what the flags are: a bitmask. delegationRequested is the only thing deciding whether a KDC
+// round trip happens, so a value comparison here would silently skip the forwarding exchange for a caller passing
+// ContextFlagDeleg|ContextFlagInteg and produce the non-delegating token that this branch exists to prevent.
+func TestDelegationRequestedShouldTestTheBit(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		flags    []int
+		expected bool
+	}{
+		{"ShouldDetectTheFlagOnItsOwn", []int{gssapi.ContextFlagDeleg}, true},
+		{"ShouldDetectTheFlagCombinedIntoOneElement", []int{gssapi.ContextFlagDeleg | gssapi.ContextFlagInteg}, true},
+		{"ShouldDetectTheFlagAlongsideOthers", []int{gssapi.ContextFlagInteg, gssapi.ContextFlagDeleg}, true},
+		{"ShouldNotDetectOtherFlagsCombined", []int{gssapi.ContextFlagInteg | gssapi.ContextFlagConf}, false},
+		{"ShouldNotDetectOtherFlags", []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, false},
+		{"ShouldNotDetectAnythingInNoFlags", nil, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			assert.Equal(t, tc.expected, delegationRequested(tc.flags))
+		})
+	}
 }
 
 func TestNewKRB5TokenOptionsShouldDefaultToNoChannelBinding(t *testing.T) {
@@ -389,7 +573,7 @@ func TestKRB5TokenVerifyShouldReportChannelBindingFailuresAsBadBindings(t *testi
 		require.NoError(t, err)
 		require.NoError(t, auth.GenerateSeqNumberAndSubKey(18, 32))
 
-		chksum, err := newAuthenticatorChksum(nil, cb)
+		chksum, err := newAuthenticatorChksum(nil, cb, nil)
 		require.NoError(t, err)
 
 		auth.Cksum = types.Checksum{CksumType: chksumtype.GSSAPI, Checksum: chksum}

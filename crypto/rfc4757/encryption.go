@@ -67,6 +67,13 @@ func EncryptMessage(key, data []byte, usage uint32, export bool, e etype.EType) 
 // DecryptMessage decrypts the message provided using the methods specific to the etype provided as defined in RFC 4757.
 // The integrity of the message is also verified.
 func DecryptMessage(key, data []byte, usage uint32, export bool, e etype.EType) ([]byte, error) {
+	// An encrypted message is the checksum followed by the encrypted confounder and message. Anything shorter than
+	// a checksum plus a confounder cannot be one, and splitting it anyway would index out of range. The length is
+	// chosen by whoever encoded the message, so this has to be a returned error rather than a panic.
+	if min := e.GetHMACBitLength()/8 + e.GetConfounderByteSize(); len(data) < min {
+		return nil, fmt.Errorf("ciphertext is too short to be an encrypted message: %d bytes, need at least %d", len(data), min)
+	}
+
 	checksum := data[:e.GetHMACBitLength()/8]
 	ct := data[e.GetHMACBitLength()/8:]
 	_, k2, k3 := deriveKeys(key, checksum, usage, export)
@@ -84,7 +91,14 @@ func DecryptMessage(key, data []byte, usage uint32, export bool, e etype.EType) 
 }
 
 // VerifyIntegrity checks the integrity checksum of the data matches that calculated from the decrypted data.
+//
+// Data too short to carry the checksum fails verification rather than indexing past its end.
 func VerifyIntegrity(key, pt, data []byte, e etype.EType) bool {
+	if len(data) < e.GetHMACBitLength()/8 {
+		return false
+	}
+
 	chksum := HMAC(key, pt)
+
 	return hmac.Equal(chksum, data[:e.GetHMACBitLength()/8])
 }

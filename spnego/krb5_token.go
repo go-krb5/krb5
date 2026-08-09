@@ -2,7 +2,6 @@ package spnego
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/client"
-	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/msgtype"
@@ -137,6 +135,15 @@ func (m *KRB5Token) Verify() (bool, gssapi.Status) {
 				return false, gssapi.Status{Code: gssapi.StatusBadBindings, Message: err.Error()}
 			}
 
+			// RFC 2743 defines no GSS-API status more specific than a defective token for a delegated credential
+			// this acceptor could not read, so this maps to the same StatusDefectiveToken as the fallback below.
+			// The branch is kept explicit, matching ErrBadChannelBinding above, so that a future status more
+			// specific than "defective token" has one place to be added without re-deriving which sentinel means
+			// what.
+			if errors.Is(err, service.ErrBadDelegation) {
+				return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
+			}
+
 			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
 		}
 
@@ -189,6 +196,7 @@ type KRB5TokenOption func(*krb5TokenOptions)
 // krb5TokenOptions holds the resolved options for creating a KRB5Token.
 type krb5TokenOptions struct {
 	channelBinding *gssapi.ChannelBinding
+	delegation     bool
 }
 
 // ChannelBinding configures the GSS-API channel binding to bind the AP_REQ to. The hash of the binding is carried in
@@ -204,6 +212,22 @@ func ChannelBinding(cb *gssapi.ChannelBinding) KRB5TokenOption {
 	}
 }
 
+// Delegation requests credential delegation: the AP_REQ will carry a forwarded ticket-granting ticket in the Deleg
+// field of the authenticator checksum described by RFC 4121 Section 4.1.1, letting the service act as the client.
+//
+// This requires a forwardable TGT. Set forwardable = true in the libdefaults section of krb5.conf before
+// authenticating, or the KDC will refuse to issue the forwarded ticket; this library defaults it to false.
+//
+// Delegation grants the service complete use of the client's identity, as RFC 4120 Section 2.6 describes. Request
+// it only against services trusted with that.
+//
+//	s := SPNEGOClient(cl, spn, Delegation()).
+func Delegation() KRB5TokenOption {
+	return func(o *krb5TokenOptions) {
+		o.delegation = true
+	}
+}
+
 // newKRB5TokenOptions resolves the options provided, applying them in order so that the last value wins.
 func newKRB5TokenOptions(opts ...KRB5TokenOption) *krb5TokenOptions {
 	o := new(krb5TokenOptions)
@@ -216,6 +240,11 @@ func newKRB5TokenOptions(opts ...KRB5TokenOption) *krb5TokenOptions {
 }
 
 // NewKRB5TokenAPREQ creates a new KRB5 token with AP_REQ.
+//
+// Delegation is requested either by the Delegation option or by gssapi.ContextFlagDeleg in flagsGSSAPI; the two are
+// reconciled here, which is the single place every caller passes through. Folding the option into the flags in a
+// caller instead would leave this entry point silently ignoring it and returning a non-delegating token to a caller
+// that believed it had delegated.
 func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flagsGSSAPI []int, optionsAP []int, opts ...KRB5TokenOption) (KRB5Token, error) {
 	// TODO consider providing the SPN rather than the specific tkt and key and get these from the krb client.
 	var m KRB5Token
@@ -224,7 +253,14 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 	tb, _ := hex.DecodeString(TOK_ID_KRB_AP_REQ)
 	m.tokID = tb
 
-	auth, err := krb5TokenAuthenticator(cl.Credentials, flagsGSSAPI, newKRB5TokenOptions(opts...).channelBinding)
+	opt := newKRB5TokenOptions(opts...)
+
+	if opt.delegation && !delegationRequested(flagsGSSAPI) {
+		// Copied rather than appended in place: flagsGSSAPI belongs to the caller and may have spare capacity.
+		flagsGSSAPI = append(append([]int(nil), flagsGSSAPI...), gssapi.ContextFlagDeleg)
+	}
+
+	auth, err := krb5TokenAuthenticator(cl, tkt, sessionKey, flagsGSSAPI, opt.channelBinding)
 	if err != nil {
 		return m, err
 	}
@@ -247,15 +283,50 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 	return m, nil
 }
 
+// newAuthenticatorChksum creates the authenticator checksum for a kerberos MechToken as described by RFC 4121
+// Section 4.1.1.
+//
+// A nil channel binding leaves Bnd as the sixteen zero bytes that mean no channel bindings. A nil deleg produces
+// the 24 octet checksum that carries no delegated credential.
+//
+// Requesting gssapi.ContextFlagDeleg without supplying deleg returns gssapi.ErrDelegationMissing: RFC 4121 Section
+// 4.1.1 makes the delegation fields present if and only if the flag is set, and a checksum claiming a delegation
+// it does not carry is rejected by MIT with GSS_S_FAILURE on reading DlgOpt as 0.
+func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding, deleg []byte) ([]byte, error) {
+	c := gssapi.AuthenticatorChecksum{
+		Bnd:   cb.Bnd(),
+		Deleg: deleg,
+	}
+
+	for _, i := range flags {
+		c.Flags |= uint32(i) //nolint:gosec // G115: the GSS-API context flags are small positive constants.
+	}
+
+	return c.Marshal()
+}
+
 // krb5TokenAuthenticator creates a new kerberos authenticator for kerberos MechToken.
-func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int, cb *gssapi.ChannelBinding) (types.Authenticator, error) {
+//
+// When gssapi.ContextFlagDeleg is requested a forwarded TGT is obtained from the KDC and carried in the checksum as
+// a KRB_CRED, encrypted under the session key of the ticket authenticating the context. RFC 4121 Section 4.1.1
+// requires that key specifically: "The EncryptedData field of the KRB_CRED message MUST be encrypted in the session
+// key of the ticket used to authenticate the context."
+func krb5TokenAuthenticator(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flags []int, cb *gssapi.ChannelBinding) (types.Authenticator, error) {
 	// RFC 4121 Section 4.1.1.
-	auth, err := types.NewAuthenticator(creds.Domain(), creds.CName())
+	auth, err := types.NewAuthenticator(cl.Credentials.Domain(), cl.Credentials.CName())
 	if err != nil {
 		return auth, krberror.Errorf(err, krberror.KRBMsgError, "error generating new authenticator")
 	}
 
-	chksum, err := newAuthenticatorChksum(flags, cb)
+	var deleg []byte
+
+	if delegationRequested(flags) {
+		if deleg, err = delegatedCredential(cl, tkt, sessionKey); err != nil {
+			return auth, err
+		}
+	}
+
+	chksum, err := newAuthenticatorChksum(flags, cb, deleg)
 	if err != nil {
 		return auth, err
 	}
@@ -268,44 +339,46 @@ func krb5TokenAuthenticator(creds *credentials.Credentials, flags []int, cb *gss
 	return auth, nil
 }
 
-// ErrDelegationUnimplemented is returned when gssapi.ContextFlagDeleg is requested. RFC 4121 Section 4.1.1 requires
-// the delegation option identifier in DlgOpt and a KRB_CRED in Deleg whenever the flag is set; this library
-// implements neither, so it refuses the request rather than emitting a checksum that claims a delegation it cannot
-// perform. Callers match against it with errors.Is.
-var ErrDelegationUnimplemented = errors.New("credential delegation is not implemented")
-
-// newAuthenticatorChksum creates the authenticator checksum for a kerberos MechToken as described by RFC 4121
-// Section 4.1.1: a four byte Lgth of 16, the sixteen byte Bnd channel bindings hash and the four byte context flags.
-// The result is always 24 bytes.
-//
-// A nil channel binding leaves Bnd as the sixteen zero bytes that mean no channel bindings.
-//
-// Requesting gssapi.ContextFlagDeleg returns ErrDelegationUnimplemented. Setting the flag obliges the initiator to
-// populate the DlgOpt, Dlgth and Deleg fields that follow Flags, and this library has no KRB_CRED to put there:
-// messages.KRBCred can be received but not emitted, and nothing acquires a forwarded TGT. Emitting the flag with
-// those fields zeroed is what this used to do, and MIT rejects it with GSS_S_FAILURE on reading DlgOpt as 0, so the
-// refusal costs no working deployment anything. Nothing in this library requests the flag: both SPNEGO paths ask for
-// ContextFlagInteg and ContextFlagConf only.
-func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding) ([]byte, error) {
+// delegationRequested reports whether any of the flags carries GSS_C_DELEG_FLAG. The bit is tested rather than the
+// value because callers may combine flags into a single slice element.
+func delegationRequested(flags []int) bool {
 	for _, i := range flags {
 		if i&gssapi.ContextFlagDeleg != 0 {
-			return nil, fmt.Errorf("%w: RFC 4121 Section 4.1.1 requires DlgOpt to carry the delegation option identifier 1 and Deleg to carry a KRB_CRED", ErrDelegationUnimplemented)
+			return true
 		}
 	}
 
-	a := make([]byte, 24)
-	binary.LittleEndian.PutUint32(a[:4], 16)
+	return false
+}
 
-	bnd := cb.Bnd()
-	copy(a[4:20], bnd[:])
-
-	for _, i := range flags {
-		f := binary.LittleEndian.Uint32(a[20:24])
-
-		f |= uint32(i)
-
-		binary.LittleEndian.PutUint32(a[20:24], f)
+// delegatedCredential obtains a forwarded TGT and marshals it as the KRB_CRED that RFC 4121 Section 4.1.1 carries
+// in the Deleg field of the authenticator checksum.
+//
+// Unlike MIT, which silently clears GSS_C_DELEG_FLAG when forwarding fails, a failure here is returned. This
+// library has no ret_flags plumbing, so a caller could not observe the downgrade and would believe a delegation had
+// happened that had not.
+//
+// Failures are wrapped with fmt.Errorf and %w rather than with krberror.Errorf. krberror.Krberror flattens what it
+// wraps into strings and exposes no Unwrap, which would break the chain and leave a caller unable to tell
+// client.ErrNotForwardable; the one failure with an operator-actionable remedy, from any other KDC error except by
+// matching on substrings.
+func delegatedCredential(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey) ([]byte, error) {
+	ftgt, dep, err := cl.ForwardedTGT(tkt.SName, sessionKey)
+	if err != nil {
+		return nil, fmt.Errorf("error obtaining a forwarded TGT to delegate: %w", err)
 	}
 
-	return a, nil
+	info := messages.NewKrbCredInfo(dep, cl.Credentials.CName(), cl.Credentials.Domain())
+
+	cred, err := messages.NewKRBCred([]messages.Ticket{ftgt}, []messages.KrbCredInfo{info}, sessionKey)
+	if err != nil {
+		return nil, fmt.Errorf("error building the KRB_CRED to delegate: %w", err)
+	}
+
+	b, err := cred.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling the KRB_CRED to delegate: %w", err)
+	}
+
+	return b, nil
 }

@@ -176,6 +176,59 @@ func NewTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Co
 	return a, err
 }
 
+// NewForwardedTGSReq generates a TGS_REQ for a forwarded ticket-granting ticket, for delegating the client's
+// identity to a service as described by RFC 4121 Section 4.1.1.
+//
+// The service requested is the client realm's own krbtgt, since what is forwarded is a TGT rather than a service
+// ticket. FORWARDED asks for the forwarding, and RFC 4121 Section 4.1.1 says the resulting ticket "SHOULD have its
+// forwardable flag set", so FORWARDABLE is requested too.
+//
+// RFC 4120 Section 3.3 makes this honoured "only if the FORWARDABLE flag is set in the TGT" supplied; a KDC will
+// otherwise answer KDC_ERR_BADOPTION.
+//
+// addrs are the addresses of the host the resulting ticket is to be valid from. Pass nil for an addressless
+// forwarded ticket, which RFC 4120 Section 2.6 blesses and which is what MIT sends whenever the source TGT is
+// itself addressless.
+//
+// etypes replaces the configured default encryption types when non-empty. MS-KILE Section 3.3.5.7.4 has the client
+// "set the etype field of the TGS-REQ to the contents of the keytype field in the previous TGS-REP to specify the
+// common encryption type", so that the KDC issues the forwarded ticket with a session key the application server
+// can actually use. Pass nil to leave the configured defaults in place.
+//
+// supported advertises the encryption types the KDC and the application server both support, which MS-KILE has the
+// client send as PA-SUPPORTED-ENCTYPES alongside the pinned etype. A zero value appends nothing.
+func NewForwardedTGSReq(cname types.PrincipalName, crealm, kdcRealm string, c *config.Config, tgt Ticket, sessionKey types.EncryptionKey, addrs types.HostAddresses, etypes []int32, supported types.SupportedETypes) (TGSReq, error) {
+	sname := types.PrincipalName{
+		NameType:   nametype.KRB_NT_SRV_INST,
+		NameString: []string{"krbtgt", crealm},
+	}
+
+	a, err := tgsReq(cname, sname, kdcRealm, false, c)
+	if err != nil {
+		return a, err
+	}
+
+	types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwarded)
+	types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
+
+	a.ReqBody.Addresses = addrs
+
+	if len(etypes) > 0 {
+		a.ReqBody.EType = etypes
+	}
+
+	if err = a.setPAData(crealm, tgt, sessionKey); err != nil {
+		return a, err
+	}
+
+	// setPAData replaces PAData wholesale, so the advertisement is appended after it rather than before.
+	if !supported.IsZero() {
+		a.PAData = append(a.PAData, supported.PAData())
+	}
+
+	return a, nil
+}
+
 // NewUser2UserTGSReq returns a TGS-REQ suitable for user-to-user authentication (https://tools.ietf.org/html/rfc4120#section-3.7)
 func NewUser2UserTGSReq(cname types.PrincipalName, kdcRealm string, c *config.Config, clientTGT Ticket, sessionKey types.EncryptionKey, sname types.PrincipalName, renewal bool, verifyingTGT Ticket) (TGSReq, error) {
 	a, err := tgsReq(cname, sname, kdcRealm, renewal, c)

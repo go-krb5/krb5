@@ -99,6 +99,13 @@ func DecryptData(key, data []byte, e etype.EType) ([]byte, error) {
 // DecryptMessage decrypts the message provided using the methods specific to the etype provided as defined in RFC 8009.
 // The integrity of the message is also verified.
 func DecryptMessage(key, ciphertext []byte, usage uint32, e etype.EType) ([]byte, error) {
+	// An encrypted message is a confounder and the message, encrypted, followed by the integrity hash. Anything
+	// shorter than a confounder plus a hash cannot be one, and slicing the hash off it would index out of range.
+	// The length is chosen by whoever encoded the message, so this has to be a returned error rather than a panic.
+	if min := e.GetConfounderByteSize() + e.GetHMACBitLength()/8; len(ciphertext) < min {
+		return nil, fmt.Errorf("ciphertext is too short to be an encrypted message: %d bytes, need at least %d", len(ciphertext), min)
+	}
+
 	// Derive the key.
 	k, err := e.DeriveKey(key, common.GetUsageKe(usage))
 	if err != nil {
@@ -127,7 +134,13 @@ func GetIntegityHash(iv, c, key []byte, usage uint32, e etype.EType) ([]byte, er
 }
 
 // VerifyIntegrity verifies the integrity of cipertext bytes ct.
+//
+// A ct too short to carry an integrity hash fails verification rather than indexing past its end.
 func VerifyIntegrity(key, ct []byte, usage uint32, etype etype.EType) bool {
+	if len(ct) < etype.GetHMACBitLength()/8 {
+		return false
+	}
+
 	h := make([]byte, etype.GetHMACBitLength()/8)
 	copy(h, ct[len(ct)-etype.GetHMACBitLength()/8:])
 	ivz := make([]byte, etype.GetConfounderByteSize())

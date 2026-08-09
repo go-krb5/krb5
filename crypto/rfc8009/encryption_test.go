@@ -580,3 +580,39 @@ func TestDecryptData_InvalidKeySize_AES128(t *testing.T) {
 		})
 	}
 }
+
+// TestDecryptMessageShouldRejectAShortCiphertext covers the length guard, matching the one in rfc3961 and rfc3962:
+// an EncryptedData shorter than a confounder plus an integrity hash cannot be an encrypted message, and slicing the
+// hash off it used to index out of range.
+func TestDecryptMessageShouldRejectAShortCiphertext(t *testing.T) {
+	t.Parallel()
+
+	var e crypto.Aes128CtsHmacSha256128
+
+	key := make([]byte, 16)
+
+	for _, size := range []int{0, 1, 6, 12, 27} {
+		assert.NotPanics(t, func() {
+			_, err := rfc8009.DecryptMessage(key, make([]byte, size), 2, &e)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "ciphertext is too short to be an encrypted message")
+		}, "a %d byte ciphertext must be an error, not a panic", size)
+	}
+}
+
+// TestVerifyIntegrityShouldRejectAShortCiphertext covers the same exposure on the exported integrity check, which
+// reads the trailing hash out of the ciphertext directly.
+func TestVerifyIntegrityShouldRejectAShortCiphertext(t *testing.T) {
+	t.Parallel()
+
+	var e crypto.Aes128CtsHmacSha256128
+
+	key := make([]byte, 16)
+
+	for _, size := range []int{0, 1, 11} {
+		assert.NotPanics(t, func() {
+			assert.False(t, rfc8009.VerifyIntegrity(key, make([]byte, size), 2, &e))
+		}, "a %d byte ciphertext must verify false, not panic", size)
+	}
+}

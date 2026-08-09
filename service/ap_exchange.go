@@ -2,7 +2,6 @@ package service
 
 import (
 	"crypto/hmac"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"time"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/messages"
+	"github.com/go-krb5/krb5/types"
 )
 
 // VerifyAPREQ verifies an AP_REQ sent to the service. Returns a boolean for if the AP_REQ is valid and the client's principal name and realm.
@@ -46,6 +46,10 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 	creds.SetAuthTime(time.Now().UTC())
 	creds.SetAuthenticated(true)
 	creds.SetValidUntil(APReq.Ticket.DecryptedEncPart.EndTime)
+
+	if err = extractDelegatedCredential(APReq, creds); err != nil {
+		return false, creds, err
+	}
 
 	// PAC decoding.
 	if !s.disablePACDecoding {
@@ -108,14 +112,6 @@ func newBadChannelBindingError(APReq *messages.APReq, etext string) error {
 	}
 }
 
-// authenticatorChksumBndLgth is the value RFC 4121 Section 4.1.1 fixes in the four octet little-endian Lgth field at
-// the start of the GSS-API authenticator checksum: the width of the Bnd field that follows it.
-const authenticatorChksumBndLgth = 16
-
-// authenticatorChksumMinLen is the smallest GSS-API authenticator checksum RFC 4121 Section 4.1.1 describes, holding
-// Lgth, Bnd and Flags. The delegation and extension fields beyond it are optional.
-const authenticatorChksumMinLen = 24
-
 // verifyChannelBinding compares the Bnd field of the AP_REQ authenticator's GSS-API checksum against the channel
 // binding the service requires, as described by RFC 4121 Section 4.1.1. The comparison is constant time.
 //
@@ -129,20 +125,133 @@ const authenticatorChksumMinLen = 24
 func verifyChannelBinding(APReq *messages.APReq, cb *gssapi.ChannelBinding) error {
 	cksum := APReq.Authenticator.Cksum.Checksum
 
-	if APReq.Authenticator.Cksum.CksumType != chksumtype.GSSAPI || len(cksum) < authenticatorChksumMinLen {
+	if APReq.Authenticator.Cksum.CksumType != chksumtype.GSSAPI || len(cksum) < gssapi.ChecksumMinLen {
 		return newBadChannelBindingError(APReq, "authenticator does not contain a GSSAPI checksum carrying channel bindings")
 	}
 
-	if lgth := binary.LittleEndian.Uint32(cksum[:4]); lgth != authenticatorChksumBndLgth {
-		return newBadChannelBindingError(APReq, fmt.Sprintf(
-			"authenticator GSSAPI checksum declares a Bnd length of %d rather than %d", lgth, authenticatorChksumBndLgth))
+	var c gssapi.AuthenticatorChecksum
+
+	if err := c.Unmarshal(cksum); err != nil {
+		var lgth gssapi.ChecksumLgthError
+		if errors.As(err, &lgth) {
+			return newBadChannelBindingError(APReq, fmt.Sprintf("authenticator GSSAPI checksum %s", lgth.Error()))
+		}
+
+		return newBadChannelBindingError(APReq, fmt.Sprintf("authenticator GSSAPI checksum could not be read: %s", err.Error()))
 	}
 
 	expected := cb.Bnd()
 
-	if !hmac.Equal(cksum[4:20], expected[:]) {
+	if !hmac.Equal(c.Bnd[:], expected[:]) {
 		return newBadChannelBindingError(APReq, "channel binding mismatch")
 	}
 
 	return nil
+}
+
+// ErrBadDelegation identifies a failure to accept a credential a client delegated in its AP_REQ. RFC 4121 Section
+// 4.1.1 makes the delegation fields present if and only if GSS_C_DELEG_FLAG is set, so a request that claims a
+// delegation this service cannot read is defective rather than merely unhelpful: an acceptor has no way to tell the
+// initiator that its forwarded ticket was discarded. Callers translating an AP_REQ failure into a GSS-API status
+// match against this with errors.Is.
+var ErrBadDelegation = errors.New("bad delegated credential")
+
+// badDelegationError joins ErrBadDelegation to the KRB_ERROR describing the failure. Both are exposed through
+// Unwrap so that a caller can classify the failure with errors.Is and still recover the KRB_ERROR to send on the
+// wire with errors.As. KRB_AP_ERR_INAPP_CKSUM is the wire error because the defect is in the authenticator's
+// checksum.
+type badDelegationError struct {
+	krberr messages.KRBError
+}
+
+// Error returns the description of the underlying KRB_ERROR.
+func (e badDelegationError) Error() string {
+	return e.krberr.Error()
+}
+
+// Unwrap exposes the sentinel and the KRB_ERROR.
+func (e badDelegationError) Unwrap() []error {
+	return []error{ErrBadDelegation, e.krberr}
+}
+
+// newBadDelegationError builds the error returned when a delegated credential cannot be accepted.
+func newBadDelegationError(APReq *messages.APReq, etext string) error {
+	return badDelegationError{
+		krberr: messages.NewKRBError(APReq.Ticket.SName, APReq.Ticket.Realm, errorcode.KRB_AP_ERR_INAPP_CKSUM, etext),
+	}
+}
+
+// extractDelegatedCredential reads the KRB_CRED a client delegated in the Deleg field of the AP_REQ authenticator's
+// GSS-API checksum, as described by RFC 4121 Section 4.1.1, and attaches it to creds.
+//
+// An AP_REQ that does not claim delegation, or whose checksum cannot be interpreted at all, is left alone: a
+// checksum whose Lgth moves every field after Bnd is one in which Flags cannot be located, so whether delegation
+// was requested is unknowable and reporting a delegation failure would be a guess. Once delegation is claimed,
+// every defect is fatal.
+//
+// The credential is decrypted with the authenticator's subkey when it carries one, falling back to the ticket
+// session key. RFC 4121 Section 4.1.1 requires initiators to use the session key and this library does, but MIT's
+// rd_cred.c accepts either and peers exist that send the subkey.
+func extractDelegatedCredential(APReq *messages.APReq, creds *credentials.Credentials) error {
+	cksum := APReq.Authenticator.Cksum.Checksum
+
+	if APReq.Authenticator.Cksum.CksumType != chksumtype.GSSAPI || len(cksum) < gssapi.ChecksumMinLen {
+		return nil
+	}
+
+	var c gssapi.AuthenticatorChecksum
+
+	if err := c.Unmarshal(cksum); err != nil {
+		var lgth gssapi.ChecksumLgthError
+		if errors.As(err, &lgth) {
+			return nil
+		}
+
+		return newBadDelegationError(APReq, fmt.Sprintf("authenticator GSSAPI checksum %s", err.Error()))
+	}
+
+	if !c.Delegated() {
+		return nil
+	}
+
+	var cred messages.KRBCred
+
+	if err := cred.Unmarshal(c.Deleg); err != nil {
+		return newBadDelegationError(APReq, fmt.Sprintf("delegated credential could not be read: %s", err.Error()))
+	}
+
+	if err := decryptDelegatedCredential(&cred, APReq); err != nil {
+		return newBadDelegationError(APReq, err.Error())
+	}
+
+	cc, err := cred.CCache()
+	if err != nil {
+		return newBadDelegationError(APReq, fmt.Sprintf("delegated credential could not be used: %s", err.Error()))
+	}
+
+	creds.SetDelegatedCredentials(cc)
+
+	return nil
+}
+
+// decryptDelegatedCredential decrypts the KRB_CRED with the authenticator subkey if one is present, falling back to
+// the ticket session key, mirroring MIT's rd_cred.c.
+func decryptDelegatedCredential(cred *messages.KRBCred, APReq *messages.APReq) error {
+	keys := make([]types.EncryptionKey, 0, 2)
+
+	if len(APReq.Authenticator.SubKey.KeyValue) > 0 {
+		keys = append(keys, APReq.Authenticator.SubKey)
+	}
+
+	keys = append(keys, APReq.Ticket.DecryptedEncPart.Key)
+
+	var err error
+
+	for _, key := range keys {
+		if err = cred.DecryptEncPart(key); err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("could not decrypt the delegated credential with the authenticator subkey or the ticket session key: %w", err)
 }

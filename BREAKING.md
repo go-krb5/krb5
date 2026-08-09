@@ -79,4 +79,22 @@ change will be elaborated on in time):
   token with `GSS_S_FAILURE` once it reads `DlgOpt` as `0`, so no working deployment loses functionality — the change
   converts an opaque remote failure into a local one that names the cause. Credential delegation is not implemented;
   nothing in this library requests the flag, so only a caller passing `flagsGSSAPI` to `NewKRB5TokenAPREQ` directly is
-  affected.
+  affected. **This entry has been superseded by the one below**: credential delegation is now implemented, and
+  `spnego.ErrDelegationUnimplemented` no longer exists.
+- `spnego.ErrDelegationUnimplemented` has been removed. Credential delegation is now implemented, so nothing can
+  return it; code matching on it will no longer compile. Requesting `gssapi.ContextFlagDeleg`, or passing the new
+  `spnego.Delegation()` option, now obtains a forwarded ticket-granting ticket and carries it in the AP-REQ as
+  RFC 4121 Section 4.1.1 requires. Note that this adds a TGS exchange with the KDC during context establishment,
+  and that it requires `forwardable = true` in the `libdefaults` section of `krb5.conf`: the KDC will not forward a
+  ticket it did not mark forwardable, and this library defaults the setting to `false`.
+- Acceptors now read the delegation fields of the AP-REQ authenticator checksum, and reject an AP-REQ that claims a
+  delegation they cannot fully process with `KRB_AP_ERR_INAPP_CKSUM`, where they previously authenticated it and
+  silently ignored the delegation. `service.VerifyAPREQ` extracts unconditionally — there is no `Settings` opt in —
+  and every defect past the `GSS_C_DELEG_FLAG` bit is fatal: a 28 octet checksum with `DlgOpt` zeroed, which is
+  precisely what this library itself emitted before the entry above, a `Dlgth` running past the end of the checksum,
+  a `KRB_CRED` that will not unmarshal, and a `KRB_CRED` encrypted with an encryption type this library does not
+  have registered. Nothing runs unless the peer set the delegation flag, so a client that does not request
+  delegation is unaffected. This is deliberate: an acceptor has no `ret_flags` channel on which to tell an initiator
+  that its forwarded ticket was discarded, so accepting the request while dropping the credential would leave the
+  initiator believing a delegation happened that did not. Services that must keep authenticating such clients need
+  those clients fixed or the encryption type registered with `crypto.AddEType`.

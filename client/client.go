@@ -91,6 +91,10 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 		return cl, fmt.Errorf("TGT bytes in cache are not valid: %w", err)
 	}
 
+	// The ticket flags and addresses are carried into the session alongside the times and the key. They are what
+	// ForwardedTGT consults to decide whether the TGT can be forwarded at all, and whether the forwarding request
+	// carries addresses, so a session built from a ccache has to answer those questions as well as one built by an
+	// AS exchange in addSession.
 	cl.sessions.Entries[c.DefaultPrincipal.Realm] = &session{
 		realm:      c.DefaultPrincipal.Realm,
 		authTime:   cred.AuthTime,
@@ -98,6 +102,8 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 		renewTill:  cred.RenewTill,
 		tgt:        tgt,
 		sessionKey: cred.Key,
+		flags:      cred.TicketFlags,
+		addresses:  types.HostAddresses(cred.Addresses),
 	}
 	for _, cred := range c.GetEntries() {
 		var tkt messages.Ticket
@@ -114,6 +120,9 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 			cred.EndTime,
 			cred.RenewTill,
 			cred.Key,
+			// A ccache records no PA-SUPPORTED-ENCTYPES, so the application server's advertised encryption
+			// types are unknown for tickets loaded from one.
+			0,
 		)
 	}
 

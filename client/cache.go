@@ -26,6 +26,15 @@ type CacheEntry struct {
 	EndTime    time.Time
 	RenewTill  time.Time
 	SessionKey types.EncryptionKey `json:"-"`
+
+	// SupportedETypes are the encryption types the application server advertised in the PA-SUPPORTED-ENCTYPES
+	// pre-authentication data of the TGS-REP that issued this ticket, or zero if it advertised none. MS-KILE
+	// Section 3.3.5.7.4 has a client requesting a forwardable TGT for that server build its own
+	// PA-SUPPORTED-ENCTYPES from what the KDC and that server both support; this is the server half.
+	//
+	// Excluded from the JSON rendering, like Ticket and SessionKey, so that Client.Diagnostics keeps the output
+	// it had before delegation existed.
+	SupportedETypes types.SupportedETypes `json:"-"`
 }
 
 // NewCache creates a new client ticket cache instance.
@@ -72,7 +81,7 @@ func (c *Cache) JSON() (string, error) {
 }
 
 // addEntry adds a ticket to the cache.
-func (c *Cache) addEntry(tkt messages.Ticket, authTime, startTime, endTime, renewTill time.Time, sessionKey types.EncryptionKey) CacheEntry {
+func (c *Cache) addEntry(tkt messages.Ticket, authTime, startTime, endTime, renewTill time.Time, sessionKey types.EncryptionKey, supported types.SupportedETypes) CacheEntry {
 	spn := tkt.SName.PrincipalNameString()
 
 	c.mux.Lock()
@@ -86,6 +95,8 @@ func (c *Cache) addEntry(tkt messages.Ticket, authTime, startTime, endTime, rene
 		EndTime:    endTime,
 		RenewTill:  renewTill,
 		SessionKey: sessionKey,
+
+		SupportedETypes: supported,
 	}
 
 	return c.Entries[spn]

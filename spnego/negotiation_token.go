@@ -334,7 +334,11 @@ func UnmarshalNegToken(b []byte) (bool, any, error) {
 
 // NewNegTokenInitKRB5 creates new Init negotiation token for Kerberos 5.
 func NewNegTokenInitKRB5(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, opts ...KRB5TokenOption) (NegTokenInit, error) {
-	mt, err := NewKRB5TokenAPREQ(cl, tkt, sessionKey, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{}, opts...)
+	// The Delegation option is not folded into these flags here: NewKRB5TokenAPREQ does that for every caller, so
+	// that the option means the same thing whichever entry point receives it.
+	flagsGSSAPI := []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}
+
+	mt, err := NewKRB5TokenAPREQ(cl, tkt, sessionKey, flagsGSSAPI, []int{}, opts...)
 	if err != nil {
 		return NegTokenInit{}, fmt.Errorf("error getting KRB5 token; %w", err)
 	}

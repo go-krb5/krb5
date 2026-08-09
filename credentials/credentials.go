@@ -17,6 +17,8 @@ import (
 const (
 	// AttributeKeyADCredentials assigned number for AD credentials.
 	AttributeKeyADCredentials = "krb5AttributeKeyADCredentials"
+	// AttributeKeyDelegatedCredentials assigned number for a credential delegated by the client.
+	AttributeKeyDelegatedCredentials = "krb5AttributeKeyDelegatedCredentials"
 )
 
 // Credentials struct for a user.
@@ -163,6 +165,31 @@ func (c *Credentials) GetADCredentials() ADCredentials {
 	}
 
 	return ADCredentials{}
+}
+
+// SetDelegatedCredentials attaches the credential cache a client delegated to this service in its AP_REQ, as
+// described by RFC 4121 Section 4.1.1. Pass it to client.NewFromCCache to act as that client.
+//
+// Delegation grants complete use of the client's identity, so treat the contents as the secret they are.
+//
+// The cache's default principal is asserted by the peer, not by the KDC. It is the pname and prealm of the
+// delegated KRB_CRED, all of which the initiator chose, whereas this credential's CName and CRealm come from the
+// KDC-sealed encrypted part of the AP_REQ ticket. Nothing compares the two, matching MIT's rd_cred.c, and a forged
+// ticket is useless without the session key that goes with it. It is still the caller's business if the two differ:
+// authorising on UserName and then acting through DelegatedCredentials may act as a principal other than the one
+// that was authorised.
+func (c *Credentials) SetDelegatedCredentials(cc *CCache) {
+	c.SetAttribute(AttributeKeyDelegatedCredentials, cc)
+}
+
+// DelegatedCredentials returns the credential cache the client delegated, and whether one was delegated at all.
+//
+// The principal named in the cache is asserted by the peer rather than vouched for by the KDC; see
+// SetDelegatedCredentials for what that does and does not mean.
+func (c *Credentials) DelegatedCredentials() (*CCache, bool) {
+	cc, ok := c.attributes[AttributeKeyDelegatedCredentials].(*CCache)
+
+	return cc, ok
 }
 
 // Methods to implement goidentity.Identity interface.
