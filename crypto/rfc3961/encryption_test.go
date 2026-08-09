@@ -294,3 +294,39 @@ func TestDES3DecryptMessage_InvalidCiphertextSize(t *testing.T) {
 	assert.Contains(t, err.Error(), "ciphertext is not a multiple of the block size",
 		"Error message should mention invalid ciphertext size")
 }
+
+// TestDES3DecryptMessageShouldRejectAShortCiphertext covers the length guard, matching the one in rfc3962 and
+// rfc8009: an EncryptedData shorter than a confounder plus an integrity hash cannot be an encrypted message, and
+// slicing the hash off it used to index out of range.
+func TestDES3DecryptMessageShouldRejectAShortCiphertext(t *testing.T) {
+	t.Parallel()
+
+	var e crypto.Des3CbcSha1Kd
+
+	key := make([]byte, 24)
+
+	for _, size := range []int{0, 1, 6, 20, 27} {
+		assert.NotPanics(t, func() {
+			_, err := rfc3961.DES3DecryptMessage(key, make([]byte, size), 2, &e)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "ciphertext is too short to be an encrypted message")
+		}, "a %d byte ciphertext must be an error, not a panic", size)
+	}
+}
+
+// TestVerifyIntegrityShouldRejectAShortCiphertext covers the same exposure on the exported integrity check, which
+// reads the trailing hash out of the ciphertext directly.
+func TestVerifyIntegrityShouldRejectAShortCiphertext(t *testing.T) {
+	t.Parallel()
+
+	var e crypto.Des3CbcSha1Kd
+
+	key := make([]byte, 24)
+
+	for _, size := range []int{0, 1, 19} {
+		assert.NotPanics(t, func() {
+			assert.False(t, rfc3961.VerifyIntegrity(key, make([]byte, size), make([]byte, 8), 2, &e))
+		}, "a %d byte ciphertext must verify false, not panic", size)
+	}
+}

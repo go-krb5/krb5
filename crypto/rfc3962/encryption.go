@@ -79,6 +79,14 @@ func DecryptData(key, data []byte, e etype.EType) ([]byte, error) {
 // DecryptMessage decrypts the message provided using the methods specific to the etype provided as defined in RFC 3962.
 // The integrity of the message is also verified.
 func DecryptMessage(key, ciphertext []byte, usage uint32, e etype.EType) ([]byte, error) {
+	// An encrypted message is a confounder and the message, encrypted, followed by the integrity hash. Anything
+	// shorter than a confounder plus a hash cannot be one, and slicing the hash off it would index out of range.
+	// The length is chosen by whoever encoded the message: the EncryptedData of a ticket, or of the KRB_CRED a peer
+	// delegates, arrives with whatever Cipher the peer sent, so this has to be a returned error rather than a panic.
+	if min := e.GetConfounderByteSize() + e.GetHMACBitLength()/8; len(ciphertext) < min {
+		return nil, fmt.Errorf("ciphertext is too short to be an encrypted message: %d bytes, need at least %d", len(ciphertext), min)
+	}
+
 	// Derive the key.
 	k, err := e.DeriveKey(key, common.GetUsageKe(usage))
 	if err != nil {

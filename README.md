@@ -123,6 +123,50 @@ The following section contains some implementation specific information.
 [RFC8429]: https://datatracker.ietf.org/doc/html/rfc8429
 [RFC6803]: https://datatracker.ietf.org/doc/html/rfc6803
 
+### Credential Delegation
+
+RFC 4121 Section 4.1.1 lets a client forward a ticket-granting ticket to the service it authenticates to, so the
+service can act as the client against a third party. This library implements both halves.
+
+As an initiator, request it with `gssapi.ContextFlagDeleg` or, for the SPNEGO client, the `spnego.Delegation()`
+option:
+
+```go
+s := spnego.SPNEGOClient(cl, spn, spnego.Delegation())
+```
+
+This requires a forwardable TGT: set `forwardable = true` in the `libdefaults` section of `krb5.conf` before
+authenticating, or the KDC will refuse to issue the forwarded ticket. This library defaults the setting to `false`.
+Delegating grants the service complete use of the client's identity, as RFC 4120 Section 2.6 describes, so request it
+only against services trusted with that. If the TGT is not forwardable the failure is local and matchable:
+`errors.Is(err, client.ErrNotForwardable)`.
+
+Note that a forwarded ticket is obtained fresh for every token created, because the credential is bound to the
+service it is delegated to and is deliberately not cached. Each token creation therefore costs one extra TGS exchange
+with the KDC, and for the SPNEGO HTTP client that is one extra KDC round trip per request.
+
+As an acceptor, a delegated credential arriving on an AP_REQ is attached to the `*credentials.Credentials` that
+`service.VerifyAPREQ` returns. Retrieve it with `credentials.DelegatedCredentials()` and load it into a client with
+`client.NewFromCCache`, where `conf` is the `*config.Config` the service was built with:
+
+```go
+if cc, ok := creds.DelegatedCredentials(); ok {
+    delegated, err := client.NewFromCCache(cc, conf)
+    if err != nil {
+        return err
+    }
+
+    // Act as the client with delegated.
+}
+```
+
+The principal named inside that credential cache is asserted by the peer, not vouched for by the KDC: it comes from
+the `pname` and `prealm` of the delegated `KRB_CRED`, whereas the identity in `creds` comes from the KDC-sealed
+encrypted part of the ticket. Nothing compares the two, matching MIT's `rd_cred.c`. A forged ticket is useless
+without the matching session key, so this is not a way to impersonate anyone, but a service that authorises on
+`creds.UserName()` and then acts through the delegated cache may be acting as a different principal than the one it
+authorised. Compare them yourself if that matters to your authorisation model.
+
 ### Tested Scenarios
 
 The following is working/tested:

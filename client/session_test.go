@@ -14,10 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/iana/addrtype"
 	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/keytab"
+	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/test"
 	"github.com/go-krb5/krb5/test/testdata"
+	"github.com/go-krb5/krb5/types"
 )
 
 func TestMultiThreadedClientSession(t *testing.T) {
@@ -168,4 +172,57 @@ func TestSessions_JSON(t *testing.T) {
   }
 ]`
 	assert.Equal(t, expected, j)
+}
+
+// TestSessionShouldRetainTheTicketFlags asserts the TGT's flags survive into the session. RFC 4120 Section 3.3
+// makes the FORWARDED KDC option honoured "only if the FORWARDABLE flag is set in the TGT", so a client that
+// discards them cannot tell whether delegation is possible without asking the KDC and being refused.
+func TestSessionShouldRetainTheTicketFlags(t *testing.T) {
+	t.Parallel()
+
+	forwardableFlags := types.NewKrbFlags()
+	types.SetFlag(&forwardableFlags, flags.Forwardable)
+
+	s := &session{}
+	s.update(messages.Ticket{}, messages.EncKDCRepPart{Flags: forwardableFlags})
+	assert.True(t, s.forwardable())
+
+	s.update(messages.Ticket{}, messages.EncKDCRepPart{Flags: types.NewKrbFlags()})
+	assert.False(t, s.forwardable())
+}
+
+// TestSessionShouldRetainTheTicketAddresses asserts the KDC reply's caddr survives into the session. A client
+// cannot read its own TGT's EncTicketPart, which is encrypted under the KDC's key, so the reply is the only place
+// it can learn whether its TGT is addressless; and MIT supplies addresses in a forwarding request only when the
+// source TGT has them.
+func TestSessionShouldRetainTheTicketAddresses(t *testing.T) {
+	t.Parallel()
+
+	s := &session{}
+	s.update(messages.Ticket{}, messages.EncKDCRepPart{})
+	assert.False(t, s.addressed())
+
+	s.update(messages.Ticket{}, messages.EncKDCRepPart{
+		CAddr: []types.HostAddress{{AddrType: addrtype.IPv4, Address: []byte{10, 0, 0, 1}}},
+	})
+	assert.True(t, s.addressed())
+}
+
+// TestSessionShouldRetainTheKDCSupportedEncryptionTypes asserts the KDC's PA-SUPPORTED-ENCTYPES advertisement
+// survives into the session. MS-KILE Section 3.3.5.7.4 has a client requesting a forwardable TGT build its own
+// advertisement from what the KDC and the application server both support, and this is the KDC half; a client that
+// discards it can only ever advertise half the intersection.
+func TestSessionShouldRetainTheKDCSupportedEncryptionTypes(t *testing.T) {
+	t.Parallel()
+
+	want := types.NewSupportedETypesFromIDs([]int32{etypeID.AES256_CTS_HMAC_SHA1_96, etypeID.AES128_CTS_HMAC_SHA1_96})
+
+	s := &session{}
+	s.update(messages.Ticket{}, messages.EncKDCRepPart{})
+	assert.True(t, s.supported().IsZero(), "a KDC that advertised nothing leaves the value unknown")
+
+	s.update(messages.Ticket{}, messages.EncKDCRepPart{
+		EncPAData: types.PADataSequence{want.PAData()},
+	})
+	assert.Equal(t, want, s.supported())
 }

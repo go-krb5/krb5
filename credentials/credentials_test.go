@@ -27,3 +27,22 @@ func TestCredentials_Marshal(t *testing.T) {
 
 	require.NoError(t, credum.Unmarshal(b))
 }
+
+// TestDelegatedCredentialsShouldRoundTrip asserts the accessor pair an acceptor uses to hand a forwarded TGT to
+// application code.
+func TestDelegatedCredentialsShouldRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	c := New("testuser1", "TEST.GOKRB5")
+
+	cc, ok := c.DelegatedCredentials()
+	assert.Nil(t, cc)
+	assert.False(t, ok, "credentials with no delegation must report none")
+
+	want := NewV4CCache()
+	c.SetDelegatedCredentials(want)
+
+	cc, ok = c.DelegatedCredentials()
+	require.True(t, ok)
+	assert.Same(t, want, cc)
+}

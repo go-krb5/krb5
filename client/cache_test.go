@@ -7,7 +7,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/types"
 )
@@ -34,7 +37,7 @@ func TestCache_addEntry_getEntry_remove_clear(t *testing.T) {
 			KeyValue: []byte{byte(i)},
 		}
 		go func(i int) {
-			e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key)
+			e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key, 0)
 			assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN)
 			wg.Done()
 		}(i)
@@ -130,7 +133,7 @@ func TestCache_JSON(t *testing.T) {
 			KeyType:  1,
 			KeyValue: []byte{byte(i)},
 		}
-		e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key)
+		e := c.addEntry(tkt, time.Unix(int64(0+i), 0).UTC(), time.Unix(int64(10+i), 0).UTC(), time.Unix(int64(20+i), 0).UTC(), time.Unix(int64(30+i), 0).UTC(), key, 0)
 		assert.Equal(t, fmt.Sprintf("%d/test.cache", i), e.SPN)
 	}
 
@@ -162,4 +165,25 @@ func TestCache_JSON(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, expected, j)
+}
+
+// TestCacheShouldRetainTheServerSupportedEncryptionTypes asserts the application server's PA-SUPPORTED-ENCTYPES
+// advertisement is kept against its SPN. Delegation happens long after the TGS exchange that learned it, and
+// ForwardedTGT has only the SPN to look it up by.
+func TestCacheShouldRetainTheServerSupportedEncryptionTypes(t *testing.T) {
+	t.Parallel()
+
+	want := types.NewSupportedETypesFromIDs([]int32{etypeID.AES256_CTS_HMAC_SHA1_96})
+
+	c := NewCache()
+	tkt := messages.Ticket{
+		SName: types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"HTTP", "host.test.gokrb5"}},
+	}
+
+	c.addEntry(tkt, time.Unix(0, 0).UTC(), time.Unix(10, 0).UTC(), time.Unix(20, 0).UTC(), time.Unix(30, 0).UTC(),
+		types.EncryptionKey{}, want)
+
+	e, ok := c.getEntry("HTTP/host.test.gokrb5")
+	require.True(t, ok)
+	assert.Equal(t, want, e.SupportedETypes)
 }

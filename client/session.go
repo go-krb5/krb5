@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/messages"
@@ -75,6 +78,9 @@ type session struct {
 	tgt                  messages.Ticket
 	sessionKey           types.EncryptionKey
 	sessionKeyExpiration time.Time
+	flags                asn1.BitString
+	addresses            types.HostAddresses
+	supportedETypes      types.SupportedETypes
 	cancel               chan bool
 	mux                  sync.RWMutex
 }
@@ -105,6 +111,9 @@ func (cl *Client) addSession(tgt messages.Ticket, dep messages.EncKDCRepPart) {
 		tgt:                  tgt,
 		sessionKey:           dep.Key,
 		sessionKeyExpiration: dep.KeyExpiration,
+		flags:                dep.Flags,
+		supportedETypes:      types.SupportedETypesFromPAData(dep.EncPAData),
+		addresses:            types.HostAddresses(dep.CAddr),
 	}
 	cl.sessions.update(s)
 	cl.enableAutoSessionRenewal(s)
@@ -122,6 +131,9 @@ func (s *session) update(tgt messages.Ticket, dep messages.EncKDCRepPart) {
 	s.tgt = tgt
 	s.sessionKey = dep.Key
 	s.sessionKeyExpiration = dep.KeyExpiration
+	s.flags = dep.Flags
+	s.supportedETypes = types.SupportedETypesFromPAData(dep.EncPAData)
+	s.addresses = types.HostAddresses(dep.CAddr)
 }
 
 // destroy will cancel any auto renewal of the session and set the expiration times to the current time.
@@ -165,6 +177,37 @@ func (s *session) timeDetails() (string, time.Time, time.Time, time.Time, time.T
 	defer s.mux.RUnlock()
 
 	return s.realm, s.authTime, s.endTime, s.renewTill, s.sessionKeyExpiration
+}
+
+// forwardable reports whether the session's TGT has the FORWARDABLE flag set. RFC 4120 Section 3.3 makes the
+// FORWARDED KDC option honoured "only if the FORWARDABLE flag is set in the TGT", so a TGT without it cannot be
+// forwarded and the KDC would answer KDC_ERR_BADOPTION.
+func (s *session) forwardable() bool {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	return types.IsFlagSet(&s.flags, flags.Forwardable)
+}
+
+// addressed reports whether the session's TGT carries host addresses. A forwarding request supplies addresses only
+// when the source TGT has them, matching MIT's krb5_fwd_tgt_creds; with this library's NoAddresses default it does
+// not, and the forwarded ticket is addressless as RFC 4120 Section 2.6 permits.
+func (s *session) addressed() bool {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	return len(s.addresses) > 0
+}
+
+// supported returns the encryption types the KDC advertised in the PA-SUPPORTED-ENCTYPES pre-authentication data
+// of its reply, or zero if it advertised none. MS-KILE Section 3.3.5.7.4 has a client requesting a forwardable TGT
+// build its own PA-SUPPORTED-ENCTYPES from the types the KDC and the application server both support, and this is
+// the KDC half of that.
+func (s *session) supported() types.SupportedETypes {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	return s.supportedETypes
 }
 
 // JSON return information about the held sessions in a JSON format.

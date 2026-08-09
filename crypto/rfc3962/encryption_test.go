@@ -365,3 +365,24 @@ func decodeHex(s string) string {
 
 	return s
 }
+
+// TestDecryptMessageShouldRejectAShortCiphertext covers the length guard. The EncryptedData being decrypted is
+// chosen by whoever encoded it: a peer can send a KRB_CRED, or a ticket, whose Cipher is a handful of bytes, and
+// slicing the integrity hash off it used to index out of range and take the process down. Found by fuzzing the
+// delegated credential path.
+func TestDecryptMessageShouldRejectAShortCiphertext(t *testing.T) {
+	t.Parallel()
+
+	var e crypto.Aes256CtsHmacSha96
+
+	key := make([]byte, 32)
+
+	for _, size := range []int{0, 1, 6, 12, 27} {
+		assert.NotPanics(t, func() {
+			_, err := rfc3962.DecryptMessage(key, make([]byte, size), 2, &e)
+
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "ciphertext is too short to be an encrypted message")
+		}, "a %d byte ciphertext must be an error, not a panic", size)
+	}
+}

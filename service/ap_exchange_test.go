@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"testing"
@@ -685,6 +686,240 @@ func TestSettingsRequireChannelBindingShouldRoundTrip(t *testing.T) {
 	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-exporter:test")}
 
 	assert.Same(t, cb, NewSettings(nil, RequireChannelBinding(cb)).RequireChannelBinding())
+}
+
+// testDelegatedAPReq builds an AP_REQ carrying a KRB_CRED for the principal given, encrypted under key, in the
+// Deleg field of its RFC 4121 Section 4.1.1 checksum.
+func testDelegatedAPReq(t *testing.T, cname types.PrincipalName, crealm string, key types.EncryptionKey, subkey types.EncryptionKey) *messages.APReq {
+	t.Helper()
+
+	info := messages.KrbCredInfo{
+		Key:     types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0C}, 32)},
+		PRealm:  crealm,
+		PName:   cname,
+		SRealm:  crealm,
+		SName:   types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{"krbtgt", crealm}},
+		EndTime: time.Now().UTC().Add(time.Hour),
+	}
+	tkt := messages.Ticket{TktVNO: 5, Realm: crealm, SName: info.SName}
+
+	credKey := key
+	if len(subkey.KeyValue) > 0 {
+		credKey = subkey
+	}
+
+	cred, err := messages.NewKRBCred([]messages.Ticket{tkt}, []messages.KrbCredInfo{info}, credKey)
+	require.NoError(t, err)
+
+	deleg, err := cred.Marshal()
+	require.NoError(t, err)
+
+	cksum, err := (&gssapi.AuthenticatorChecksum{Deleg: deleg}).Marshal()
+	require.NoError(t, err)
+
+	return &messages.APReq{
+		Ticket: messages.Ticket{
+			Realm:            crealm,
+			SName:            types.PrincipalName{NameType: 1, NameString: []string{"HTTP", "host.test.gokrb5"}},
+			DecryptedEncPart: messages.EncTicketPart{Key: key},
+		},
+		Authenticator: types.Authenticator{
+			Cksum:  types.Checksum{CksumType: chksumtype.GSSAPI, Checksum: cksum},
+			SubKey: subkey,
+		},
+	}
+}
+
+// TestExtractDelegatedCredentialShouldDecryptWithTheSessionKey asserts the key RFC 4121 Section 4.1.1 mandates:
+// "The EncryptedData field of the KRB_CRED message MUST be encrypted in the session key of the ticket used to
+// authenticate the context."
+func TestExtractDelegatedCredentialShouldDecryptWithTheSessionKey(t *testing.T) {
+	t.Parallel()
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0B}, 32)}
+	cname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"testuser1"}}
+
+	creds := credentials.NewFromPrincipalName(cname, "TEST.GOKRB5")
+
+	require.NoError(t, extractDelegatedCredential(testDelegatedAPReq(t, cname, "TEST.GOKRB5", key, types.EncryptionKey{}), creds))
+
+	cc, ok := creds.DelegatedCredentials()
+	require.True(t, ok)
+	assert.Equal(t, cname, cc.GetClientPrincipalName())
+	require.Len(t, cc.Credentials, 1)
+}
+
+// TestExtractDelegatedCredentialShouldFallBackToTheSubkey asserts we accept a peer that encrypts with the
+// authenticator subkey. MIT's rd_cred.c tries the receiving subkey first and falls back to the session key, so
+// tolerating both is what interoperating means here even though we always send the session key.
+func TestExtractDelegatedCredentialShouldFallBackToTheSubkey(t *testing.T) {
+	t.Parallel()
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0B}, 32)}
+	subkey := types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0F}, 32)}
+	cname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"testuser1"}}
+
+	creds := credentials.NewFromPrincipalName(cname, "TEST.GOKRB5")
+
+	require.NoError(t, extractDelegatedCredential(testDelegatedAPReq(t, cname, "TEST.GOKRB5", key, subkey), creds))
+
+	_, ok := creds.DelegatedCredentials()
+	assert.True(t, ok)
+}
+
+// TestExtractDelegatedCredentialShouldIgnoreARequestWithoutDelegation asserts the ordinary path costs nothing and
+// sets nothing.
+func TestExtractDelegatedCredentialShouldIgnoreARequestWithoutDelegation(t *testing.T) {
+	t.Parallel()
+
+	creds := credentials.New("testuser1", "TEST.GOKRB5")
+
+	require.NoError(t, extractDelegatedCredential(testAPReqWithChecksum(chksumtype.GSSAPI, testGSSAPIChecksum(nil)), creds))
+
+	_, ok := creds.DelegatedCredentials()
+	assert.False(t, ok)
+}
+
+// TestExtractDelegatedCredentialShouldIgnoreAnUninterpretableChecksum asserts a checksum whose Lgth moves every
+// field is not treated as a delegation failure. The parser cannot locate Flags, so it cannot know delegation was
+// claimed; reporting a delegation error would be a guess. This is also the property that keeps AP_REQs which
+// succeed today succeeding.
+func TestExtractDelegatedCredentialShouldIgnoreAnUninterpretableChecksum(t *testing.T) {
+	t.Parallel()
+
+	cksum := testGSSAPIChecksum(nil)
+	binary.LittleEndian.PutUint32(cksum[:4], 8)
+
+	creds := credentials.New("testuser1", "TEST.GOKRB5")
+
+	require.NoError(t, extractDelegatedCredential(testAPReqWithChecksum(chksumtype.GSSAPI, cksum), creds))
+
+	_, ok := creds.DelegatedCredentials()
+	assert.False(t, ok)
+}
+
+// TestExtractDelegatedCredentialShouldRejectABrokenDelegation asserts that a checksum which claims a delegation and
+// then fails to deliver one is fatal. An acceptor has no ret_flags channel on which to tell the initiator that its
+// credential was discarded, so continuing would leave the initiator believing a delegation happened.
+func TestExtractDelegatedCredentialShouldRejectABrokenDelegation(t *testing.T) {
+	t.Parallel()
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0B}, 32)}
+	cname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"testuser1"}}
+
+	for _, tc := range []struct {
+		name    string
+		mutate  func(*messages.APReq)
+		wantMsg string
+	}{
+		{
+			name:    "WrongDlgOpt",
+			mutate:  func(r *messages.APReq) { binary.LittleEndian.PutUint16(r.Authenticator.Cksum.Checksum[24:26], 2) },
+			wantMsg: "delegation option identifier",
+		},
+		{
+			name: "UndecryptableCredential",
+			mutate: func(r *messages.APReq) {
+				r.Ticket.DecryptedEncPart.Key = types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x01}, 32)}
+			},
+			wantMsg: "could not decrypt",
+		},
+		{
+			// The last octet falls inside the HMAC that AES256-CTS-HMAC-SHA1-96 appends to the ciphertext, so
+			// flipping it reliably fails the integrity check regardless of how large the fixture's KRB_CRED is.
+			// An earlier fixed offset (such as 30) landed inside the outer KRB_CRED length octets instead, which
+			// this library's ASN.1 codec does not validate against the buffer size, so corrupting it changed
+			// nothing and the test passed the corrupted credential through undetected.
+			name: "CorruptCredential",
+			mutate: func(r *messages.APReq) {
+				cksum := r.Authenticator.Cksum.Checksum
+				cksum[len(cksum)-1] ^= 0xFF
+			},
+			wantMsg: "delegated credential",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			APReq := testDelegatedAPReq(t, cname, "TEST.GOKRB5", key, types.EncryptionKey{})
+			tc.mutate(APReq)
+
+			creds := credentials.New("testuser1", "TEST.GOKRB5")
+
+			err := extractDelegatedCredential(APReq, creds)
+
+			require.ErrorIs(t, err, ErrBadDelegation)
+			assert.Contains(t, err.Error(), tc.wantMsg)
+
+			var krberr messages.KRBError
+
+			require.ErrorAs(t, err, &krberr)
+			assert.Equal(t, errorcode.KRB_AP_ERR_INAPP_CKSUM, krberr.ErrorCode)
+
+			_, ok := creds.DelegatedCredentials()
+			assert.False(t, ok, "a failed extraction must leave no partial credential behind")
+		})
+	}
+}
+
+// TestDelegationShouldRoundTripFromInitiatorToAcceptor is the demonstration that the two halves agree. The
+// initiator's checksum construction and the acceptor's extraction were written against RFC 4121 Section 4.1.1
+// independently; this asserts they meet.
+//
+// The forwarded TGT is synthesised rather than fetched: what is under test is the KRB_CRED encoding, the checksum
+// layout and the key agreement, none of which involve the KDC. cl.ForwardedTGT has its own coverage in
+// client/forwarding_test.go.
+func TestDelegationShouldRoundTripFromInitiatorToAcceptor(t *testing.T) {
+	t.Parallel()
+
+	cname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"testuser1"}}
+	sessionKey := types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0B}, 32)}
+	fwdKey := types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0C}, 32)}
+
+	dep := messages.EncKDCRepPart{
+		Key:      fwdKey,
+		Flags:    types.NewKrbFlags(),
+		AuthTime: time.Now().UTC().Add(-time.Hour),
+		EndTime:  time.Now().UTC().Add(time.Hour),
+		SRealm:   "TEST.GOKRB5",
+		SName:    types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{"krbtgt", "TEST.GOKRB5"}},
+	}
+	fwdTkt := messages.Ticket{TktVNO: 5, Realm: "TEST.GOKRB5", SName: dep.SName}
+
+	cred, err := messages.NewKRBCred([]messages.Ticket{fwdTkt},
+		[]messages.KrbCredInfo{messages.NewKrbCredInfo(dep, cname, "TEST.GOKRB5")}, sessionKey)
+	require.NoError(t, err)
+
+	deleg, err := cred.Marshal()
+	require.NoError(t, err)
+
+	// The initiator half: the same layout spnego.newAuthenticatorChksum produces.
+	cksum, err := (&gssapi.AuthenticatorChecksum{Flags: gssapi.ContextFlagInteg, Deleg: deleg}).Marshal()
+	require.NoError(t, err)
+
+	APReq := &messages.APReq{
+		Ticket: messages.Ticket{
+			Realm:            "TEST.GOKRB5",
+			SName:            types.PrincipalName{NameType: 1, NameString: []string{"HTTP", "host.test.gokrb5"}},
+			DecryptedEncPart: messages.EncTicketPart{Key: sessionKey},
+		},
+		Authenticator: types.Authenticator{
+			Cksum: types.Checksum{CksumType: chksumtype.GSSAPI, Checksum: cksum},
+		},
+	}
+
+	// The acceptor half.
+	creds := credentials.NewFromPrincipalName(cname, "TEST.GOKRB5")
+	require.NoError(t, extractDelegatedCredential(APReq, creds))
+
+	cc, ok := creds.DelegatedCredentials()
+	require.True(t, ok, "the acceptor must have taken the delegated credential")
+
+	assert.Equal(t, cname, cc.GetClientPrincipalName())
+	assert.Equal(t, "TEST.GOKRB5", cc.GetClientRealm())
+	require.Len(t, cc.Credentials, 1)
+	assert.Equal(t, fwdKey, cc.Credentials[0].Key, "the forwarded TGT's session key must survive the round trip")
+	assert.Equal(t, []string{"krbtgt", "TEST.GOKRB5"}, cc.Credentials[0].Server.PrincipalName.NameString)
 }
 
 func newTestAuthenticator(t *testing.T, creds credentials.Credentials) types.Authenticator {

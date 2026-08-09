@@ -8,9 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/iana"
+	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/test/testdata"
+	"github.com/go-krb5/krb5/types"
 )
 
 func TestUnmarshalAPReq(t *testing.T) {
@@ -50,4 +52,29 @@ func TestMarshalAPReq(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, b, mb)
+}
+
+// TestAuthenticatorKeyUsageEmptyNameStringDoesNotPanic guards against a remotely reachable panic. A service ticket's
+// plaintext Ticket.SName sits outside EncPart, and PrincipalName.NameString may legally be empty, so a client
+// holding any valid service ticket can blank SName and still reach DecryptAuthenticator ->
+// authenticatorKeyUsage(a.Ticket.SName) - an unauthenticated caller must not be able to crash the server this way.
+func TestAuthenticatorKeyUsageEmptyNameStringDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	var usage int
+
+	assert.NotPanics(t, func() {
+		usage = authenticatorKeyUsage(types.PrincipalName{})
+	})
+	assert.Equal(t, keyusage.AP_REQ_AUTHENTICATOR, usage)
+}
+
+// TestAuthenticatorKeyUsageKrbtgtSelectsTGSReqUsage pins the pre-existing behaviour the guard must not change: a
+// krbtgt SName (as a real TGT carries) still selects the TGS-REQ PA-DATA authenticator key usage.
+func TestAuthenticatorKeyUsageKrbtgtSelectsTGSReqUsage(t *testing.T) {
+	t.Parallel()
+
+	pn := types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{"krbtgt", "TEST.GOKRB5"}}
+
+	assert.Equal(t, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR, authenticatorKeyUsage(pn))
 }
