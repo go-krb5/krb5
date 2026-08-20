@@ -90,6 +90,10 @@ func (s *SPNEGO) AcceptSecContext(ct gssapi.ContextToken) (bool, context.Context
 
 	var oid asn1.ObjectIdentifier
 	if t.Init {
+		if len(t.NegTokenInit.MechTypes) == 0 {
+			return false, ctx, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "SPNEGO NegTokenInit does not contain any mechanism types"}
+		}
+
 		oid = t.NegTokenInit.MechTypes[0]
 	}
 

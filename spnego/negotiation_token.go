@@ -303,6 +303,13 @@ func UnmarshalNegToken(b []byte) (bool, any, error) {
 			return false, nil, fmt.Errorf("error unmarshalling NegotiationToken type %d (Init): %w", a.Tag, err)
 		}
 
+		// MechTypeList is a SEQUENCE OF, so a token carrying a zero length one decodes without error. RFC 4178
+		// Section 4.2.1 defines the field as "one or more security mechanisms available for the initiator", so a
+		// token offering none is malformed: there is no mechanism to negotiate.
+		if len(n.MechTypes) == 0 {
+			return false, nil, errors.New("NegTokenInit does not contain any mechanism types")
+		}
+
 		nt := NegTokenInit{
 			MechTypes:      n.MechTypes,
 			ReqFlags:       n.ReqFlags,
