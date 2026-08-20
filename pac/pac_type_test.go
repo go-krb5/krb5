@@ -145,3 +145,23 @@ func pacWithBuffer(total int, ulType, size uint32, offset uint64) []byte {
 
 	return b
 }
+
+func TestProcessPACInfoBuffersWithNilLogger(t *testing.T) {
+	t.Parallel()
+
+	b := make([]byte, 32)
+
+	binary.LittleEndian.PutUint32(b[0:4], 1) // cBuffers
+	binary.LittleEndian.PutUint32(b[4:8], 0) // Version
+	binary.LittleEndian.PutUint32(b[8:12], infoTypeUPNDNSInfo)
+	binary.LittleEndian.PutUint32(b[12:16], 8)
+	binary.LittleEndian.PutUint64(b[16:24], 24)
+
+	var pac PACType
+
+	require.NoError(t, pac.Unmarshal(b))
+
+	require.NotPanics(t, func() {
+		assert.Error(t, pac.ProcessPACInfoBuffers(types.EncryptionKey{}, nil))
+	})
+}

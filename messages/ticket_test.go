@@ -248,3 +248,23 @@ func TestGetPACType_PACNotFirstInIfRelevant(t *testing.T) {
 	assert.NotNil(t, p.KerbValidationInfo)
 	assert.NotNil(t, p.ServerChecksum)
 }
+
+func TestGetPACType_NilLogger(t *testing.T) {
+	t.Parallel()
+
+	tkt := Ticket{
+		Realm: "TEST.GOKRB5",
+		DecryptedEncPart: EncTicketPart{
+			AuthorizationData: types.AuthorizationData{
+				{ADType: adtype.ADIfRelevant, ADData: []byte{0xFF, 0xFF, 0xFF}},
+			},
+		},
+	}
+
+	require.NotPanics(t, func() {
+		isPAC, _, err := tkt.GetPACType(keytab.New(), nil, nil)
+
+		assert.False(t, isPAC)
+		assert.NoError(t, err)
+	})
+}

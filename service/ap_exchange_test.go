@@ -10,13 +10,20 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
+	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/iana/adtype"
+	"github.com/go-krb5/krb5/iana/asn1apptag"
 	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/flags"
+	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/messages"
@@ -1015,4 +1022,71 @@ func TestSettingsRequireChannelBindingSupportShouldDefaultToFalse(t *testing.T) 
 
 	assert.False(t, NewSettings(nil).RequireChannelBindingSupport())
 	assert.True(t, NewSettings(nil, RequireChannelBindingSupport(true)).RequireChannelBindingSupport())
+}
+
+func TestVerifyAPREQWithUnparseableAuthorizationDataAndNoLogger(t *testing.T) {
+	t.Parallel()
+
+	cl := getClient(t)
+	sname := types.PrincipalName{
+		NameType:   nametype.KRB_NT_PRINCIPAL,
+		NameString: []string{"HTTP", "host.test.gokrb5"},
+	}
+
+	b, _ := hex.DecodeString(testdata.HTTP_KEYTAB)
+	kt := keytab.New()
+	require.NoError(t, kt.Unmarshal(b))
+
+	st := time.Now().UTC()
+
+	tkt, sessionKey, err := messages.NewTicket(cl.Credentials.CName(), cl.Credentials.Domain(),
+		sname, "TEST.GOKRB5",
+		types.NewKrbFlags(),
+		kt,
+		18,
+		1,
+		st,
+		st,
+		st.Add(time.Duration(24)*time.Hour),
+		st.Add(time.Duration(48)*time.Hour),
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, tkt.DecryptEncPart(kt, &sname))
+
+	etp := tkt.DecryptedEncPart
+	etp.AuthorizationData = types.AuthorizationData{
+		{ADType: adtype.ADIfRelevant, ADData: []byte{0xFF, 0xFF, 0xFF}},
+	}
+	tkt.EncPart = resealEncTicketPart(t, etp, kt, sname)
+
+	APReq, err := messages.NewAPReq(tkt, sessionKey, newTestAuthenticator(t, *cl.Credentials))
+	require.NoError(t, err)
+
+	h, _ := types.GetHostAddress("127.0.0.1:1234")
+	s := NewSettings(kt, ClientAddress(h)) // no Logger option: the documented default
+
+	require.NotPanics(t, func() {
+		ok, _, err := VerifyAPREQ(&APReq, s)
+
+		assert.True(t, ok)
+		assert.NoError(t, err)
+	})
+}
+
+func resealEncTicketPart(t *testing.T, etp messages.EncTicketPart, kt *keytab.Keytab, sname types.PrincipalName) types.EncryptedData {
+	t.Helper()
+
+	b, err := asn1.Marshal(etp, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	b = asn1tools.AddASNAppTag(b, asn1apptag.EncTicketPart)
+
+	key, _, err := kt.GetEncryptionKey(sname, "TEST.GOKRB5", 1, 18)
+	require.NoError(t, err)
+
+	ed, err := crypto.GetEncryptedData(b, key, keyusage.KDC_REP_TICKET, 1)
+	require.NoError(t, err)
+
+	return ed
 }

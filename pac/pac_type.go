@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 
 	"github.com/go-krb5/x/rpc/mstypes"
@@ -113,10 +114,19 @@ func (pac *PACType) Unmarshal(b []byte) (err error) {
 	return nil
 }
 
+// discardLogger stands in for a nil *log.Logger. Writing to a nil one dereferences its mutex and panics rather
+// than discarding, and callers reach here holding whatever service.Settings.Logger returned, which is nil unless
+// a logger was configured.
+var discardLogger = log.New(io.Discard, "", 0)
+
 // ProcessPACInfoBuffers processes the PAC Info Buffers.
 //
 // Reference: https://msdn.microsoft.com/en-us/library/cc237954.aspx
 func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger) error {
+	if l == nil {
+		l = discardLogger
+	}
+
 	if len(pac.ZeroSigData) != len(pac.Data) {
 		return fmt.Errorf("PAC signature scratch buffer is %d bytes and the PAC is %d bytes; they must be the same length",
 			len(pac.ZeroSigData), len(pac.Data))
