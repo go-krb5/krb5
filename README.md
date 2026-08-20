@@ -58,9 +58,9 @@ added) **_will never_** be considered a breaking change for this library.
 This policy means that users who wish to build this with older versions of go may find there are features being used
 which are not available in that version. The current intentionally supported versions of go are as follows:
 
+- go 1.27
 - go 1.26
 - go 1.25
-- ~~go 1.24~~ (not supported by `encoding/asn1` using `reflect.TypeAssert`)
 
 ## Additional Notes and Documentation
 
