@@ -52,6 +52,22 @@ type InfoBuffer struct {
 	Offset       uint64 // A 64-bit unsigned integer in little-endian format that contains the offset to the beginning of the buffer, in bytes, from the beginning of the PACTYPE structure. The data offset MUST be a multiple of eight. The following sections specify the format of each type of element.
 }
 
+// bounds returns the start and end offsets of the buffer within a PACTYPE structure of n bytes, and reports
+// whether the buffer lies within it.
+func (i InfoBuffer) bounds(n int) (start, end int, ok bool) {
+	if n < 0 || i.Offset > uint64(n) || uint64(i.CBBufferSize) > uint64(n)-i.Offset {
+		return 0, 0, false
+	}
+
+	return int(i.Offset), int(i.Offset) + int(i.CBBufferSize), true
+}
+
+// outsideErr describes a buffer whose offset and size do not lie within the PAC.
+func (i InfoBuffer) outsideErr(n, index int) error {
+	return fmt.Errorf("PAC info buffer %d of type %d lies outside the PAC: offset %d, size %d, PAC is %d bytes",
+		index, i.ULType, i.Offset, i.CBBufferSize, n)
+}
+
 // Unmarshal bytes into the PACType struct.
 func (pac *PACType) Unmarshal(b []byte) (err error) {
 	pac.Data = b
@@ -86,6 +102,10 @@ func (pac *PACType) Unmarshal(b []byte) (err error) {
 		if err != nil {
 			return
 		}
+
+		if _, _, ok := buf[i].bounds(len(b)); !ok {
+			return buf[i].outsideErr(len(b), i)
+		}
 	}
 
 	pac.Buffers = buf
@@ -97,9 +117,19 @@ func (pac *PACType) Unmarshal(b []byte) (err error) {
 //
 // Reference: https://msdn.microsoft.com/en-us/library/cc237954.aspx
 func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger) error {
-	for _, buf := range pac.Buffers {
+	if len(pac.ZeroSigData) != len(pac.Data) {
+		return fmt.Errorf("PAC signature scratch buffer is %d bytes and the PAC is %d bytes; they must be the same length",
+			len(pac.ZeroSigData), len(pac.Data))
+	}
+
+	for i, buf := range pac.Buffers {
+		start, end, ok := buf.bounds(len(pac.Data))
+		if !ok {
+			return buf.outsideErr(len(pac.Data), i)
+		}
+
 		p := make([]byte, buf.CBBufferSize)
-		copy(p, pac.Data[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)])
+		copy(p, pac.Data[start:end])
 
 		switch buf.ULType {
 		case infoTypeKerbValidationInfo:
@@ -138,7 +168,7 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 			var k SignatureData
 
 			zb, err := k.Unmarshal(p)
-			copy(pac.ZeroSigData[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)], zb)
+			copy(pac.ZeroSigData[start:end], zb)
 
 			if err != nil {
 				return fmt.Errorf("error processing ServerChecksum: %w", err)
@@ -153,7 +183,7 @@ func (pac *PACType) ProcessPACInfoBuffers(key types.EncryptionKey, l *log.Logger
 			var k SignatureData
 
 			zb, err := k.Unmarshal(p)
-			copy(pac.ZeroSigData[int(buf.Offset):int(buf.Offset)+int(buf.CBBufferSize)], zb)
+			copy(pac.ZeroSigData[start:end], zb)
 
 			if err != nil {
 				return fmt.Errorf("error processing KDCChecksum: %w", err)
