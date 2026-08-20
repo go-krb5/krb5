@@ -2,6 +2,7 @@ package pac
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"log"
 	"testing"
@@ -64,4 +65,83 @@ func TestPACTypeVerify(t *testing.T) {
 		assert.False(t, v)
 		assert.Error(t, err)
 	}
+}
+
+func TestPACTypeUnmarshalRejectsBufferOutsideData(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name   string
+		total  int
+		size   uint32
+		offset uint64
+	}{
+		{"offset beyond the data", 64, 0xFFFF, 0xFFFFFF},
+		{"offset within the data but size runs past the end", 64, 0xFFFF, 24},
+		{"offset at the very end of the address space", 64, 8, ^uint64(0)},
+		{"offset and size sum wraps", 64, 0xFFFFFFFF, ^uint64(0) - 16},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var pac PACType
+
+			err := pac.Unmarshal(pacWithBuffer(tc.total, infoTypeKerbValidationInfo, tc.size, tc.offset))
+			assert.ErrorContains(t, err, "lies outside the PAC")
+		})
+	}
+}
+
+func TestProcessPACInfoBuffersRejectsBufferOutsideData(t *testing.T) {
+	t.Parallel()
+
+	pac := PACType{
+		CBuffers:    1,
+		Data:        make([]byte, 64),
+		ZeroSigData: make([]byte, 64),
+		Buffers: []InfoBuffer{
+			{ULType: infoTypeKerbValidationInfo, CBBufferSize: 0xFFFF, Offset: 0xFFFFFF},
+		},
+	}
+
+	w := bytes.NewBufferString("")
+
+	require.NotPanics(t, func() {
+		err := pac.ProcessPACInfoBuffers(types.EncryptionKey{}, log.New(w, "", 0))
+		assert.ErrorContains(t, err, "lies outside the PAC")
+	})
+}
+
+func TestProcessPACInfoBuffersRejectsShortZeroSigData(t *testing.T) {
+	t.Parallel()
+
+	pac := PACType{
+		CBuffers:    1,
+		Data:        make([]byte, 64),
+		ZeroSigData: nil,
+		Buffers: []InfoBuffer{
+			{ULType: infoTypePACServerSignatureData, CBBufferSize: 20, Offset: 24},
+		},
+	}
+
+	w := bytes.NewBufferString("")
+
+	require.NotPanics(t, func() {
+		err := pac.ProcessPACInfoBuffers(types.EncryptionKey{}, log.New(w, "", 0))
+		assert.ErrorContains(t, err, "must be the same length")
+	})
+}
+
+func pacWithBuffer(total int, ulType, size uint32, offset uint64) []byte {
+	b := make([]byte, total)
+
+	binary.LittleEndian.PutUint32(b[0:4], 1) // cBuffers
+	binary.LittleEndian.PutUint32(b[4:8], 0) // Version
+	binary.LittleEndian.PutUint32(b[8:12], ulType)
+	binary.LittleEndian.PutUint32(b[12:16], size)
+	binary.LittleEndian.PutUint64(b[16:24], offset)
+
+	return b
 }
