@@ -2,6 +2,7 @@ package messages
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -245,8 +246,17 @@ func (t *Ticket) Decrypt(key types.EncryptionKey) error {
 	return nil
 }
 
+// discardLogger stands in for a nil *log.Logger. Writing to a nil one dereferences its mutex and panics rather
+// than discarding, and callers reach here holding whatever service.Settings.Logger returned, which is nil unless
+// a logger was configured.
+var discardLogger = log.New(io.Discard, "", 0)
+
 // GetPACType returns a Microsoft PAC that has been extracted from the ticket and processed.
 func (t *Ticket) GetPACType(keytab *keytab.Keytab, sname *types.PrincipalName, l *log.Logger) (bool, pac.PACType, error) {
+	if l == nil {
+		l = discardLogger
+	}
+
 	var isPAC bool
 
 	for _, ad := range t.DecryptedEncPart.AuthorizationData {
