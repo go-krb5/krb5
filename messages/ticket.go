@@ -250,38 +250,46 @@ func (t *Ticket) GetPACType(keytab *keytab.Keytab, sname *types.PrincipalName, l
 	var isPAC bool
 
 	for _, ad := range t.DecryptedEncPart.AuthorizationData {
-		if ad.ADType == adtype.ADIfRelevant {
-			var ad2 types.AuthorizationData
+		if ad.ADType != adtype.ADIfRelevant {
+			continue
+		}
 
-			err := ad2.Unmarshal(ad.ADData)
-			if err != nil {
-				l.Printf("PAC authorization data could not be unmarshaled: %v", err)
+		var ad2 types.AuthorizationData
+
+		if err := ad2.Unmarshal(ad.ADData); err != nil {
+			l.Printf("PAC authorization data could not be unmarshaled: %v", err)
+			continue
+		}
+
+		// AD-IF-RELEVANT is a container: RFC 4120 Section 5.2.6.1 defines its contents as an AuthorizationData
+		// sequence, and nothing requires the PAC to be the first element of it. The sequence is therefore
+		// scanned rather than indexed, which also means an empty one is simply skipped: a zero length SEQUENCE
+		// OF decodes to no elements rather than to an error, so indexing it would read past the end.
+		for _, ade := range ad2 {
+			if ade.ADType != adtype.ADWin2KPAC {
 				continue
 			}
 
-			if ad2[0].ADType == adtype.ADWin2KPAC {
-				isPAC = true
+			isPAC = true
 
-				var p pac.PACType
+			var p pac.PACType
 
-				err = p.Unmarshal(ad2[0].ADData)
-				if err != nil {
-					return isPAC, p, fmt.Errorf("error unmarshalling PAC: %w", err)
-				}
-
-				if sname == nil {
-					sname = &t.SName
-				}
-
-				key, _, err := keytab.GetEncryptionKey(*sname, t.Realm, t.EncPart.KVNO, t.EncPart.EType)
-				if err != nil {
-					return isPAC, p, NewKRBError(t.SName, t.Realm, errorcode.KRB_AP_ERR_NOKEY, fmt.Sprintf("Could not get key from keytab: %v", err))
-				}
-
-				err = p.ProcessPACInfoBuffers(key, l)
-
-				return isPAC, p, err
+			if err := p.Unmarshal(ade.ADData); err != nil {
+				return isPAC, p, fmt.Errorf("error unmarshalling PAC: %w", err)
 			}
+
+			if sname == nil {
+				sname = &t.SName
+			}
+
+			key, _, err := keytab.GetEncryptionKey(*sname, t.Realm, t.EncPart.KVNO, t.EncPart.EType)
+			if err != nil {
+				return isPAC, p, NewKRBError(t.SName, t.Realm, errorcode.KRB_AP_ERR_NOKEY, fmt.Sprintf("Could not get key from keytab: %v", err))
+			}
+
+			err = p.ProcessPACInfoBuffers(key, l)
+
+			return isPAC, p, err
 		}
 	}
 

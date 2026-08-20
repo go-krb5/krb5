@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/addrtype"
 	"github.com/go-krb5/krb5/iana/adtype"
@@ -165,4 +167,84 @@ func TestAuthorizationData_GetPACType_GOKRB5TestData(t *testing.T) {
 	assert.NotNil(t, pac.UPNDNSInfo)
 	assert.NotNil(t, pac.KDCChecksum)
 	assert.NotNil(t, pac.ServerChecksum)
+}
+
+func TestGetPACType_EmptyIfRelevant(t *testing.T) {
+	t.Parallel()
+
+	empty, err := asn1.Marshal(types.AuthorizationData{},
+		asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	tkt := Ticket{
+		Realm: "TEST.GOKRB5",
+		DecryptedEncPart: EncTicketPart{
+			AuthorizationData: types.AuthorizationData{
+				{ADType: adtype.ADIfRelevant, ADData: empty},
+			},
+		},
+	}
+
+	w := bytes.NewBufferString("")
+
+	require.NotPanics(t, func() {
+		isPAC, _, err := tkt.GetPACType(keytab.New(), nil, log.New(w, "", 0))
+
+		assert.False(t, isPAC)
+		assert.NoError(t, err)
+	})
+}
+
+func TestGetPACType_PACNotFirstInIfRelevant(t *testing.T) {
+	t.Parallel()
+
+	b, err := hex.DecodeString(testdata.MarshaledPAC_AuthorizationData_GOKRB5)
+	require.NoError(t, err)
+
+	var a types.AuthorizationData
+
+	require.NoError(t, a.Unmarshal(b))
+	require.Equal(t, adtype.ADIfRelevant, a[0].ADType)
+
+	var inner types.AuthorizationData
+
+	require.NoError(t, inner.Unmarshal(a[0].ADData))
+	require.NotEmpty(t, inner)
+
+	// Push the PAC behind an element this library does not recognise.
+	inner = append(types.AuthorizationData{
+		{ADType: adtype.ADIntendedForServer, ADData: []byte{0x01, 0x02, 0x03}},
+	}, inner...)
+
+	a[0].ADData, err = asn1.Marshal(inner,
+		asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	tkt := Ticket{
+		Realm: "TEST.GOKRB5",
+		EncPart: types.EncryptedData{
+			EType: 18,
+			KVNO:  2,
+		},
+		DecryptedEncPart: EncTicketPart{
+			AuthorizationData: a,
+		},
+	}
+
+	b, err = hex.DecodeString(testdata.KEYTAB_SYSHTTP_TEST_GOKRB5)
+	require.NoError(t, err)
+
+	kt := keytab.New()
+
+	require.NoError(t, kt.Unmarshal(b))
+
+	sname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"sysHTTP"}}
+	w := bytes.NewBufferString("")
+
+	isPAC, p, err := tkt.GetPACType(kt, &sname, log.New(w, "", 0))
+
+	require.NoError(t, err)
+	assert.True(t, isPAC)
+	assert.NotNil(t, p.KerbValidationInfo)
+	assert.NotNil(t, p.ServerChecksum)
 }
