@@ -102,3 +102,14 @@ func TestUnmarshal_negTokenInitWithReqFlags(t *testing.T) {
 
 	assert.Equal(t, 3, len(m.MechTokenBytes))
 }
+
+func TestUnmarshal_negTokenInitEmptyMechTypes(t *testing.T) {
+	t.Parallel()
+
+	// A NegTokenInit whose mechTypes is a zero length SEQUENCE OF. RFC 4178 Section 4.2.1 defines the field as
+	// "one or more security mechanisms available for the initiator", so an empty list is malformed.
+	b := []byte{0xa0, 0x06, 0x30, 0x04, 0xa0, 0x02, 0x30, 0x00}
+
+	_, _, err := UnmarshalNegToken(b)
+	assert.EqualError(t, err, "NegTokenInit does not contain any mechanism types")
+}

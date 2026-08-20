@@ -10,6 +10,7 @@ import (
 	"github.com/go-krb5/x/encoding/asn1"
 
 	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/keytab"
 )
 
 const (
@@ -115,4 +116,30 @@ func TestSPNEGOClientShouldDefaultToNoTokenOptions(t *testing.T) {
 
 	assert.Empty(t, s.tokenOptions)
 	assert.Nil(t, newKRB5TokenOptions(s.tokenOptions...).channelBinding)
+}
+
+func TestUnmarshal_SPNEGO_InitEmptyMechTypes(t *testing.T) {
+	t.Parallel()
+
+	// The SPNEGO OID followed by a NegTokenInit whose mechTypes is a zero length SEQUENCE OF.
+	b := []byte{
+		0x60, 0x10,
+		0x06, 0x06, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x02,
+		0xa0, 0x06, 0x30, 0x04, 0xa0, 0x02, 0x30, 0x00,
+	}
+
+	var s SPNEGOToken
+
+	assert.EqualError(t, s.Unmarshal(b), "NegTokenInit does not contain any mechanism types")
+}
+
+func TestAcceptSecContext_InitWithNoMechTypes(t *testing.T) {
+	t.Parallel()
+
+	s := SPNEGOService(keytab.New())
+
+	ok, _, status := s.AcceptSecContext(&SPNEGOToken{Init: true})
+
+	assert.False(t, ok)
+	assert.Equal(t, gssapi.StatusDefectiveToken, status.Code)
 }
