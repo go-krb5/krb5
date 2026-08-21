@@ -86,6 +86,10 @@ func (wt *WrapToken) Marshal() ([]byte, error) {
 	copy(bytes[pldOffset:], wt.Payload)
 	copy(bytes[chkSOffset:], wt.CheckSum)
 
+	// RFC 4121 Section 4.2.5 rotates everything after the header right by RRC octets. Recording the count in the
+	// header without performing the rotation would describe a token this did not produce.
+	copy(bytes[HdrLen:], rotate(bytes[HdrLen:], wt.RRC))
+
 	return bytes, nil
 }
 
@@ -192,23 +196,35 @@ func (wt *WrapToken) Unmarshal(b []byte, expectFromAcceptor bool) error {
 	if !isFromAcceptor && expectFromAcceptor {
 		return errors.New("expected acceptor flag is not set: expecting a token from the acceptor, not the initiator")
 	}
+
+	if flags&FlagSealed != 0 {
+		return errors.New("wrap token is confidentiality protected: its payload is encrypted and this type cannot decrypt it, use SecurityLayerSession")
+	}
+
 	// Check the filler byte.
 	if b[3] != FillerByte {
 		return fmt.Errorf("unexpected filler byte: expecting 0xFF, was %s ", hex.EncodeToString(b[3:4]))
 	}
 
 	checksumL := binary.BigEndian.Uint16(b[4:6])
+	rrc := binary.BigEndian.Uint16(b[6:8])
+
+	// RFC 4121 Section 4.2.5 rotates everything after the header right by RRC octets, and requires that a
+	// receiver "be able to interpret all possible rotation count values, including rotation counts greater than
+	// the length of the token".
+	data := unrotate(b[HdrLen:], rrc)
+
 	// Sanity check on the checksum length.
-	if int(checksumL) > len(b)-HdrLen {
+	if int(checksumL) > len(data) {
 		return fmt.Errorf("inconsistent checksum length: %d bytes to parse, checksum length is %d", len(b), checksumL)
 	}
 
 	wt.Flags = flags
 	wt.EC = checksumL
-	wt.RRC = binary.BigEndian.Uint16(b[6:8])
+	wt.RRC = rrc
 	wt.SndSeqNum = binary.BigEndian.Uint64(b[8:16])
-	wt.Payload = b[16 : len(b)-int(checksumL)]
-	wt.CheckSum = b[len(b)-int(checksumL):]
+	wt.Payload = data[:len(data)-int(checksumL)]
+	wt.CheckSum = data[len(data)-int(checksumL):]
 
 	return nil
 }
