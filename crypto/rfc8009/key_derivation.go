@@ -15,12 +15,12 @@ import (
 )
 
 const (
-	defaultIterations = 32768
+	defaultIterations       = 32768
 	s2kParamsZeroIterations = 1 << 32
-	s2kParamsHexLen = 8
-	kerberosLabel   = "kerberos"
-	labelSuffixKe   = 0xAA
-	prfLabel        = "prf"
+	s2kParamsHexLen         = 8
+	kerberosLabel           = "kerberos"
+	labelSuffixKe           = 0xAA
+	prfLabel                = "prf"
 )
 
 // DeriveRandom for key derivation as defined in RFC 8009.

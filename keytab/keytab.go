@@ -72,38 +72,56 @@ func New() *Keytab {
 // If the kvno is zero then the latest kvno will be returned. The kvno is also returned.
 func (kt *Keytab) GetEncryptionKey(princName types.PrincipalName, realm string, kvno int, etype int32) (types.EncryptionKey, int, error) {
 	var (
-		key types.EncryptionKey
-		t   time.Time
-		kv  int
+		key   types.EncryptionKey
+		t     time.Time
+		kv    int
+		found bool
 	)
 
 	for _, k := range kt.Entries {
-		if k.Principal.Realm == realm && len(k.Principal.Components) == len(princName.NameString) &&
-			k.Key.KeyType == etype &&
-			(k.KVNO == uint32(kvno) || kvno == 0) &&
-			k.Timestamp.After(t) {
-			p := true
-
-			for i, n := range k.Principal.Components {
-				if princName.NameString[i] != n {
-					p = false
-					break
-				}
-			}
-
-			if p {
-				key = k.Key
-				kv = int(k.KVNO)
-				t = k.Timestamp
-			}
+		if k.Principal.Realm != realm || k.Key.KeyType != etype {
+			continue
 		}
+
+		if kvno != 0 && k.KVNO != uint32(kvno) {
+			continue
+		}
+
+		if !k.Principal.equal(princName) {
+			continue
+		}
+
+		// The highest key version wins, and the timestamp only breaks a tie between entries that share one.
+		// Selecting on the timestamp alone returns an arbitrary entry for a keytab written in a single
+		// operation, because ktutil and kadmin ktadd give every entry of one the same timestamp.
+		if found && (int(k.KVNO) < kv || (int(k.KVNO) == kv && !k.Timestamp.After(t))) {
+			continue
+		}
+
+		key, kv, t, found = k.Key, int(k.KVNO), k.Timestamp, true
 	}
 
-	if len(key.KeyValue) < 1 {
+	if !found {
 		return key, 0, fmt.Errorf("matching key not found in keytab. Looking for %q realm: %v kvno: %v etype: %v", princName.PrincipalNameString(), realm, kvno, etype)
 	}
 
 	return key, kv, nil
+}
+
+// equal reports whether the principal names the same components as the PrincipalName given. RFC 4120 Section 6.2
+// makes the name type insignificant when comparing principal names, so only the components are compared.
+func (p principal) equal(n types.PrincipalName) bool {
+	if len(p.Components) != len(n.NameString) {
+		return false
+	}
+
+	for i, c := range p.Components {
+		if n.NameString[i] != c {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Create a new Keytab entry.

@@ -213,7 +213,7 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			return InvalidErrorf("libdefaults section line (%s)", line)
 		}
 
-		p := strings.Split(line, "=")
+		p := strings.SplitN(line, "=", 2)
 
 		key := strings.TrimSpace(strings.ToLower(p[0]))
 		switch key {
@@ -508,7 +508,7 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 			}
 		}
 
-		p := strings.Split(line, "=")
+		p := strings.SplitN(line, "=", 2)
 		key := strings.TrimSpace(strings.ToLower(p[0]))
 		v := strings.TrimSpace(p[1])
 
@@ -571,7 +571,7 @@ func parseRealms(lines []string) (realms []Realm, err error) {
 
 			if c == 1 {
 				start = i
-				p := strings.Split(l, "=")
+				p := strings.SplitN(l, "=", 2)
 				name = strings.TrimSpace(p[0])
 			}
 		}
@@ -622,7 +622,7 @@ func (d *DomainRealm) parseLines(lines []string) error {
 			return InvalidErrorf("realm line (%s)", line)
 		}
 
-		p := strings.Split(line, "=")
+		p := strings.SplitN(line, "=", 2)
 		domain := strings.TrimSpace(strings.ToLower(p[0]))
 		realm := strings.TrimSpace(p[1])
 		d.addMapping(domain, realm)

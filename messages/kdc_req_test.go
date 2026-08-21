@@ -587,3 +587,22 @@ func TestNewForwardedTGSReqShouldAdvertiseSupportedEncryptionTypes(t *testing.T)
 	assert.False(t, none.PAData.Contains(patype.PA_SUPPORTED_ETYPES))
 	assert.True(t, none.PAData.Contains(patype.PA_TGS_REQ))
 }
+
+func TestNewASReqHonoursTheConfiguredRenewLifetime(t *testing.T) {
+	t.Parallel()
+
+	c := config.New()
+	c.LibDefaults.RenewLifetime = 72 * time.Hour
+
+	cname := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "testuser")
+
+	before := time.Now().UTC()
+
+	a, err := NewASReqForTGT("TEST.GOKRB5", c, cname)
+	require.NoError(t, err)
+
+	assert.True(t, types.IsFlagSet(&a.ReqBody.KDCOptions, flags.Renewable), "the renewable option should be set")
+
+	// The renew till should follow renew_lifetime, not a value fixed in the source.
+	assert.WithinDuration(t, before.Add(72*time.Hour), a.ReqBody.RTime, 10*time.Second)
+}
