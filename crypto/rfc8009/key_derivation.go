@@ -16,12 +16,13 @@ const (
 	s2kParamsZero = 32768
 	kerberosLabel = "kerberos"
 	labelSuffixKe = 0xAA
+	prfLabel      = "prf"
 )
 
 // DeriveRandom for key derivation as defined in RFC 8009.
 func DeriveRandom(protocolKey, usage []byte, e etype.EType) ([]byte, error) {
 	h := e.GetHashFunc()()
-	return KDF_HMAC_SHA2(protocolKey, []byte("prf"), usage, h.Size(), e), nil
+	return KDF_HMAC_SHA2(protocolKey, []byte(prfLabel), usage, h.Size()*8, e), nil
 }
 
 // DeriveKey derives a key from the protocol key based on the usage and the etype's specific methods.
