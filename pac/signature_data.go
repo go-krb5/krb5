@@ -49,29 +49,17 @@ func (k *SignatureData) Unmarshal(b []byte) (rb []byte, err error) {
 		c = 16
 	case uint32(chksumtype.HMAC_SHA384_192_AES256):
 		c = 24
-		// The Camellia CMACs (RFC 6803), 16 octets each. A KDC signs the PAC with the strongest key the
-		// krbtgt principal holds, and on a FreeIPA 4.13 realm that key set includes camellia256-cts-cmac
-		// so its KDC Signature buffer declares CMAC_CAMELLIA256 and carries 16 bytes. Both constants
-		// were already in iana/chksumtype; only their lengths were missing here, and a missing length is
-		// not inert (see below).
-	case uint32(chksumtype.CMAC_CAMELLIA128):
-		c = 16
-	case uint32(chksumtype.CMAC_CAMELLIA256):
+	case uint32(chksumtype.CMAC_CAMELLIA128), uint32(chksumtype.CMAC_CAMELLIA256):
 		c = 16
 	default:
-		// Defence for the next type that is missing rather than for any type known today.
+		// Fall back for a checksum type not listed above. c is not just the read length: it also sets
+		// how many bytes are zeroed below for checksum verification. Leaving it at 0 leaves the
+		// signature in the buffer the caller hashes, where the KDC hashed zeros, so the failure
+		// surfaces as a bad signature rather than as an unhandled checksum type.
 		//
-		// A length left at zero here is not merely "the signature could not be read": c also drives
-		// the zeroing at the end of this function, so an unlisted type would put the buffer into the
-		// caller's verification digest verbatim while the KDC had hashed it as zeros. Every checksum
-		// then fails, and it is reported as a bad signature rather than as a missing length — which
-		// sends the reader after keys, enctypes and clock skew. That is what the Camellia case above
-		// cost to find.
-		//
-		// A signature buffer is `type (4) + signature (rest)`, so the remainder is the reading to
-		// fall back on. No RODCIdentifier is read for such a type: with no known length there is
-		// nothing to tell a trailing identifier from signature bytes. Every listed type keeps its
-		// exact length and its RODC handling, so nothing that works today changes.
+		// The buffer is type (4) + signature (rest), so take the rest. RODCIdentifier is left unread:
+		// without a known signature length, a trailing identifier cannot be told apart from signature
+		// bytes. Types listed above keep their exact length and RODC handling.
 		if len(b) > 4 {
 			c = len(b) - 4
 		}
