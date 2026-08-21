@@ -87,7 +87,11 @@ type LibDefaults struct {
 	// des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
 	DefaultTktEnctypeIDs []int32
 
-	// DNSCanonicalizeHostname has a default value of true.
+	// DNSCanonicalizeHostname governs whether DNS is consulted to canonicalize a hostname when deriving a
+	// service principal name. It has a default value of true.
+	//
+	// This decides which service key the KDC encrypts the ticket to, so leaving it enabled lets DNS choose that
+	// principal. Set it to false where the resolver is not trusted to.
 	DNSCanonicalizeHostname bool
 
 	// DNSLookupKDC has a default value of false.
@@ -133,6 +137,10 @@ type LibDefaults struct {
 	Proxiable bool
 
 	// RDNS has a default value of true.
+	//
+	// It governs whether reverse name lookup is used in addition to forward lookup when canonicalizing a
+	// hostname. This library performs no reverse lookup, so the setting is parsed and has no effect; forward
+	// canonicalization is governed by DNSCanonicalizeHostname.
 	RDNS bool
 
 	// RealmTryDomains has a default value of -1.

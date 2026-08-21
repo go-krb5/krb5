@@ -25,7 +25,7 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
-// Client side functionality.
+var lookupCNAME = net.LookupCNAME
 
 // DefaultMaxRedirects is the number of redirects the SPNEGO client will follow when no other limit is configured.
 const DefaultMaxRedirects = 10
@@ -262,45 +262,58 @@ func respUnauthorizedNegotiate(resp *http.Response) bool {
 	return false
 }
 
-func setRequestSPN(r *http.Request) (types.PrincipalName, error) {
+// setRequestSPN derives the service principal name for the request and updates the request's Host to match.
+//
+// canonicalize is the dns_canonicalize_hostname setting of krb5.conf. It is a security control as much as a
+// convenience: the service principal name decides which service key the KDC encrypts the ticket to, so a client
+// that canonicalizes is letting DNS choose that principal. An attacker able to influence the answer can steer the
+// ticket to a principal it holds a key for, which is why the setting exists and why MIT moved its default.
+func setRequestSPN(r *http.Request, canonicalize bool) (types.PrincipalName, error) {
 	h := strings.TrimSuffix(r.URL.Host, ".")
+
 	// This if statement checks if the host includes a port number.
 	if strings.LastIndex(r.URL.Host, ":") > strings.LastIndex(r.URL.Host, "]") {
-		// There is a port number in the URL.
 		h, p, err := net.SplitHostPort(h)
 		if err != nil {
 			return types.PrincipalName{}, err
 		}
 
-		name, err := net.LookupCNAME(h)
-		if name != "" && err == nil {
-			// Underlyng canonical name should be used for SPN.
-			h = strings.ToLower(name)
-		}
+		h = canonicalHost(h, canonicalize)
 
-		h = strings.TrimSuffix(h, ".")
 		r.Host = fmt.Sprintf("%s:%s", h, p)
 
 		return types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/"+h), nil
 	}
 
-	name, err := net.LookupCNAME(h)
-	if name != "" && err == nil {
-		// Underlyng canonical name should be used for SPN.
-		h = strings.ToLower(name)
-	}
-
-	h = strings.TrimSuffix(h, ".")
+	h = canonicalHost(h, canonicalize)
 	r.Host = h
 
 	return types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/"+h), nil
+}
+
+func canonicalHost(h string, canonicalize bool) string {
+	if canonicalize {
+		if name, err := lookupCNAME(h); err == nil && name != "" {
+			h = strings.ToLower(name)
+		}
+	}
+
+	return strings.TrimSuffix(h, ".")
+}
+
+func canonicalizeHostname(cl *client.Client) bool {
+	if cl == nil || cl.Config == nil {
+		return true
+	}
+
+	return cl.Config.LibDefaults.DNSCanonicalizeHostname
 }
 
 // SetSPNEGOHeader gets the service ticket and sets it as the SPNEGO authorization header on HTTP request object.
 // To auto generate the SPN from the request object pass a null string "".
 func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) error {
 	if spn == "" {
-		pn, err := setRequestSPN(r)
+		pn, err := setRequestSPN(r, canonicalizeHostname(cl))
 		if err != nil {
 			return err
 		}
