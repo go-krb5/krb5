@@ -78,8 +78,9 @@ func (m *KRB5Token) Unmarshal(b []byte) error {
 		return fmt.Errorf("error unmarshalling KRB5Token OID: %w", err)
 	}
 
-	if !oid.Equal(gssapi.OIDKRB5.OID()) {
-		return fmt.Errorf("error unmarshalling KRB5Token, OID is %s not %s", oid.String(), gssapi.OIDKRB5.OID().String())
+	if !isKerberosMech(oid) {
+		return fmt.Errorf("error unmarshalling KRB5Token, OID is %s not %s or %s",
+			oid.String(), gssapi.OIDKRB5.OID().String(), gssapi.OIDMSLegacyKRB5.OID().String())
 	}
 
 	m.OID = oid
@@ -420,4 +421,9 @@ func delegatedCredential(cl *client.Client, tkt messages.Ticket, sessionKey type
 	}
 
 	return b, nil
+}
+
+// isKerberosMech reports whether the object identifier names a Kerberos 5 GSS-API mechanism this library speaks.
+func isKerberosMech(oid asn1.ObjectIdentifier) bool {
+	return oid.Equal(gssapi.OIDKRB5.OID()) || oid.Equal(gssapi.OIDMSLegacyKRB5.OID())
 }

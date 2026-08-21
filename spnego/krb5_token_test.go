@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
@@ -669,4 +670,60 @@ func TestKrb5TokenAuthenticatorShouldAdvertiseCBTWhenBound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Empty(t, unbound.AuthorizationData)
+}
+
+// krb5TokenWithOID re-stamps the sample KRB5 token with the mechanism OID given, leaving the token ID and the
+// AP_REQ that follow it untouched.
+func krb5TokenWithOID(t *testing.T, oid asn1.ObjectIdentifier) []byte {
+	t.Helper()
+
+	b, err := hex.DecodeString(KRB5TokenHex)
+	require.NoError(t, err)
+
+	var original asn1.ObjectIdentifier
+
+	rest, err := asn1.UnmarshalWithParams(b, &original, "application,explicit,tag:0")
+	require.NoError(t, err)
+
+	ob, err := asn1.Marshal(oid, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	return asn1tools.AddASNAppTag(append(ob, rest...), 0)
+}
+
+func TestKRB5Token_UnmarshalAcceptsTheMechanismsSPNEGONegotiates(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		oid  asn1.ObjectIdentifier
+	}{
+		{"KRB5", gssapi.OIDKRB5.OID()},
+		{"MS legacy KRB5", gssapi.OIDMSLegacyKRB5.OID()},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var mt KRB5Token
+
+			require.NoError(t, mt.Unmarshal(krb5TokenWithOID(t, tc.oid)))
+
+			assert.True(t, mt.IsAPReq())
+			assert.Equal(t, tc.oid, mt.OID)
+
+			mb, err := mt.Marshal()
+			require.NoError(t, err)
+			assert.Equal(t, krb5TokenWithOID(t, tc.oid), mb)
+		})
+	}
+}
+
+func TestKRB5Token_UnmarshalRejectsAnUnrelatedMechanism(t *testing.T) {
+	t.Parallel()
+
+	var mt KRB5Token
+
+	assert.Error(t, mt.Unmarshal(krb5TokenWithOID(t, gssapi.OIDGSSIAKerb.OID())))
 }
