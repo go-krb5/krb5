@@ -21,6 +21,9 @@ type SPNEGO struct {
 	client          *client.Client
 	spn             string
 	tokenOptions    []KRB5TokenOption
+	mechListMIC     []byte
+	mechTypes       []asn1.ObjectIdentifier
+	mechTypesRaw    []byte
 }
 
 // SPNEGOClient configures the SPNEGO mechanism suitable for client side use.
@@ -88,27 +91,44 @@ func (s *SPNEGO) AcceptSecContext(ct gssapi.ContextToken) (bool, context.Context
 
 	t.settings = s.serviceSettings
 
-	var oid asn1.ObjectIdentifier
-	if t.Init {
-		if len(t.NegTokenInit.MechTypes) == 0 {
-			return false, ctx, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "SPNEGO NegTokenInit does not contain any mechanism types"}
-		}
+	if t.Init && len(t.NegTokenInit.MechTypes) == 0 {
+		return false, ctx, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "SPNEGO NegTokenInit does not contain any mechanism types"}
+	}
 
-		oid = t.NegTokenInit.MechTypes[0]
+	// Which mechanism a NegTokenInit selects is left to NegTokenInit.Verify, which searches the whole of mechTypes
+	// rather than only its first entry. RFC 4178 Section 4.2.2 puts supportedMech "only in the first reply from
+	// the target", so an initiator continuing an exchange names no mechanism here and the mech token decides; a
+	// mechanism that is named and is not Kerberos is refused.
+	if t.Resp && len(t.NegTokenResp.SupportedMech) > 0 && !isKerberosMech(t.NegTokenResp.SupportedMech) {
+		return false, ctx, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "SPNEGO OID of MechToken is not of type KRB5"}
 	}
 
 	if t.Resp {
-		oid = t.NegTokenResp.SupportedMech
+		t.NegTokenResp.mechTypes, t.NegTokenResp.mechTypesRaw = s.mechTypes, s.mechTypesRaw
 	}
 
-	if len(oid) > 0 && !isKerberosMech(oid) {
-		return false, ctx, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "SPNEGO OID of MechToken is not of type KRB5"}
-	}
-	// Flags in the NegInit must be used 	t.NegTokenInit.ReqFlags.
+	// RFC 4178 Section 4.2.1 says of reqFlags that "the acceptor MUST ignore this reqFlags field", which is why
+	// t.NegTokenInit.ReqFlags is read nowhere: it is not integrity protected and carries no authority.
 	ok, status := t.Verify()
 	ctx = t.Context()
 
+	if t.Init {
+		s.mechListMIC = t.NegTokenInit.respMechListMIC
+		// The list is kept whatever the outcome, because the leg that offers it is the only one that carries it
+		// and a mechListMIC on a later leg protects it.
+		s.mechTypes, s.mechTypesRaw = t.NegTokenInit.MechTypes, t.NegTokenInit.mechTypesRaw
+	} else {
+		s.mechListMIC = t.NegTokenResp.respMechListMIC
+	}
+
 	return ok, ctx, status
+}
+
+// MechListMIC returns the mechListMIC this acceptor owes the initiator in its reply to the negotiation token it
+// last accepted, or nil when no MIC was exchanged. RFC 4178 Section 5(c)(I) requires one whenever the initiator
+// supplied one, and has the initiator verify it.
+func (s *SPNEGO) MechListMIC() []byte {
+	return s.mechListMIC
 }
 
 // Log will write to the service's logger if it is configured.

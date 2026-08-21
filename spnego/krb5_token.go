@@ -35,11 +35,34 @@ type KRB5Token struct {
 	KRBError messages.KRBError
 	settings *service.Settings
 	context  context.Context
+	key      types.EncryptionKey
+}
+
+// contextKey returns the key protecting per-message tokens on the context this token establishes, which is what the
+// mechListMIC of RFC 4178 Section 5 is computed with.
+//
+// RFC 4121 Section 4.2.6 signs with the subkey the acceptor asserts when there is one. This library sends no AP_REP
+// and so asserts none, leaving the subkey the initiator put in its authenticator if it sent one, and the ticket
+// session key otherwise. An initiator holds that key directly; an acceptor reads it out of the ticket it decrypted,
+// so this is only meaningful once the AP_REQ has been verified.
+func (m *KRB5Token) contextKey() (types.EncryptionKey, error) {
+	if len(m.key.KeyValue) > 0 {
+		return m.key, nil
+	}
+
+	if len(m.APReq.Authenticator.SubKey.KeyValue) > 0 {
+		return m.APReq.Authenticator.SubKey, nil
+	}
+
+	if len(m.APReq.Ticket.DecryptedEncPart.Key.KeyValue) > 0 {
+		return m.APReq.Ticket.DecryptedEncPart.Key, nil
+	}
+
+	return types.EncryptionKey{}, errors.New("the KRB5 context has no established key")
 }
 
 // Marshal a KRB5Token into a slice of bytes.
 func (m *KRB5Token) Marshal() ([]byte, error) {
-	// Create the header.
 	b, _ := asn1.Marshal(m.OID, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	b = append(b, m.tokID...)
 
@@ -280,6 +303,7 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 	}
 
 	m.APReq = APReq
+	m.key = sessionKey
 
 	return m, nil
 }
@@ -426,4 +450,19 @@ func delegatedCredential(cl *client.Client, tkt messages.Ticket, sessionKey type
 // isKerberosMech reports whether the object identifier names a Kerberos 5 GSS-API mechanism this library speaks.
 func isKerberosMech(oid asn1.ObjectIdentifier) bool {
 	return oid.Equal(gssapi.OIDKRB5.OID()) || oid.Equal(gssapi.OIDMSLegacyKRB5.OID())
+}
+
+// kerberosMechIndex returns the position of the first Kerberos mechanism in the list, or -1 when it holds none.
+//
+// The position matters and not only the presence. RFC 4178 Section 4.2.1 lists mechTypes "in decreasing preference
+// order", so position zero is both the mechanism the optimistic mechToken belongs to and the initiator's first
+// choice, which is what Section 5 weighs when deciding whether a mechListMIC exchange is required.
+func kerberosMechIndex(mechTypes []asn1.ObjectIdentifier) int {
+	for i, m := range mechTypes {
+		if isKerberosMech(m) {
+			return i
+		}
+	}
+
+	return -1
 }
