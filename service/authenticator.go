@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -101,21 +102,26 @@ func (a KRB5BasicAuthenticator) Mechanism() string {
 	return "Kerberos Basic"
 }
 
+// parseBasicHeaderValue splits a base64 encoded HTTP Basic credential into its realm, user name and password.
 func parseBasicHeaderValue(s string) (domain, username, password string, err error) {
 	b, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
 		return domain, username, password, err
 	}
 
-	v := string(b)
-	vc := strings.SplitN(v, ":", 2)
+	vc := strings.SplitN(string(b), ":", 2)
+	if len(vc) != 2 {
+		return domain, username, password,
+			errors.New("basic authentication header value does not contain a colon separating the user name from the password")
+	}
+
 	password = vc[1]
 	// Domain and username can be specified in 2 formats:
 	// <Username> - no domain specified
 	// <Domain>\<Username>
 	// <Username>@<Domain>.
 	switch {
-	case strings.Contains(vc[0], `\'`):
+	case strings.Contains(vc[0], `\`):
 		u := strings.SplitN(vc[0], `\`, 2)
 		domain = u[0]
 		username = u[1]
@@ -127,5 +133,5 @@ func parseBasicHeaderValue(s string) (domain, username, password string, err err
 		username = vc[0]
 	}
 
-	return
+	return domain, username, password, nil
 }

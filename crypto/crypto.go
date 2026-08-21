@@ -46,14 +46,22 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 				return key, et, fmt.Errorf("error unmarshaling PA Data to PA-ETYPE-INFO2: %w", err)
 			}
 
-			if etypeID != eti[0].EType {
-				et, err = GetEType(eti[0].EType)
+			// ETYPE-INFO is a SEQUENCE OF and reaches here from an unauthenticated KRB-ERROR, so an empty one
+			// decodes to no entries rather than to an error. The first entry whose encryption type this library
+			// supports is taken, rather than the first entry outright.
+			i := firstSupported(eti.ETypes())
+			if i < 0 {
+				continue
+			}
+
+			if etypeID != eti[i].EType {
+				et, err = GetEType(eti[i].EType)
 				if err != nil {
 					return key, et, fmt.Errorf("error getting encryption type: %w", err)
 				}
 			}
 
-			salt = string(eti[0].Salt)
+			salt = string(eti[i].Salt)
 			paID = pa.PADataType
 		case patype.PA_ETYPE_INFO2:
 			if paID > pa.PADataType {
@@ -66,18 +74,23 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 				return key, et, fmt.Errorf("error unmarshalling PA Data to PA-ETYPE-INFO2: %w", err)
 			}
 
-			if etypeID != et2[0].EType {
-				et, err = GetEType(et2[0].EType)
+			i := firstSupported(et2.ETypes())
+			if i < 0 {
+				continue
+			}
+
+			if etypeID != et2[i].EType {
+				et, err = GetEType(et2[i].EType)
 				if err != nil {
 					return key, et, fmt.Errorf("error getting encryption type: %w", err)
 				}
 			}
 
-			if len(et2[0].S2KParams) == 4 {
-				sk2p = hex.EncodeToString(et2[0].S2KParams)
+			if len(et2[i].S2KParams) == 4 {
+				sk2p = hex.EncodeToString(et2[i].S2KParams)
 			}
 
-			salt = et2[0].Salt
+			salt = et2[i].Salt
 			paID = pa.PADataType
 		}
 	}
@@ -97,6 +110,17 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 	}
 
 	return key, et, nil
+}
+
+// firstSupported returns the index of the first encryption type in ids that is registered, or -1 when none is.
+func firstSupported(ids []int32) int {
+	for i, id := range ids {
+		if _, err := GetEType(id); err == nil {
+			return i
+		}
+	}
+
+	return -1
 }
 
 // GetEncryptedData encrypts the data provided and returns and EncryptedData type.

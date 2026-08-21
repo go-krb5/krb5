@@ -27,6 +27,14 @@ const (
 	infoTypePACDeviceClaimsInfo    uint32 = 15
 )
 
+const (
+	// pacHeaderLen is the width of the cBuffers and Version fields that precede the info buffer descriptors.
+	pacHeaderLen = 8
+
+	// infoBufferLen is the width of one info buffer descriptor on the wire: ULType, CBBufferSize and Offset.
+	infoBufferLen = 16
+)
+
 // PACType implements: https://msdn.microsoft.com/en-us/library/cc237950.aspx
 type PACType struct {
 	CBuffers           uint32
@@ -85,6 +93,11 @@ func (pac *PACType) Unmarshal(b []byte) (err error) {
 	pac.Version, err = r.Uint32()
 	if err != nil {
 		return err
+	}
+
+	if maxBuffers := (len(b) - pacHeaderLen) / infoBufferLen; int64(pac.CBuffers) > int64(maxBuffers) {
+		return fmt.Errorf("PAC declares %d info buffers, which %d bytes cannot hold: at most %d fit",
+			pac.CBuffers, len(b), maxBuffers)
 	}
 
 	buf := make([]InfoBuffer, pac.CBuffers)
