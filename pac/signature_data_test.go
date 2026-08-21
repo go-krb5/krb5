@@ -50,3 +50,63 @@ func TestPAC_SignatureData_Unmarshal_KDC_Signature(t *testing.T) {
 	assert.Equal(t, uint16(0), k.RODCIdentifier)
 	assert.Equal(t, zeroed, bz)
 }
+
+func TestPAC_SignatureData_Unmarshal_CMAC_Camellia256_Signature(t *testing.T) {
+	t.Parallel()
+
+	b, err := hex.DecodeString("12000000b1cc961bcb5585abd8d5ae4a2f3f7fea")
+	require.NoError(t, err)
+
+	var k SignatureData
+
+	bz, err := k.Unmarshal(b)
+	require.NoError(t, err)
+
+	sig, _ := hex.DecodeString("b1cc961bcb5585abd8d5ae4a2f3f7fea")
+	zeroed, _ := hex.DecodeString("1200000000000000000000000000000000000000")
+
+	assert.Equal(t, uint32(chksumtype.CMAC_CAMELLIA256), k.SignatureType)
+	assert.Equal(t, sig, k.Signature)
+	assert.Equal(t, uint16(0), k.RODCIdentifier)
+	assert.Equal(t, zeroed, bz)
+}
+
+func TestPAC_SignatureData_Unmarshal_Unknown_Signature_Type(t *testing.T) {
+	t.Parallel()
+
+	// 0x7fffffff is not a checksum type in iana/chksumtype, and is in the range the IANA registry
+	// leaves unassigned.
+	b, err := hex.DecodeString("ffffff7f0011223344556677")
+	require.NoError(t, err)
+
+	var k SignatureData
+
+	bz, err := k.Unmarshal(b)
+	require.NoError(t, err)
+
+	sig, _ := hex.DecodeString("0011223344556677")
+	zeroed, _ := hex.DecodeString("ffffff7f0000000000000000")
+
+	assert.Equal(t, uint32(0x7fffffff), k.SignatureType)
+	assert.Equal(t, sig, k.Signature)
+	// No RODC identifier: with no known length there is nothing to tell a trailing identifier from
+	// signature bytes, so the whole remainder is taken as the signature.
+	assert.Equal(t, uint16(0), k.RODCIdentifier)
+	assert.Equal(t, zeroed, bz)
+}
+
+func TestPAC_SignatureData_Unmarshal_Unknown_Type_Only(t *testing.T) {
+	t.Parallel()
+
+	b, err := hex.DecodeString("ffffff7f")
+	require.NoError(t, err)
+
+	var k SignatureData
+
+	bz, err := k.Unmarshal(b)
+	require.NoError(t, err)
+
+	assert.Equal(t, uint32(0x7fffffff), k.SignatureType)
+	assert.Empty(t, k.Signature)
+	assert.Equal(t, b, bz)
+}
