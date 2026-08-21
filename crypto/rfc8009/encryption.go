@@ -12,17 +12,11 @@ import (
 
 	"github.com/go-krb5/krb5/crypto/common"
 	"github.com/go-krb5/krb5/crypto/etype"
-	"github.com/go-krb5/krb5/iana/etypeID"
 )
 
 // EncryptData encrypts the data provided using methods specific to the etype provided as defined in RFC 8009.
 func EncryptData(key, data []byte, e etype.EType) ([]byte, []byte, error) {
-	kl := e.GetKeyByteSize()
-	if e.GetETypeID() == etypeID.AES256_CTS_HMAC_SHA384_192 {
-		kl = 32
-	}
-
-	if len(key) != kl {
+	if len(key) != e.GetKeyByteSize() {
 		return []byte{}, []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", e.GetKeyByteSize(), len(key))
 	}
 
@@ -34,13 +28,8 @@ func EncryptData(key, data []byte, e etype.EType) ([]byte, []byte, error) {
 // EncryptMessage encrypts the message provided using the methods specific to the etype provided as defined in RFC 8009.
 // The encrypted data is concatenated with its integrity hash to create an encrypted message.
 func EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byte, []byte, error) {
-	kl := e.GetKeyByteSize()
-	if e.GetETypeID() == etypeID.AES256_CTS_HMAC_SHA384_192 {
-		kl = 32
-	}
-
-	if len(key) != kl {
-		return []byte{}, []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", kl, len(key))
+	if len(key) != e.GetKeyByteSize() {
+		return []byte{}, []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", e.GetKeyByteSize(), len(key))
 	}
 
 	// confounder.
@@ -82,13 +71,8 @@ func EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byte, [
 
 // DecryptData decrypts the data provided using the methods specific to the etype provided as defined in RFC 8009.
 func DecryptData(key, data []byte, e etype.EType) ([]byte, error) {
-	kl := e.GetKeyByteSize()
-	if e.GetETypeID() == etypeID.AES256_CTS_HMAC_SHA384_192 {
-		kl = 32
-	}
-
-	if len(key) != kl {
-		return []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", kl, len(key))
+	if len(key) != e.GetKeyByteSize() {
+		return []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", e.GetKeyByteSize(), len(key))
 	}
 
 	ivz := make([]byte, aes.BlockSize)

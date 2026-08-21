@@ -9,6 +9,8 @@ import (
 
 	"github.com/go-krb5/krb5/crypto/common"
 	"github.com/go-krb5/krb5/crypto/rfc8009"
+	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/types"
 )
 
 // TestAes256CtsHmacSha384192_StringToKey handles test vectors from RFC 8009 Appendix A.
@@ -172,4 +174,35 @@ func TestAes256CtsHmacSha384192_VerifyIntegrity(t *testing.T) {
 			assert.Equal(t, tc.chksum, hex.EncodeToString(b))
 		})
 	}
+}
+
+func TestAes256CtsHmacSha384192_KeySize(t *testing.T) {
+	t.Parallel()
+
+	var e Aes256CtsHmacSha384192
+
+	assert.Equal(t, 32, e.GetKeyByteSize())
+	assert.Equal(t, 256, e.GetKeySeedBitLength())
+	assert.Equal(t, 192, e.GetHMACBitLength())
+}
+
+func TestAes256CtsHmacSha384192_GeneratedKeyIsUsable(t *testing.T) {
+	t.Parallel()
+
+	e, err := GetEType(etypeID.AES256_CTS_HMAC_SHA384_192)
+	require.NoError(t, err)
+
+	k, err := types.GenerateEncryptionKey(e)
+	require.NoError(t, err)
+	require.Len(t, k.KeyValue, 32)
+
+	message := []byte("the quick brown fox")
+
+	_, ct, err := e.EncryptMessage(k.KeyValue, message, 2)
+	require.NoError(t, err)
+
+	pt, err := e.DecryptMessage(k.KeyValue, ct, 2)
+	require.NoError(t, err)
+
+	assert.Equal(t, message, pt)
 }

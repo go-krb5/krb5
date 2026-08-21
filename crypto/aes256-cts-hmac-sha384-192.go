@@ -29,8 +29,12 @@ func (e Aes256CtsHmacSha384192) GetHashID() int32 {
 }
 
 // GetKeyByteSize returns the number of bytes for key of this etype.
+//
+// RFC 8009 Section 5 gives this enctype a "key-generation seed length: key size (128 or 256 bits)", and Section 4
+// derives its base key at the AES key length. The 192 in its name is the length of the truncated HMAC, which
+// GetHMACBitLength reports, not the length of the key.
 func (e Aes256CtsHmacSha384192) GetKeyByteSize() int {
-	return 192 / 8
+	return 256 / 8
 }
 
 // GetKeySeedBitLength returns the number of bits for the seed for key generation.

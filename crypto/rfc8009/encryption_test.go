@@ -458,13 +458,13 @@ func TestEncryptData_InvalidKeySize_AES256(t *testing.T) {
 			name:          "AES256 with wrong key size",
 			wrongKeySize:  16,
 			plaintext:     "test data",
-			expectedError: "incorrect keysize: expected: 24 actual: 16",
+			expectedError: "incorrect keysize: expected: 32 actual: 16",
 		},
 		{
 			name:          "AES256 with too large key",
 			wrongKeySize:  64,
 			plaintext:     "test data",
-			expectedError: "incorrect keysize: expected: 24 actual: 64",
+			expectedError: "incorrect keysize: expected: 32 actual: 64",
 		},
 	}
 
