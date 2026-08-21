@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/stretchr/testify/require"
 )
 
@@ -40,4 +42,13 @@ func TestAes256CtsHmacSha196_StringToKey(t *testing.T) {
 			HandleTestRFC3962AppendixB(t, e, tc)
 		})
 	}
+}
+
+func TestAes256CtsHmacSha96_StringToKeyRejectsUnboundedIterations(t *testing.T) {
+	t.Parallel()
+
+	var e Aes256CtsHmacSha96
+
+	_, err := e.StringToKey("password", "ATHENA.MIT.EDUraeburn", "00000000")
+	assert.Error(t, err)
 }
