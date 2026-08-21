@@ -228,39 +228,38 @@ func (n *NegTokenResp) Unmarshal(b []byte) error {
 }
 
 // Verify a Resp/Targ negotiation token.
+//
+// RFC 4178 Section 4.2.2 puts supportedMech "only in the first reply from the target", so a token continuing an
+// exchange carries none and the mechanism is the one already agreed. Its absence is therefore accepted; a
+// mechanism that is named and is not Kerberos is not.
 func (n *NegTokenResp) Verify() (bool, gssapi.Status) {
-	if isKerberosMech(n.SupportedMech) {
-		if n.mechToken == nil && n.ResponseToken == nil {
-			return false, gssapi.Status{Code: gssapi.StatusContinueNeeded}
-		}
-
-		mt := new(KRB5Token)
-
-		mt.settings = n.settings
-		if n.mechToken == nil {
-			err := mt.Unmarshal(n.ResponseToken)
-			if err != nil {
-				return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
-			}
-
-			n.mechToken = mt
-		} else {
-			var ok bool
-
-			mt, ok = n.mechToken.(*KRB5Token)
-			if !ok {
-				return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "MechToken is not a KRB5 token as expected"}
-			}
-		}
-
-		if mt == nil {
-			return false, gssapi.Status{Code: gssapi.StatusContinueNeeded}
-		}
-		// Verify the mechtoken.
-		return mt.Verify()
+	if len(n.SupportedMech) > 0 && !isKerberosMech(n.SupportedMech) {
+		return false, gssapi.Status{Code: gssapi.StatusBadMech, Message: "no supported mechanism specified in negotiation"}
 	}
 
-	return false, gssapi.Status{Code: gssapi.StatusBadMech, Message: "no supported mechanism specified in negotiation"}
+	if n.mechToken == nil && n.ResponseToken == nil {
+		return false, gssapi.Status{Code: gssapi.StatusContinueNeeded}
+	}
+
+	mt := new(KRB5Token)
+
+	mt.settings = n.settings
+	if n.mechToken == nil {
+		if err := mt.Unmarshal(n.ResponseToken); err != nil {
+			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
+		}
+
+		n.mechToken = mt
+	} else {
+		var ok bool
+
+		mt, ok = n.mechToken.(*KRB5Token)
+		if !ok {
+			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "MechToken is not a KRB5 token as expected"}
+		}
+	}
+
+	return mt.Verify()
 }
 
 // State returns the negotiation state of the negotiation response.
