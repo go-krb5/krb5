@@ -94,6 +94,8 @@ const (
     "DefaultTGSEnctypes": [
       "aes256-cts-hmac-sha1-96",
       "aes128-cts-hmac-sha1-96",
+      "aes256-cts-hmac-sha384-192",
+      "aes128-cts-hmac-sha256-128",
       "des3-cbc-sha1",
       "arcfour-hmac-md5",
       "camellia256-cts-cmac",
@@ -108,7 +110,9 @@ const (
     ],
     "DefaultTGSEnctypeIDs": [
       18,
-      17
+      17,
+      20,
+      19
     ],
     "DefaultTktEnctypeIDs": [
       18,
@@ -131,6 +135,8 @@ const (
     "PermittedEnctypes": [
       "aes256-cts-hmac-sha1-96",
       "aes128-cts-hmac-sha1-96",
+      "aes256-cts-hmac-sha384-192",
+      "aes128-cts-hmac-sha256-128",
       "des3-cbc-sha1",
       "arcfour-hmac-md5",
       "camellia256-cts-cmac",
@@ -141,7 +147,9 @@ const (
     ],
     "PermittedEnctypeIDs": [
       18,
-      17
+      17,
+      20,
+      19
     ],
     "PreferredPreauthTypes": [
       17,
@@ -724,4 +732,24 @@ func TestParseETypesShouldFollowCryptoRegistry(t *testing.T) {
 	t.Run("ShouldExcludeUnknownName", func(t *testing.T) {
 		assert.Empty(t, parseETypes([]string{"not-an-enctype"}, true))
 	})
+}
+
+func TestDefaultEnctypesIncludeRFC8009(t *testing.T) {
+	t.Parallel()
+
+	c := New()
+
+	for _, l := range []struct {
+		name string
+		ids  []int32
+	}{
+		{"default_tkt_enctypes", c.LibDefaults.DefaultTktEnctypeIDs},
+		{"default_tgs_enctypes", c.LibDefaults.DefaultTGSEnctypeIDs},
+		{"permitted_enctypes", c.LibDefaults.PermittedEnctypeIDs},
+	} {
+		assert.Contains(t, l.ids, etypeID.AES256_CTS_HMAC_SHA384_192, l.name)
+		assert.Contains(t, l.ids, etypeID.AES128_CTS_HMAC_SHA256_128, l.name)
+		assert.Contains(t, l.ids, etypeID.AES256_CTS_HMAC_SHA1_96, l.name)
+		assert.Contains(t, l.ids, etypeID.AES128_CTS_HMAC_SHA1_96, l.name)
+	}
 }
