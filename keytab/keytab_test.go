@@ -234,12 +234,32 @@ func TestKeytab_GetEncryptionKey(t *testing.T) {
 		t.Error(err)
 	}
 
-	assert.Equal(t, 4, kvno)
+	assert.Equal(t, 5, kvno)
 
 	_, kvno, err = kt.GetEncryptionKey(pn, realm, 3, 18)
 	if err != nil {
 		t.Error(err)
 	}
 
+	assert.Equal(t, 3, kvno)
+}
+
+func TestKeytab_GetEncryptionKeyWithIdenticalTimestamps(t *testing.T) {
+	t.Parallel()
+
+	princ := "HTTP/princ.test.gokrb5"
+	realm := "TEST.GOKRB5"
+	ts := time.Unix(1000, 0)
+
+	kt := New()
+	require.NoError(t, kt.AddEntry(princ, realm, "abcdefg", ts, 1, 18))
+	require.NoError(t, kt.AddEntry(princ, realm, "abcdefg", ts, 2, 18))
+	require.NoError(t, kt.AddEntry(princ, realm, "abcdefg", ts, 3, 18))
+
+	pn := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, princ)
+
+	_, kvno, err := kt.GetEncryptionKey(pn, realm, 0, 18)
+
+	require.NoError(t, err)
 	assert.Equal(t, 3, kvno)
 }

@@ -753,3 +753,12 @@ func TestDefaultEnctypesIncludeRFC8009(t *testing.T) {
 		assert.Contains(t, l.ids, etypeID.AES128_CTS_HMAC_SHA1_96, l.name)
 	}
 }
+
+func TestParseValuesContainingAnEqualsSign(t *testing.T) {
+	t.Parallel()
+
+	c, err := NewFromString("[libdefaults]\n default_realm = TEST.GOKRB5\n default_keytab_name = FILE:/etc/krb5.keytab?a=b\n")
+	require.NoError(t, err)
+
+	assert.Equal(t, "FILE:/etc/krb5.keytab?a=b", c.LibDefaults.DefaultKeytabName)
+}

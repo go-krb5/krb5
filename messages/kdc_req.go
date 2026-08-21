@@ -148,7 +148,6 @@ func NewASReq(realm string, c *config.Config, cname, sname types.PrincipalName) 
 	if c.LibDefaults.RenewLifetime != 0 {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Renewable)
 		a.ReqBody.RTime = t.Add(c.LibDefaults.RenewLifetime)
-		a.ReqBody.RTime = t.Add(time.Duration(48) * time.Hour)
 	}
 
 	if !c.LibDefaults.NoAddresses {

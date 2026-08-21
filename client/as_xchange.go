@@ -5,6 +5,7 @@ import (
 	"github.com/go-krb5/krb5/crypto/etype"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/keyusage"
+	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/iana/patype"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/messages"
@@ -64,7 +65,7 @@ func (cl *Client) ASExchange(realm string, ASReq messages.ASReq, referral int) (
 
 				referral++
 
-				return cl.ASExchange(e.CRealm, ASReq, referral)
+				return cl.ASExchange(e.CRealm, referralASReq(ASReq, e.CRealm), referral)
 			default:
 				return messages.ASRep{}, krberror.Errorf(err, krberror.KDCError, "AS Exchange Error: kerberos error response from KDC")
 			}
@@ -83,6 +84,21 @@ func (cl *Client) ASExchange(realm string, ASReq messages.ASReq, referral int) (
 	}
 
 	return ASRep, nil
+}
+
+// referralASReq returns the AS-REQ reissued against the realm a KDC referred the client to.
+func referralASReq(req messages.ASReq, realm string) messages.ASReq {
+	req.ReqBody.Realm = realm
+	req.PAData = types.PADataSequence{}
+
+	if len(req.ReqBody.SName.NameString) > 0 && req.ReqBody.SName.NameString[0] == "krbtgt" {
+		req.ReqBody.SName = types.PrincipalName{
+			NameType:   nametype.KRB_NT_SRV_INST,
+			NameString: []string{"krbtgt", realm},
+		}
+	}
+
+	return req
 }
 
 // setPAData adds pre-authentication data to the AS_REQ.
