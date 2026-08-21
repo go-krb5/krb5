@@ -77,15 +77,26 @@ func verifiedAPREQ(t *testing.T, key types.EncryptionKey) (*KRB5Token, types.Aut
 	return &mt, auth
 }
 
-// initiator is an SPNEGO context in the state InitSecContext leaves it in: holding the session key
-// and the ctime/cusec it sent.
-func initiator(key types.EncryptionKey, auth types.Authenticator) *SPNEGO {
+// initiator is an SPNEGO context in the state InitSecContext leaves it in, reached through the same
+// call InitSecContext makes rather than by assigning the fields here — a test that set them itself
+// would be checking its own assignment.
+//
+// The KRB5Token carries the authenticator, so wrapping it in a NegTokenInit is all the capture
+// needs; the KDC round trip InitSecContext does first is what this avoids.
+func initiator(key types.EncryptionKey, mt *KRB5Token) *SPNEGO {
 	s := SPNEGOClient(&client.Client{}, "HTTP/host.test.gokrb5")
-	s.sessionKey = key
-	s.sentCTime = auth.CTime
-	s.sentCusec = auth.Cusec
+	s.rememberExchange(key, NegTokenInit{mechToken: mt})
 
 	return s
+}
+
+// initiatorOf is the same, for the cases that need the remembered values to DIFFER from what was
+// sent — a reply to another exchange.
+func initiatorOf(key types.EncryptionKey, auth types.Authenticator) *SPNEGO {
+	mt := &KRB5Token{}
+	mt.APReq.Authenticator = auth
+
+	return initiator(key, mt)
 }
 
 func TestAPRepTokenAnswersAVerifiedAPREQ(t *testing.T) {
@@ -226,7 +237,15 @@ func TestMutualRoundTrip(t *testing.T) {
 	reply, err := (&SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{mechToken: mt}}).ResponseToken()
 	require.NoError(t, err)
 
-	assert.NoError(t, initiator(key, auth).VerifyMutual(reply))
+	// The capture is asserted here rather than taken on trust: it is the one link that decides what
+	// the reply is compared against, and everything below it would still pass if it remembered the
+	// wrong exchange but remembered it consistently.
+	init := initiator(key, mt)
+	assert.Equal(t, key, init.sessionKey)
+	assert.Equal(t, auth.CTime, init.sentCTime, "the initiator did not remember the ctime it sent")
+	assert.Equal(t, auth.Cusec, init.sentCusec)
+
+	assert.NoError(t, init.VerifyMutual(reply))
 }
 
 // TestVerifyMutualRefusesAReplyToAnotherExchange: an AP-REP captured from an earlier exchange with
@@ -244,7 +263,7 @@ func TestVerifyMutualRefusesAReplyToAnotherExchange(t *testing.T) {
 	other := auth
 	other.CTime = auth.CTime.Add(-time.Minute)
 
-	err = initiator(key, other).VerifyMutual(reply)
+	err = initiatorOf(key, other).VerifyMutual(reply)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "another one")
 
@@ -252,19 +271,19 @@ func TestVerifyMutualRefusesAReplyToAnotherExchange(t *testing.T) {
 	other = auth
 	other.Cusec = auth.Cusec + 1
 
-	require.Error(t, initiator(key, other).VerifyMutual(reply))
+	require.Error(t, initiatorOf(key, other).VerifyMutual(reply))
 }
 
 func TestVerifyMutualRefusesAReplyFromAnImpostor(t *testing.T) {
 	t.Parallel()
 
 	key := mutualSessionKey(0xaa)
-	mt, auth := verifiedAPREQ(t, key)
+	mt, _ := verifiedAPREQ(t, key)
 
 	reply, err := (&SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{mechToken: mt}}).ResponseToken()
 	require.NoError(t, err)
 
-	err = initiator(mutualSessionKey(0xbb), auth).VerifyMutual(reply)
+	err = initiator(mutualSessionKey(0xbb), mt).VerifyMutual(reply)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session key")
 }
@@ -282,7 +301,7 @@ func TestVerifyMutualRefusesAnEmptyOrRejectedReply(t *testing.T) {
 	b, err := bare.Marshal()
 	require.NoError(t, err)
 
-	err = initiator(key, auth).VerifyMutual(b)
+	err = initiatorOf(key, auth).VerifyMutual(b)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no AP-REP")
 
@@ -291,7 +310,7 @@ func TestVerifyMutualRefusesAnEmptyOrRejectedReply(t *testing.T) {
 	b, err = rejected.Marshal()
 	require.NoError(t, err)
 
-	err = initiator(key, auth).VerifyMutual(b)
+	err = initiatorOf(key, auth).VerifyMutual(b)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "rejected")
 }
@@ -411,7 +430,7 @@ func TestVerifyMutualRefusesMalformedReplies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := initiator(key, auth).VerifyMutual(tc.reply)
+			err := initiatorOf(key, auth).VerifyMutual(tc.reply)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tc.want)
 		})
@@ -447,4 +466,54 @@ func TestResponseTokenSurfacesAnUnanswerableToken(t *testing.T) {
 	_, err := (&SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{mechToken: mt}}).ResponseToken()
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "session key")
+}
+
+// TestAPRepTokenRefusesAnUnsupportedEnctype: the ticket decides the enctype, and a build that does
+// not implement it cannot answer. Better a named refusal than a NegTokenResp with nothing in it,
+// which is indistinguishable from an acceptor that does not do mutual authentication at all.
+func TestAPRepTokenRefusesAnUnsupportedEnctype(t *testing.T) {
+	t.Parallel()
+
+	mt, _ := verifiedAPREQ(t, mutualSessionKey(0x14))
+	mt.APReq.Ticket.DecryptedEncPart.Key = types.EncryptionKey{KeyType: 9999, KeyValue: make([]byte, 32)}
+
+	_, err := mt.APRepToken()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "encrypt")
+}
+
+// TestVerifyMutualRefusesAReplyThatDecryptsToRubbish is the boundary between "decrypts" and "means
+// something". A peer holding the session key can still send the wrong payload — through a bug, or
+// deliberately, to see what the verifier does with it — and the answer must be a refusal rather
+// than whatever a half-parsed EncAPRepPart happens to contain.
+func TestVerifyMutualRefusesAReplyThatDecryptsToRubbish(t *testing.T) {
+	t.Parallel()
+
+	key := mutualSessionKey(0x15)
+	mt, auth := verifiedAPREQ(t, key)
+
+	ed, err := crypto.GetEncryptedData([]byte("this is not an EncAPRepPart"), key, keyusage.AP_REP_ENCPART, 0)
+	require.NoError(t, err)
+
+	rep := KRB5Token{
+		OID:   mt.OID,
+		APRep: messages.APRep{PVNO: iana.PVNO, MsgType: msgtype.KRB_AP_REP, EncPart: ed},
+	}
+	rep.tokID, _ = hex.DecodeString(TOK_ID_KRB_AP_REP)
+
+	inner, err := rep.Marshal()
+	require.NoError(t, err)
+
+	resp := NegTokenResp{
+		NegState:      asn1.Enumerated(NegStateAcceptCompleted),
+		SupportedMech: gssapi.OIDKRB5.OID(),
+		ResponseToken: inner,
+	}
+
+	b, err := resp.Marshal()
+	require.NoError(t, err)
+
+	err = initiatorOf(key, auth).VerifyMutual(b)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "malformed")
 }

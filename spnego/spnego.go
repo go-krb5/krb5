@@ -81,10 +81,7 @@ func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
 		return &SPNEGOToken{}, fmt.Errorf("could not create NegTokenInit: %w", err)
 	}
 
-	s.sessionKey = key
-	if mt, ok := negTokenInit.mechToken.(*KRB5Token); ok {
-		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
-	}
+	s.rememberExchange(key, negTokenInit)
 
 	return &SPNEGOToken{
 		Init:         true,
@@ -276,4 +273,21 @@ func (s *SPNEGOToken) Verify() (bool, gssapi.Status) {
 // Context returns the SPNEGO context which will contain any verify user identity information.
 func (s *SPNEGOToken) Context() context.Context {
 	return s.context
+}
+
+// rememberExchange records what the acceptor's reply will be checked against: the session key the
+// AP-REP is encrypted under, and the ctime and cusec it must echo.
+//
+// Split out of InitSecContext so it can be exercised without a KDC. That is not only convenience:
+// what is worth testing is that the initiator remembers what it actually SENT, and a test that
+// assigned these fields by hand would be checking its own assignment rather than this one.
+func (s *SPNEGO) rememberExchange(key types.EncryptionKey, n NegTokenInit) {
+	s.sessionKey = key
+
+	// A NegTokenInit built any other way carries only the marshalled bytes, and the ctime inside
+	// them is encrypted. Nothing is remembered then, and VerifyMutual says so rather than comparing
+	// against a zero time that anything could echo.
+	if mt, ok := n.mechToken.(*KRB5Token); ok {
+		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
+	}
 }
