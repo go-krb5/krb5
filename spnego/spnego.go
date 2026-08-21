@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-krb5/x/encoding/asn1"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/service"
+	"github.com/go-krb5/krb5/types"
 )
 
 // SPNEGO implements the GSS-API mechanism for RFC 4178.
@@ -24,6 +26,13 @@ type SPNEGO struct {
 	mechListMIC     []byte
 	mechTypes       []asn1.ObjectIdentifier
 	mechTypesRaw    []byte
+
+	// What an initiator needs to check the acceptor's reply: the session key the AP-REP is
+	// encrypted under, and the ctime/cusec it must echo. Set by InitSecContext and read by
+	// VerifyMutual; both zero on an acceptor, which never initiates.
+	sessionKey types.EncryptionKey
+	sentCTime  time.Time
+	sentCusec  int
 }
 
 // SPNEGOClient configures the SPNEGO mechanism suitable for client side use.
@@ -70,6 +79,11 @@ func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
 	negTokenInit, err := NewNegTokenInitKRB5(s.client, tkt, key, s.tokenOptions...)
 	if err != nil {
 		return &SPNEGOToken{}, fmt.Errorf("could not create NegTokenInit: %w", err)
+	}
+
+	s.sessionKey = key
+	if mt, ok := negTokenInit.mechToken.(*KRB5Token); ok {
+		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
 	}
 
 	return &SPNEGOToken{

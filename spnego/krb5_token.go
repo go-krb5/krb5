@@ -78,7 +78,12 @@ func (m *KRB5Token) Marshal() ([]byte, error) {
 			return []byte{}, fmt.Errorf("error marshalling AP_REQ for MechToken: %w", err)
 		}
 	case TOK_ID_KRB_AP_REP:
-		return []byte{}, errors.New("marshal of AP_REP GSSAPI MechToken not supported by krb5")
+		// The acceptor's half of mutual authentication (see accept_reply.go). Unmarshalling one is
+		// still the client-side gap it always was; producing one is what an acceptor needs.
+		tb, err = m.APRep.Marshal()
+		if err != nil {
+			return []byte{}, fmt.Errorf("error marshalling AP_REP for MechToken: %w", err)
+		}
 	case TOK_ID_KRB_ERROR:
 		return []byte{}, errors.New("marshal of KRB_ERROR GSSAPI MechToken not supported by krb5")
 	}
