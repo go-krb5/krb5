@@ -161,3 +161,23 @@ func (pa *PAData) GetETypeInfo2() (d ETypeInfo2, err error) {
 
 	return
 }
+
+// ETypes returns the encryption types of the entries, in the order the KDC listed them.
+func (a ETypeInfo) ETypes() []int32 {
+	ids := make([]int32, len(a))
+	for i, e := range a {
+		ids[i] = e.EType
+	}
+
+	return ids
+}
+
+// ETypes returns the encryption types of the entries, in the order the KDC listed them.
+func (a ETypeInfo2) ETypes() []int32 {
+	ids := make([]int32, len(a))
+	for i, e := range a {
+		ids[i] = e.EType
+	}
+
+	return ids
+}

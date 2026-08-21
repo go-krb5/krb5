@@ -2,6 +2,7 @@ package credentials
 
 import (
 	"encoding/hex"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -126,4 +127,93 @@ func TestCCache_GetEntries(t *testing.T) {
 
 	creds := c.GetEntries()
 	assert.Equal(t, 2, len(creds))
+}
+
+func TestCCacheUnmarshalRejectsMalformedData(t *testing.T) {
+	t.Parallel()
+
+	valid, err := hex.DecodeString(testdata.CCACHE_TEST)
+	require.NoError(t, err)
+
+	testCases := []struct {
+		name string
+		b    []byte
+	}{
+		{"empty", []byte{}},
+		{"first byte only", valid[:1]},
+		{"version byte only", valid[:2]},
+		{"truncated header length", valid[:3]},
+		{"truncated header field", valid[:6]},
+		{"truncated default principal", valid[:20]},
+		{"truncated mid credential", valid[:len(valid)/2]},
+		{"truncated one byte short", valid[:len(valid)-1]},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var c CCache
+
+			require.NotPanics(t, func() {
+				assert.Error(t, c.Unmarshal(tc.b))
+			})
+		})
+	}
+}
+
+func TestCCacheUnmarshalRejectsNegativeLength(t *testing.T) {
+	t.Parallel()
+
+	b := []byte{
+		0x05, 0x04, // version 4
+		0x00, 0x00, // zero length header
+		0x00, 0x00, 0x00, 0x01, // default principal: name type
+		0x00, 0x00, 0x00, 0x01, // one component
+		0xFF, 0xFF, 0xFF, 0xFF, // realm length of -1
+		0x41,
+	}
+
+	var c CCache
+
+	require.NotPanics(t, func() {
+		assert.Error(t, c.Unmarshal(b))
+	})
+}
+
+func TestCCacheUnmarshalRejectsImplausibleCounts(t *testing.T) {
+	t.Parallel()
+
+	principal := []byte{
+		0x00, 0x00, 0x00, 0x01, // name type
+		0x00, 0x00, 0x00, 0x00, // no components
+		0x00, 0x00, 0x00, 0x00, // zero length realm
+	}
+
+	b := []byte{0x05, 0x04, 0x00, 0x00}
+	b = append(b, principal...)           // default principal
+	b = append(b, principal...)           // credential client
+	b = append(b, principal...)           // credential server
+	b = append(b, 0x00, 0x12)             // keyblock type
+	b = append(b, 0x00, 0x00, 0x00, 0x00) // zero length key
+	b = append(b, make([]byte, 16)...)    // four timestamps
+	b = append(b, 0x00)                   // is skey
+	b = append(b, 0x00, 0x00, 0x00, 0x00) // ticket flags
+	b = append(b, 0x7F, 0xFF, 0xFF, 0xFF) // address count of 2147483647
+
+	var c CCache
+
+	var before, after runtime.MemStats
+
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+
+	require.NotPanics(t, func() {
+		assert.Error(t, c.Unmarshal(b))
+	})
+
+	runtime.ReadMemStats(&after)
+
+	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(1<<20),
+		"the address count was allocated before it was validated")
 }

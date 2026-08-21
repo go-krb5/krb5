@@ -2,6 +2,7 @@ package pac
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/go-krb5/x/rpc/mstypes"
 )
@@ -51,36 +52,35 @@ func (k *UPNDNSInfo) Unmarshal(b []byte) (err error) {
 		return err
 	}
 
-	ub := mstypes.NewReader(bytes.NewReader(b[k.UPNOffset : k.UPNOffset+k.UPNLength]))
-	db := mstypes.NewReader(bytes.NewReader(b[k.DNSDomainNameOffset : k.DNSDomainNameOffset+k.DNSDomainNameLength]))
-
-	u := make([]rune, k.UPNLength/2)
-	for i := 0; i < len(u); i++ {
-		var r uint16
-
-		r, err = ub.Uint16()
-		if err != nil {
-			return
-		}
-
-		u[i] = rune(r)
+	if k.UPN, err = utf16StringAt(b, k.UPNOffset, k.UPNLength, "UPN"); err != nil {
+		return err
 	}
 
-	k.UPN = string(u)
-
-	d := make([]rune, k.DNSDomainNameLength/2)
-	for i := 0; i < len(d); i++ {
-		var r uint16
-
-		r, err = db.Uint16()
-		if err != nil {
-			return
-		}
-
-		d[i] = rune(r)
+	if k.DNSDomain, err = utf16StringAt(b, k.DNSDomainNameOffset, k.DNSDomainNameLength, "DNS domain name"); err != nil {
+		return err
 	}
 
-	k.DNSDomain = string(d)
+	return nil
+}
 
-	return
+// utf16StringAt reads the UTF-16 string of length octets that begins at offset within b.
+func utf16StringAt(b []byte, offset, length uint16, name string) (string, error) {
+	if int(offset)+int(length) > len(b) {
+		return "", fmt.Errorf("UPN_DNS_INFO %s lies outside the buffer: offset %d, length %d, buffer is %d bytes",
+			name, offset, length, len(b))
+	}
+
+	r := mstypes.NewReader(bytes.NewReader(b[offset : int(offset)+int(length)]))
+	s := make([]rune, length/2)
+
+	for i := range s {
+		u, err := r.Uint16()
+		if err != nil {
+			return "", err
+		}
+
+		s[i] = rune(u)
+	}
+
+	return string(s), nil
 }

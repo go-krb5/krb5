@@ -163,48 +163,49 @@ func setPAData(cl *Client, krberr *messages.KRBError, req *messages.ASReq) error
 }
 
 // preAuthEType establishes what encryption type to use for pre-authentication from the KRBError returned from the KDC.
-func preAuthEType(krberr *messages.KRBError) (etype etype.EType, err error) {
-	// RFC 4120 5.2.7.5 covers the preference order of ETYPE-INFO2 and ETYPE-INFO.
-	var (
-		etypeID int32
-		pas     types.PADataSequence
-	)
+func preAuthEType(krberr *messages.KRBError) (etype.EType, error) {
+	var pas types.PADataSequence
 
-	e := pas.Unmarshal(krberr.EData)
-	if e != nil {
-		err = krberror.Errorf(e, krberror.EncodingError, "error unmarshalling KRBError data")
-		return
+	if err := pas.Unmarshal(krberr.EData); err != nil {
+		return nil, krberror.Errorf(err, krberror.EncodingError, "error unmarshalling KRBError data")
 	}
 
-Loop:
+	// RFC 4120 5.2.7.5 covers the preference order of ETYPE-INFO2 and ETYPE-INFO.
+	var preferred, fallback []int32
+
 	for _, pa := range pas {
 		switch pa.PADataType {
 		case patype.PA_ETYPE_INFO2:
-			info, e := pa.GetETypeInfo2()
-			if e != nil {
-				err = krberror.Errorf(e, krberror.EncodingError, "error unmarshalling ETYPE-INFO2 data")
-				return
+			info, err := pa.GetETypeInfo2()
+			if err != nil {
+				return nil, krberror.Errorf(err, krberror.EncodingError, "error unmarshalling ETYPE-INFO2 data")
 			}
 
-			etypeID = info[0].EType
-
-			break Loop
+			for _, e := range info {
+				preferred = append(preferred, e.EType)
+			}
 		case patype.PA_ETYPE_INFO:
-			info, e := pa.GetETypeInfo()
-			if e != nil {
-				err = krberror.Errorf(e, krberror.EncodingError, "error unmarshalling ETYPE-INFO data")
-				return
+			info, err := pa.GetETypeInfo()
+			if err != nil {
+				return nil, krberror.Errorf(err, krberror.EncodingError, "error unmarshalling ETYPE-INFO data")
 			}
 
-			etypeID = info[0].EType
+			for _, e := range info {
+				fallback = append(fallback, e.EType)
+			}
 		}
 	}
 
-	etype, e = crypto.GetEType(etypeID)
-	if e != nil {
-		err = krberror.Errorf(e, krberror.EncryptingError, "error creating etype")
-		return
+	candidates := make([]int32, 0, len(preferred)+len(fallback))
+	candidates = append(candidates, preferred...)
+	candidates = append(candidates, fallback...)
+
+	for _, id := range candidates {
+		if et, err := crypto.GetEType(id); err == nil {
+			return et, nil
+		}
 	}
 
-	return etype, nil
+	return nil, krberror.NewErrorf(krberror.EncryptingError,
+		"no encryption type offered by the KDC for pre-authentication is supported: %v", candidates)
 }

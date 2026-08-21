@@ -35,11 +35,21 @@ func MarshalLengthBytes(l int) []byte {
 
 // GetLengthFromASN returns the length of a slice of ASN1 encoded bytes from the ASN1 length header it contains.
 func GetLengthFromASN(b []byte) int {
+	if len(b) < 2 {
+		return 0
+	}
+
 	if int(b[1]) <= 127 {
 		return int(b[1])
 	}
+
+	n := int(b[1]) - 128
+	if len(b) < 2+n {
+		return 0
+	}
+
 	// The bytes that indicate the length.
-	lb := b[2 : 2+int(b[1])-128]
+	lb := b[2 : 2+n]
 	base := 1
 
 	l := 0
@@ -53,11 +63,21 @@ func GetLengthFromASN(b []byte) int {
 
 // GetNumberBytesInLengthHeader returns the number of bytes in the ASn1 header that indicate the length.
 func GetNumberBytesInLengthHeader(b []byte) int {
+	if len(b) < 2 {
+		return 0
+	}
+
 	if int(b[1]) <= 127 {
 		return 1
 	}
+
+	n := 1 + int(b[1]) - 128
+	if len(b) < 1+n {
+		return 0
+	}
+
 	// The bytes that indicate the length.
-	return 1 + int(b[1]) - 128
+	return n
 }
 
 // AddASNAppTag adds an ASN1 encoding application tag value to the raw bytes provided.

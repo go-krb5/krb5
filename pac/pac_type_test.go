@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"log"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -164,4 +165,28 @@ func TestProcessPACInfoBuffersWithNilLogger(t *testing.T) {
 	require.NotPanics(t, func() {
 		assert.Error(t, pac.ProcessPACInfoBuffers(types.EncryptionKey{}, nil))
 	})
+}
+
+func TestPACTypeUnmarshalRejectsImplausibleBufferCount(t *testing.T) {
+	t.Parallel()
+
+	b := make([]byte, 32)
+	binary.LittleEndian.PutUint32(b[0:4], 0xFFFFFFFF)
+
+	var pac PACType
+
+	var before, after runtime.MemStats
+
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+
+	err := pac.Unmarshal(b)
+
+	runtime.ReadMemStats(&after)
+
+	assert.ErrorContains(t, err, "declares 4294967295 info buffers")
+
+	// 4294967295 InfoBuffer values are about 68GB. The guard has to fire before the allocation, not after it.
+	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(1<<20),
+		"the buffer count was allocated before it was validated")
 }
