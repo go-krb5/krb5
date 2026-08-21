@@ -12,6 +12,10 @@ import (
 	"github.com/go-krb5/krb5/crypto/etype"
 )
 
+// MaxS2KIterations bounds the PBKDF2 iteration count that string-to-key will accept from a string-to-key
+// parameter.
+const MaxS2KIterations = 5000000
+
 // ZeroPad pads bytes with zeros to nearest multiple of message size m.
 func ZeroPad(b []byte, m int) ([]byte, error) {
 	if m <= 0 {

@@ -6,17 +6,21 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"golang.org/x/crypto/pbkdf2"
 
+	"github.com/go-krb5/krb5/crypto/common"
 	"github.com/go-krb5/krb5/crypto/etype"
 )
 
 const (
-	s2kParamsZero = 32768
-	kerberosLabel = "kerberos"
-	labelSuffixKe = 0xAA
-	prfLabel      = "prf"
+	defaultIterations = 32768
+	s2kParamsZeroIterations = 1 << 32
+	s2kParamsHexLen = 8
+	kerberosLabel   = "kerberos"
+	labelSuffixKe   = 0xAA
+	prfLabel        = "prf"
 )
 
 // DeriveRandom for key derivation as defined in RFC 8009.
@@ -108,18 +112,24 @@ func GetSaltP(salt, ename string) string {
 
 // S2KparamsToItertions converts the string representation of iterations to an integer for RFC 8009.
 func S2KparamsToItertions(s2kparams string) (int, error) {
-	var i uint32
-
-	if len(s2kparams) != 8 {
-		return s2kParamsZero, errors.New("Invalid s2kparams length")
+	if len(s2kparams) != s2kParamsHexLen {
+		return 0, errors.New("invalid s2kparams length")
 	}
 
 	b, err := hex.DecodeString(s2kparams)
 	if err != nil {
-		return s2kParamsZero, errors.New("Invalid s2kparams, cannot decode string to bytes")
+		return 0, errors.New("invalid s2kparams, cannot decode string to bytes")
 	}
 
-	i = binary.BigEndian.Uint32(b)
+	i := int64(binary.BigEndian.Uint32(b))
+	if i == 0 {
+		i = s2kParamsZeroIterations
+	}
+
+	if i > common.MaxS2KIterations {
+		return 0, fmt.Errorf("s2kparams requests %d iterations, which exceeds the maximum of %d",
+			i, common.MaxS2KIterations)
+	}
 
 	return int(i), nil
 }
