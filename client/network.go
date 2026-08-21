@@ -12,6 +12,28 @@ import (
 	"github.com/go-krb5/krb5/messages"
 )
 
+const (
+	// maxKDCReply bounds the reply this client will read from a KDC over TCP. The length prefix of RFC 4120
+	// Section 7.2.2 is chosen by the peer and the largest a uint32 can express is 4GiB, so it is not allocated
+	// unchecked. A reply is a ticket and its encrypted part; even an Active Directory one carrying a large PAC
+	// is tens of kilobytes, so a megabyte is generous.
+	maxKDCReply = 1 << 20
+
+	// tcpLengthReserved is the high bit of the TCP length prefix. RFC 4120 Section 7.2.2: "The high bit of the
+	// length is reserved for future expansion and MUST currently be set to zero." RFC 5021 defines what a set
+	// bit means, which this library does not implement, so a reply carrying one is refused rather than read as
+	// a two gigabyte length.
+	tcpLengthReserved = 1 << 31
+
+	// maxUDPReply is the largest UDP datagram that can carry a reply. Reading into a smaller buffer discards the
+	// remainder of a larger datagram silently rather than reporting it; a reply too large for a datagram is
+	// answered by the KDC with KRB_ERR_RESPONSE_TOO_BIG, which sendToKDC retries over TCP.
+	maxUDPReply = 65535
+
+	// lengthHeaderLen is the width of the TCP length prefix of RFC 4120 Section 7.2.2.
+	lengthHeaderLen = 4
+)
+
 // SendToKDC performs network actions to send data to the KDC.
 func (cl *Client) sendToKDC(b []byte, realm string) (rb []byte, err error) {
 	if cl.Config.LibDefaults.UDPPreferenceLimit == 1 {
@@ -100,11 +122,12 @@ func dialSendUDP(dialer Dialer, kdcs map[int]string, b []byte) (rb []byte, err e
 
 		if err = conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			errs = append(errs, fmt.Sprintf("error setting deadline on connection to %s: %v", kdcs[i], err))
+			conn.Close()
 
 			continue
 		}
 
-		if rb, err = sendUDP(conn.(*net.UDPConn), b); err != nil {
+		if rb, err = sendUDP(conn, b); err != nil {
 			errs = append(errs, fmt.Sprintf("error sending to %s: %v", kdcs[i], err))
 
 			continue
@@ -117,7 +140,7 @@ func dialSendUDP(dialer Dialer, kdcs map[int]string, b []byte) (rb []byte, err e
 }
 
 // sendUDP sends bytes to connection over UDP.
-func sendUDP(conn *net.UDPConn, b []byte) ([]byte, error) {
+func sendUDP(conn net.Conn, b []byte) ([]byte, error) {
 	var r []byte
 
 	defer conn.Close()
@@ -127,8 +150,12 @@ func sendUDP(conn *net.UDPConn, b []byte) ([]byte, error) {
 		return r, fmt.Errorf("error sending to (%s): %w", conn.RemoteAddr().String(), err)
 	}
 
-	udpbuf := make([]byte, 4096)
-	n, _, err := conn.ReadFrom(udpbuf)
+	// Sized to the largest datagram that can arrive. A shorter buffer does not fail on a larger reply, it
+	// silently discards the remainder, and an Active Directory reply carrying a PAC routinely exceeds a few
+	// kilobytes.
+	udpbuf := make([]byte, maxUDPReply)
+
+	n, err := conn.Read(udpbuf)
 
 	r = udpbuf[:n]
 	if err != nil {
@@ -172,10 +199,12 @@ func dialSendTCP(dialer Dialer, kdcs map[int]string, b []byte) ([]byte, error) {
 
 		if err := conn.SetDeadline(time.Now().Add(5 * time.Second)); err != nil {
 			errs = append(errs, fmt.Sprintf("error setting deadline on connection to %s: %v", kdcs[i], err))
+			conn.Close()
+
 			continue
 		}
 
-		rb, err := sendTCP(conn.(*net.TCPConn), b)
+		rb, err := sendTCP(conn, b)
 		if err != nil {
 			errs = append(errs, fmt.Sprintf("error sending to %s: %v", kdcs[i], err))
 			continue
@@ -188,12 +217,15 @@ func dialSendTCP(dialer Dialer, kdcs map[int]string, b []byte) ([]byte, error) {
 }
 
 // sendTCP sends bytes to connection over TCP.
-func sendTCP(conn *net.TCPConn, b []byte) ([]byte, error) {
+//
+// The length prefix that precedes the reply is chosen by the peer, so it is validated before it is used to size an
+// allocation: RFC 4120 Section 7.2.2 reserves its high bit, and the remainder is bounded by maxKDCReply.
+func sendTCP(conn net.Conn, b []byte) ([]byte, error) {
 	defer conn.Close()
 
 	var r []byte
 	// RFC 4120 7.2.2 specifies the first 4 bytes indicate the length of the message in big endian order.
-	hb := make([]byte, 4)
+	hb := make([]byte, lengthHeaderLen)
 	binary.BigEndian.PutUint32(hb, uint32(len(b)))
 	b = append(hb, b...)
 
@@ -202,24 +234,33 @@ func sendTCP(conn *net.TCPConn, b []byte) ([]byte, error) {
 		return r, fmt.Errorf("error sending to KDC (%s): %w", conn.RemoteAddr().String(), err)
 	}
 
-	sh := make([]byte, 4)
+	sh := make([]byte, lengthHeaderLen)
 
-	_, err = conn.Read(sh)
+	// Read in full: a short read would leave the remaining octets zero and the length silently wrong.
+	_, err = io.ReadFull(conn, sh)
 	if err != nil {
 		return r, fmt.Errorf("error reading response size header: %w", err)
 	}
 
 	s := binary.BigEndian.Uint32(sh)
 
+	if s&tcpLengthReserved != 0 {
+		return r, fmt.Errorf("KDC %s set the reserved high bit of the response length, which RFC 4120 section 7.2.2 requires to be zero", conn.RemoteAddr().String())
+	}
+
+	if s < 1 {
+		return r, fmt.Errorf("no response data from KDC %s", conn.RemoteAddr().String())
+	}
+
+	if s > maxKDCReply {
+		return r, fmt.Errorf("KDC %s declared a response of %d bytes, which exceeds the maximum of %d", conn.RemoteAddr().String(), s, maxKDCReply)
+	}
+
 	rb := make([]byte, s)
 
 	_, err = io.ReadFull(conn, rb)
 	if err != nil {
 		return r, fmt.Errorf("error reading response: %w", err)
-	}
-
-	if len(rb) < 1 {
-		return r, fmt.Errorf("no response data from KDC %s", conn.RemoteAddr().String())
 	}
 
 	return rb, nil
