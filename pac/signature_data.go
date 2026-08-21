@@ -49,6 +49,20 @@ func (k *SignatureData) Unmarshal(b []byte) (rb []byte, err error) {
 		c = 16
 	case uint32(chksumtype.HMAC_SHA384_192_AES256):
 		c = 24
+	case uint32(chksumtype.CMAC_CAMELLIA128), uint32(chksumtype.CMAC_CAMELLIA256):
+		c = 16
+	default:
+		// Fall back for a checksum type not listed above. c is not just the read length: it also sets
+		// how many bytes are zeroed below for checksum verification. Leaving it at 0 leaves the
+		// signature in the buffer the caller hashes, where the KDC hashed zeros, so the failure
+		// surfaces as a bad signature rather than as an unhandled checksum type.
+		//
+		// The buffer is type (4) + signature (rest), so take the rest. RODCIdentifier is left unread:
+		// without a known signature length, a trailing identifier cannot be told apart from signature
+		// bytes. Types listed above keep their exact length and RODC handling.
+		if len(b) > 4 {
+			c = len(b) - 4
+		}
 	}
 
 	k.Signature, err = r.ReadBytes(c)
