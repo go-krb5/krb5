@@ -127,7 +127,7 @@ func (n *NegTokenInit) Verify() (bool, gssapi.Status) {
 	var mtSupported bool
 
 	for _, m := range n.MechTypes {
-		if m.Equal(gssapi.OIDKRB5.OID()) || m.Equal(gssapi.OIDMSLegacyKRB5.OID()) {
+		if isKerberosMech(m) {
 			if n.mechToken == nil && n.MechTokenBytes == nil {
 				return false, gssapi.Status{Code: gssapi.StatusContinueNeeded}
 			}
@@ -229,7 +229,7 @@ func (n *NegTokenResp) Unmarshal(b []byte) error {
 
 // Verify a Resp/Targ negotiation token.
 func (n *NegTokenResp) Verify() (bool, gssapi.Status) {
-	if n.SupportedMech.Equal(gssapi.OIDKRB5.OID()) || n.SupportedMech.Equal(gssapi.OIDMSLegacyKRB5.OID()) {
+	if isKerberosMech(n.SupportedMech) {
 		if n.mechToken == nil && n.ResponseToken == nil {
 			return false, gssapi.Status{Code: gssapi.StatusContinueNeeded}
 		}
