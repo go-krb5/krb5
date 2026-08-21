@@ -431,6 +431,25 @@ func (s *SecurityLayerSession) keyUsage(sending bool) uint32 {
 	return keyusage.GSSAPI_ACCEPTOR_SEAL
 }
 
+// rotate performs the right rotation the RRC field of a Wrap token records, as described in RFC 4121
+// Section 4.2.5. A sender may choose any count, including one longer than the data itself.
+func rotate(data []byte, rrc uint16) []byte {
+	if len(data) == 0 {
+		return data
+	}
+
+	n := int(rrc) % len(data)
+	if n == 0 {
+		return data
+	}
+
+	rotated := make([]byte, len(data))
+	copy(rotated[n:], data[:len(data)-n])
+	copy(rotated[:n], data[len(data)-n:])
+
+	return rotated
+}
+
 // unrotate reverses the right rotation the RRC field of a Wrap token records, as described in RFC 4121
 // section 4.2.5. A receiver has to cope with any rotation count, including one longer than the data itself.
 func unrotate(data []byte, rrc uint16) []byte {
