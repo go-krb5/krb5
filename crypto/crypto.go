@@ -124,7 +124,10 @@ func firstSupported(ids []int32) int {
 }
 
 // GetEncryptedData encrypts the data provided and returns and EncryptedData type.
-// Pass a usage value of zero to use the key provided directly rather than deriving one.
+//
+// The usage must be one of the key usage numbers RFC 4120 Section 7.5.1 assigns. Zero is not among them, and this
+// previously promised to encrypt with the key undivided, which is not a Kerberos operation and was never
+// implemented: it produced an empty derived key and an error about the key size.
 func GetEncryptedData(plainBytes []byte, key types.EncryptionKey, usage uint32, kvno int) (types.EncryptedData, error) {
 	var ed types.EncryptedData
 

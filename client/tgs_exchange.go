@@ -15,7 +15,7 @@ func (cl *Client) TGSREQGenerateAndExchange(spn types.PrincipalName, kdcRealm st
 		return tgsReq, tgsRep, krberror.Errorf(err, krberror.KRBMsgError, "TGS Exchange Error: failed to generate a new TGS_REQ")
 	}
 
-	return cl.TGSExchange(tgsReq, kdcRealm, tgsRep.Ticket, sessionKey, 0)
+	return cl.TGSExchange(tgsReq, kdcRealm, tgt, sessionKey, 0)
 }
 
 // TGSExchange exchanges the provided TGS_REQ with the KDC to retrieve a TGS_REP.

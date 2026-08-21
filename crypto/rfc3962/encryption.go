@@ -29,7 +29,7 @@ func EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byte, [
 	if len(key) != e.GetKeyByteSize() {
 		return []byte{}, []byte{}, fmt.Errorf("incorrect keysize: expected: %v actual: %v", e.GetKeyByteSize(), len(key))
 	}
-	// confounder.
+
 	c := make([]byte, e.GetConfounderByteSize())
 
 	_, err := rand.Read(c)
@@ -39,13 +39,15 @@ func EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byte, [
 
 	plainBytes := append(c, message...)
 
-	// Derive key for encryption from usage.
-	var k []byte
-	if usage != 0 {
-		k, err = e.DeriveKey(key, common.GetUsageKe(usage))
-		if err != nil {
-			return []byte{}, []byte{}, fmt.Errorf("error deriving key for encryption: %w", err)
-		}
+	// RFC 4120 Section 7.5.1 assigns no key usage number zero, and decryption derives unconditionally, so a
+	// message encrypted without deriving could never be decrypted by this library.
+	if usage == 0 {
+		return []byte{}, []byte{}, errors.New("key usage 0 is not assigned by RFC 4120 section 7.5.1")
+	}
+
+	k, err := e.DeriveKey(key, common.GetUsageKe(usage))
+	if err != nil {
+		return []byte{}, []byte{}, fmt.Errorf("error deriving key for encryption: %w", err)
 	}
 
 	// Encrypt the data.

@@ -109,9 +109,16 @@ func GetIntegrityHash(b, key []byte, usage uint32, etype etype.EType) ([]byte, e
 }
 
 // VerifyChecksum compares the checksum of the msg bytes is the same as the checksum provided.
+//
+// A checksum that could not be computed fails verification rather than being compared. Discarding the error left
+// the expected checksum nil, and hmac.Equal reports two empty slices as equal, so a caller supplying an empty
+// checksum was told it verified.
 func VerifyChecksum(key, chksum, msg []byte, usage uint32, etype etype.EType) bool {
-	// The encrypted message is a concatenation of the encrypted output and the hash HMAC.
-	expectedMAC, _ := GetChecksumHash(msg, key, usage, etype)
+	expectedMAC, err := GetChecksumHash(msg, key, usage, etype)
+	if err != nil {
+		return false
+	}
+
 	return hmac.Equal(chksum, expectedMAC)
 }
 

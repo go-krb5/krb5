@@ -102,10 +102,22 @@ func referralASReq(req messages.ASReq, realm string) messages.ASReq {
 }
 
 // setPAData adds pre-authentication data to the AS_REQ.
+//
+// The data is rebuilt rather than appended to. ASExchange calls this once before sending and again on the same
+// request after a KDC_ERR_PREAUTH_REQUIRED, so appending sent the KDC two copies of everything.
 func setPAData(cl *Client, krberr *messages.KRBError, req *messages.ASReq) error {
+	var kept types.PADataSequence
+
+	for _, pa := range req.PAData {
+		if pa.PADataType != patype.PA_REQ_ENC_PA_REP && pa.PADataType != patype.PA_ENC_TIMESTAMP {
+			kept = append(kept, pa)
+		}
+	}
+
+	req.PAData = kept
+
 	if !cl.settings.DisablePAFXFAST() {
-		pa := types.PAData{PADataType: patype.PA_REQ_ENC_PA_REP}
-		req.PAData = append(req.PAData, pa)
+		req.PAData = append(req.PAData, types.PAData{PADataType: patype.PA_REQ_ENC_PA_REP})
 	}
 
 	if cl.settings.AssumePreAuthentication() {
@@ -163,13 +175,6 @@ func setPAData(cl *Client, krberr *messages.KRBError, req *messages.ASReq) error
 		pa := types.PAData{
 			PADataType:  patype.PA_ENC_TIMESTAMP,
 			PADataValue: pb,
-		}
-
-		for i, pa := range req.PAData {
-			if pa.PADataType == patype.PA_ENC_TIMESTAMP {
-				req.PAData[i] = req.PAData[len(req.PAData)-1]
-				req.PAData = req.PAData[:len(req.PAData)-1]
-			}
 		}
 
 		req.PAData = append(req.PAData, pa)

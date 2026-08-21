@@ -248,7 +248,7 @@ func (k *ASRep) DecryptEncPart(c *credentials.Credentials) (types.EncryptionKey,
 		}
 	}
 
-	if c.HasPassword() {
+	if !c.HasKeytab() && c.HasPassword() {
 		key, _, err = crypto.GetKeyFromPassword(c.Password(), k.CName, k.CRealm, k.EncPart.EType, k.PAData)
 		if err != nil {
 			return key, krberror.Errorf(err, krberror.DecryptingError, "error decrypting AS_REP encrypted part")

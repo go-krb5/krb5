@@ -43,7 +43,6 @@ func DES3EncryptData(key, data []byte, e etype.EType) ([]byte, []byte, error) {
 // DES3EncryptMessage encrypts the message provided using DES3 and methods specific to the etype provided.
 // The encrypted data is concatenated with its integrity hash to create an encrypted message.
 func DES3EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byte, []byte, error) {
-	// confounder.
 	c := make([]byte, e.GetConfounderByteSize())
 
 	_, err := rand.Read(c)
@@ -54,13 +53,15 @@ func DES3EncryptMessage(key, message []byte, usage uint32, e etype.EType) ([]byt
 	plainBytes := append(c, message...)
 	plainBytes, _ = common.ZeroPad(plainBytes, e.GetMessageBlockByteSize())
 
-	// Derive key for encryption from usage.
-	var k []byte
-	if usage != 0 {
-		k, err = e.DeriveKey(key, common.GetUsageKe(usage))
-		if err != nil {
-			return []byte{}, []byte{}, fmt.Errorf("error deriving key for encryption: %w", err)
-		}
+	// RFC 4120 Section 7.5.1 assigns no key usage number zero, and decryption derives unconditionally, so a
+	// message encrypted without deriving could never be decrypted by this library.
+	if usage == 0 {
+		return []byte{}, []byte{}, errors.New("key usage 0 is not assigned by RFC 4120 section 7.5.1")
+	}
+
+	k, err := e.DeriveKey(key, common.GetUsageKe(usage))
+	if err != nil {
+		return []byte{}, []byte{}, fmt.Errorf("error deriving key for encryption: %w", err)
 	}
 
 	iv, b, err := e.EncryptData(k, plainBytes)

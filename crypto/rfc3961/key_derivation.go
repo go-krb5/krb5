@@ -35,7 +35,10 @@ func DeriveRandom(key, usage []byte, e etype.EType) ([]byte, error) {
 	}
 
 	for i := copy(out, K); i < len(out); {
-		_, K, _ = e.EncryptData(key, K)
+		if _, K, err = e.EncryptData(key, K); err != nil {
+			return out, err
+		}
+
 		i += copy(out[i:], K)
 	}
 
