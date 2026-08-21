@@ -2,6 +2,7 @@
 package service
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -33,26 +34,16 @@ type replayCacheEntry struct {
 	cTime time.Time
 }
 
-func (c *Cache) getClientEntries(cname types.PrincipalName) (clientEntries, bool) {
-	c.mux.RLock()
-	defer c.mux.RUnlock()
-
-	ce, ok := c.entries[cname.PrincipalNameString()]
-
-	return ce, ok
+// clientKey identifies the client an entry belongs to.
+func clientKey(cname types.PrincipalName, crealm string) string {
+	return fmt.Sprintf("%q@%q", cname.PrincipalNameString(), crealm)
 }
 
-func (c *Cache) getClientEntry(cname types.PrincipalName, t time.Time) (replayCacheEntry, bool) {
-	if ce, ok := c.getClientEntries(cname); ok {
-		c.mux.RLock()
-		defer c.mux.RUnlock()
+// getClientEntries returns the entries held for a client. The caller must hold at least the read lock.
+func (c *Cache) getClientEntries(cname types.PrincipalName, crealm string) (clientEntries, bool) {
+	ce, ok := c.entries[clientKey(cname, crealm)]
 
-		if e, ok := ce.replayMap[t]; ok {
-			return e, true
-		}
-	}
-
-	return replayCacheEntry{}, false
+	return ce, ok
 }
 
 // Instance of the ServiceCache. This needs to be a singleton.
@@ -82,34 +73,32 @@ func GetReplayCache(d time.Duration) *Cache {
 
 // AddEntry adds an entry to the Cache.
 func (c *Cache) AddEntry(sname types.PrincipalName, a types.Authenticator) {
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	c.addEntry(sname, a)
+}
+
+// addEntry records an authenticator against its client. The caller must hold the write lock.
+func (c *Cache) addEntry(sname types.PrincipalName, a types.Authenticator) {
 	ct := a.CTime.Add(time.Duration(a.Cusec) * time.Microsecond)
-	if ce, ok := c.getClientEntries(a.CName); ok {
-		c.mux.Lock()
-		defer c.mux.Unlock()
 
-		ce.replayMap[ct] = replayCacheEntry{
-			presentedTime: time.Now().UTC(),
-			sName:         sname,
-			cTime:         ct,
-		}
-		ce.seqNumber = a.SeqNumber
-		ce.subKey = a.SubKey
-	} else {
-		c.mux.Lock()
-		defer c.mux.Unlock()
-
-		c.entries[a.CName.PrincipalNameString()] = clientEntries{
-			replayMap: map[time.Time]replayCacheEntry{
-				ct: {
-					presentedTime: time.Now().UTC(),
-					sName:         sname,
-					cTime:         ct,
-				},
-			},
-			seqNumber: a.SeqNumber,
-			subKey:    a.SubKey,
-		}
+	ce, ok := c.getClientEntries(a.CName, a.CRealm)
+	if !ok {
+		ce = clientEntries{replayMap: make(map[time.Time]replayCacheEntry)}
 	}
+
+	ce.replayMap[ct] = replayCacheEntry{
+		presentedTime: time.Now().UTC(),
+		sName:         sname,
+		cTime:         ct,
+	}
+	ce.seqNumber = a.SeqNumber
+	ce.subKey = a.SubKey
+
+	// clientEntries is a value, so the sequence number and subkey above are set on a copy of it. Storing it back
+	// is what makes them observable; the replay map alone survives without this because a map is a reference.
+	c.entries[clientKey(a.CName, a.CRealm)] = ce
 }
 
 // ClearOldEntries clears entries from the Cache that are older than the duration provided.
@@ -130,16 +119,21 @@ func (c *Cache) ClearOldEntries(d time.Duration) {
 	}
 }
 
-// IsReplay tests if the Authenticator provided is a replay within the duration defined. If this is not a replay add the entry to the cache for tracking.
+// IsReplay tests if the Authenticator provided is a replay within the duration defined. If this is not a replay
+// the entry is added to the cache for tracking.
 func (c *Cache) IsReplay(sname types.PrincipalName, a types.Authenticator) bool {
 	ct := a.CTime.Add(time.Duration(a.Cusec) * time.Microsecond)
-	if e, ok := c.getClientEntry(a.CName, ct); ok {
-		if e.sName.Equal(sname) {
+
+	c.mux.Lock()
+	defer c.mux.Unlock()
+
+	if ce, ok := c.getClientEntries(a.CName, a.CRealm); ok {
+		if e, ok := ce.replayMap[ct]; ok && e.sName.Equal(sname) {
 			return true
 		}
 	}
 
-	c.AddEntry(sname, a)
+	c.addEntry(sname, a)
 
 	return false
 }
