@@ -39,6 +39,7 @@ type Client struct {
 	maxRedirects       int
 	tokenOptions       []KRB5TokenOption
 	autoChannelBinding bool
+	legs               int
 }
 
 type redirectErr struct {
@@ -175,24 +176,57 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		return resp, err
 	}
 
-	if respUnauthorizedNegotiate(resp) {
-		if err = SetSPNEGOHeader(c.krb5Client, req, c.spn, c.requestTokenOptions(resp)...); err != nil {
-			return resp, err
-		}
+	token, challenged, cerr := negotiateChallenge(resp)
+	if cerr != nil {
+		c.endNegotiation()
 
-		if req.Body != nil {
-			req.Body = io.NopCloser(&body)
-		}
-
-		_, _ = io.Copy(io.Discard, resp.Body)
-		resp.Body.Close()
-
-		return c.Do(req)
+		return resp, cerr
 	}
 
-	c.reqs = c.reqs[:0]
+	if challenged {
+		send, nerr := c.nextNegotiationLeg(req, resp, token)
+		if nerr != nil {
+			c.endNegotiation()
+
+			return resp, nerr
+		}
+
+		if send {
+			if req.Body != nil {
+				// Refresh the body reader so the body can be sent again.
+				req.Body = io.NopCloser(&body)
+			}
+
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
+
+			return c.Do(req)
+		}
+	}
+
+	c.endNegotiation()
 
 	return resp, err
+}
+
+// nextNegotiationLeg sets the Authorization header answering a challenge, reporting whether there is a leg to send.
+//
+// The legs already spent bound the exchange. Without a bound a target that answers every token with another
+// challenge, which the bare Negotiate of RFC 4559 Section 4 is, keeps this client answering it indefinitely.
+func (c *Client) nextNegotiationLeg(req *http.Request, resp *http.Response, token []byte) (bool, error) {
+	if c.legs >= MaxNegotiationLegs {
+		return false, fmt.Errorf("SPNEGO negotiation did not complete within %d legs", MaxNegotiationLegs)
+	}
+
+	c.legs++
+
+	return c.negotiate(req, resp, token)
+}
+
+// endNegotiation clears the state held for the exchange that has finished.
+func (c *Client) endNegotiation() {
+	c.reqs = c.reqs[:0]
+	c.legs = 0
 }
 
 // requestTokenOptions returns the token options to use for the response that challenged the client, deriving a
@@ -252,16 +286,6 @@ func (c *Client) Head(url string) (resp *http.Response, err error) {
 	return c.Do(req)
 }
 
-func respUnauthorizedNegotiate(resp *http.Response) bool {
-	if resp.StatusCode == http.StatusUnauthorized {
-		if resp.Header.Get(HTTPHeaderAuthResponse) == HTTPHeaderAuthResponseValueKey {
-			return true
-		}
-	}
-
-	return false
-}
-
 // setRequestSPN derives the service principal name for the request and updates the request's Host to match.
 //
 // canonicalize is the dns_canonicalize_hostname setting of krb5.conf. It is a security control as much as a
@@ -312,20 +336,15 @@ func canonicalizeHostname(cl *client.Client) bool {
 // SetSPNEGOHeader gets the service ticket and sets it as the SPNEGO authorization header on HTTP request object.
 // To auto generate the SPN from the request object pass a null string "".
 func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) error {
-	if spn == "" {
-		pn, err := setRequestSPN(r, canonicalizeHostname(cl))
-		if err != nil {
-			return err
-		}
-
-		spn = pn.PrincipalNameString()
+	spn, err := requestSPN(cl, r, spn)
+	if err != nil {
+		return err
 	}
 
 	cl.Log("using SPN %s", spn)
 	s := SPNEGOClient(cl, spn, opts...)
 
-	err := s.AcquireCred()
-	if err != nil {
+	if err = s.AcquireCred(); err != nil {
 		return fmt.Errorf("could not acquire client credential: %w", err)
 	}
 
@@ -428,7 +447,9 @@ func SPNEGOKRB5Authenticate(inner http.Handler, kt *keytab.Keytab, settings ...f
 				return
 			}
 
-			spnegoResponseAcceptCompleted(spnego, w, "%s %s@%s - SPNEGO authentication succeeded", r.RemoteAddr, id.UserName(), id.Domain())
+			if err = spnegoResponseAcceptCompleted(spnego, w, "%s %s@%s - SPNEGO authentication succeeded", r.RemoteAddr, id.UserName(), id.Domain()); err != nil {
+				return
+			}
 			// Add the identity to the context and serve the inner/wrapped handler.
 			inner.ServeHTTP(w, identity.AddToHTTPRequestContext(id, r))
 
@@ -536,9 +557,48 @@ func spnegoResponseReject(s *SPNEGO, w http.ResponseWriter, format string, v ...
 	http.Error(w, UnauthorizedMsg, http.StatusUnauthorized)
 }
 
-func spnegoResponseAcceptCompleted(s *SPNEGO, w http.ResponseWriter, format string, v ...any) {
+func spnegoResponseAcceptCompleted(s *SPNEGO, w http.ResponseWriter, format string, v ...any) error {
+	h, err := spnegoAcceptCompletedHeader(s)
+	if err != nil {
+		spnegoInternalServerError(s, w, "SPNEGO could not build the accept-completed response: %v", err)
+
+		return err
+	}
+
 	s.Log(format, v...)
-	w.Header().Set(HTTPHeaderAuthResponse, spnegoNegTokenRespKRBAcceptCompleted)
+	w.Header().Set(HTTPHeaderAuthResponse, h)
+
+	return nil
+}
+
+// spnegoAcceptCompletedHeader returns the WWW-Authenticate value ending a successful negotiation.
+//
+// RFC 4178 Section 5(c)(I) has the reply carry a mechListMIC whenever the initiator sent one, and the initiator MUST
+// verify it, so the token has to be built for that exchange. The constant covers every other exchange, which is the
+// common one and the reason it is a constant: the same accept-completed state and Kerberos supportedMech, with
+// nothing variable in it.
+//
+// A failure to build the token is returned rather than answered with the constant. Replying accept-completed without
+// the MIC that was asked for would leave the initiator terminating a negotiation this acceptor had already
+// completed, having decided a request was authentic and then told the client it was not.
+func spnegoAcceptCompletedHeader(s *SPNEGO) (string, error) {
+	mic := s.MechListMIC()
+	if len(mic) == 0 {
+		return spnegoNegTokenRespKRBAcceptCompleted, nil
+	}
+
+	nt := NegTokenResp{
+		NegState:      asn1.Enumerated(NegStateAcceptCompleted),
+		SupportedMech: gssapi.OIDKRB5.OID(),
+		MechListMIC:   mic,
+	}
+
+	b, err := nt.Marshal()
+	if err != nil {
+		return "", err
+	}
+
+	return HTTPHeaderAuthResponseValueKey + " " + base64.StdEncoding.EncodeToString(b), nil
 }
 
 func spnegoInternalServerError(s *SPNEGO, w http.ResponseWriter, format string, v ...any) {

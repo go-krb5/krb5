@@ -29,12 +29,14 @@ type NegState int
 
 // NegTokenInit implements Negotiation Token of type Init.
 type NegTokenInit struct {
-	MechTypes      []asn1.ObjectIdentifier
-	ReqFlags       asn1.BitString
-	MechTokenBytes []byte
-	MechListMIC    []byte
-	mechToken      gssapi.ContextToken
-	settings       *service.Settings
+	MechTypes       []asn1.ObjectIdentifier
+	ReqFlags        asn1.BitString
+	MechTokenBytes  []byte
+	MechListMIC     []byte
+	mechToken       gssapi.ContextToken
+	settings        *service.Settings
+	mechTypesRaw    []byte
+	respMechListMIC []byte
 }
 
 type marshalNegTokenInit struct {
@@ -44,18 +46,20 @@ type marshalNegTokenInit struct {
 
 	MechTokenBytes []byte `asn1:"explicit,optional,omitempty,tag:2"`
 
-	// This field is not used when negotiating Kerberos tokens.
 	MechListMIC []byte `asn1:"explicit,optional,omitempty,tag:3"`
 }
 
 // NegTokenResp implements Negotiation Token of type Resp/Targ.
 type NegTokenResp struct {
-	NegState      asn1.Enumerated
-	SupportedMech asn1.ObjectIdentifier
-	ResponseToken []byte
-	MechListMIC   []byte
-	mechToken     gssapi.ContextToken
-	settings      *service.Settings
+	NegState        asn1.Enumerated
+	SupportedMech   asn1.ObjectIdentifier
+	ResponseToken   []byte
+	MechListMIC     []byte
+	mechToken       gssapi.ContextToken
+	settings        *service.Settings
+	mechTypes       []asn1.ObjectIdentifier
+	mechTypesRaw    []byte
+	respMechListMIC []byte
 }
 
 type marshalNegTokenResp struct {
@@ -65,7 +69,7 @@ type marshalNegTokenResp struct {
 
 	ResponseToken []byte `asn1:"explicit,optional,omitempty,tag:2"`
 
-	// This field is not used when negotiating Kerberos tokens.
+	// MechListMIC protects the initiator's MechTypes; see RFC 4178 Section 5 and mechlist_mic.go.
 	MechListMIC []byte `asn1:"explicit,optional,omitempty,tag:3"`
 }
 
@@ -118,28 +122,27 @@ func (n *NegTokenInit) Unmarshal(b []byte) error {
 	n.MechListMIC = nInit.MechListMIC
 	n.MechTypes = nInit.MechTypes
 	n.ReqFlags = nInit.ReqFlags
+	n.mechTypesRaw = nInit.mechTypesRaw
 
 	return nil
 }
 
 // Verify an Init negotiation token.
+//
+// Kerberos is selected wherever it appears in mechTypes rather than only at the head of the list. RFC 4178 Section
+// 4.2.2 has the acceptor name the mechanism it selected and ask for another leg, which is what an initiator offering
+// NegoEx or NTLM ahead of Kerberos, the ordinary Windows case, expects to happen.
 func (n *NegTokenInit) Verify() (bool, gssapi.Status) {
-	var mtSupported bool
-
-	for _, m := range n.MechTypes {
-		if isKerberosMech(m) {
-			if n.mechToken == nil && n.MechTokenBytes == nil {
-				return false, gssapi.Status{Code: gssapi.StatusContinueNeeded}
-			}
-
-			mtSupported = true
-
-			break
-		}
+	i := kerberosMechIndex(n.MechTypes)
+	if i < 0 {
+		return false, gssapi.Status{Code: gssapi.StatusBadMech, Message: "no supported mechanism specified in negotiation"}
 	}
 
-	if !mtSupported {
-		return false, gssapi.Status{Code: gssapi.StatusBadMech, Message: "no supported mechanism specified in negotiation"}
+	// The optimistic mechToken belongs to the first mechanism in the list. When that is not Kerberos the token is
+	// not ours to read, so the reply names Kerberos and the initiator sends a Kerberos token of its own in the
+	// leg that follows.
+	if i > 0 || (n.mechToken == nil && n.MechTokenBytes == nil) {
+		return false, gssapi.Status{Code: gssapi.StatusContinueNeeded}
 	}
 
 	mt := new(KRB5Token)
@@ -161,7 +164,50 @@ func (n *NegTokenInit) Verify() (bool, gssapi.Status) {
 		}
 	}
 
-	return n.mechToken.Verify()
+	ok, status := mt.Verify()
+	if !ok || status.Code != gssapi.StatusComplete {
+		return ok, status
+	}
+
+	if err := n.exchangeMechListMIC(mt); err != nil {
+		return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
+	}
+
+	return ok, status
+}
+
+// exchangeMechListMIC performs the acceptor's half of the mechListMIC exchange of RFC 4178 Section 5 for the leg
+// that carried the mechanism list itself.
+func (n *NegTokenInit) exchangeMechListMIC(mt *KRB5Token) error {
+	var err error
+
+	n.respMechListMIC, err = exchangeMechListMIC(n.MechListMIC, n.mechTypesRaw, n.MechTypes, mt)
+
+	return err
+}
+
+// exchangeMechListMIC verifies an initiator's mechListMIC against the mechanism list it protects and returns the MIC
+// the acceptor owes in reply, or nil when the initiator sent none and there is no exchange to perform.
+func exchangeMechListMIC(mic, raw []byte, mechTypes []asn1.ObjectIdentifier, mt *KRB5Token) ([]byte, error) {
+	if len(mic) == 0 {
+		return nil, nil
+	}
+
+	key, err := mt.contextKey()
+	if err != nil {
+		return nil, err
+	}
+
+	payload, err := mechListMICPayload(raw, mechTypes)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = verifyMechListMIC(mic, payload, key, false); err != nil {
+		return nil, err
+	}
+
+	return newMechListMIC(payload, key, true)
 }
 
 // Context returns the SPNEGO context which will contain any verify user identity information.
@@ -259,7 +305,33 @@ func (n *NegTokenResp) Verify() (bool, gssapi.Status) {
 		}
 	}
 
-	return mt.Verify()
+	ok, status := mt.Verify()
+	if !ok || status.Code != gssapi.StatusComplete {
+		return ok, status
+	}
+
+	if err := n.exchangeMechListMIC(mt); err != nil {
+		return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: err.Error()}
+	}
+
+	return ok, status
+}
+
+// exchangeMechListMIC performs the acceptor's half of the mechListMIC exchange of RFC 4178 Section 5 for a leg
+// continuing an exchange, where the mechanism list the MIC protects arrived earlier and is not in this token.
+//
+// An acceptor with no list retained refuses rather than passes a MIC it cannot check. Accepting one unverified would
+// be indistinguishable, to anyone reading the result, from having verified it.
+func (n *NegTokenResp) exchangeMechListMIC(mt *KRB5Token) error {
+	if len(n.MechListMIC) > 0 && len(n.mechTypesRaw) == 0 && len(n.mechTypes) == 0 {
+		return errors.New("the negotiation carries a mechListMIC but this acceptor did not retain the mechanism list it protects, so it cannot be verified: drive the whole exchange through one SPNEGO value")
+	}
+
+	var err error
+
+	n.respMechListMIC, err = exchangeMechListMIC(n.MechListMIC, n.mechTypesRaw, n.mechTypes, mt)
+
+	return err
 }
 
 // State returns the negotiation state of the negotiation response.
@@ -314,6 +386,7 @@ func UnmarshalNegToken(b []byte) (bool, any, error) {
 			ReqFlags:       n.ReqFlags,
 			MechTokenBytes: n.MechTokenBytes,
 			MechListMIC:    n.MechListMIC,
+			mechTypesRaw:   mechTypeListBytes(a.Bytes),
 		}
 
 		return true, nt, nil
@@ -338,6 +411,21 @@ func UnmarshalNegToken(b []byte) (bool, any, error) {
 	}
 }
 
+// mechTypeListBytes recovers the MechTypeList from the body of a NegTokenInit exactly as it arrived, which is the
+// message a mechListMIC is computed over. It returns nil when the field cannot be read that way, leaving the caller
+// to fall back on re-encoding the decoded list.
+func mechTypeListBytes(b []byte) []byte {
+	var raw struct {
+		MechTypes asn1.RawValue `asn1:"explicit,tag:0"`
+	}
+
+	if _, err := asn1.Unmarshal(b, &raw, asn1.WithUnmarshalAllowTypeGeneralString(true)); err != nil {
+		return nil
+	}
+
+	return raw.MechTypes.Bytes
+}
+
 // NewNegTokenInitKRB5 creates new Init negotiation token for Kerberos 5.
 func NewNegTokenInitKRB5(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, opts ...KRB5TokenOption) (NegTokenInit, error) {
 	// The Delegation option is not folded into these flags here: NewKRB5TokenAPREQ does that for every caller, so
@@ -355,7 +443,7 @@ func NewNegTokenInitKRB5(cl *client.Client, tkt messages.Ticket, sessionKey type
 	}
 
 	return NegTokenInit{
-		MechTypes:      []asn1.ObjectIdentifier{gssapi.OIDKRB5.OID()},
+		MechTypes:      initiatorMechTypes(),
 		MechTokenBytes: mtb,
 	}, nil
 }
