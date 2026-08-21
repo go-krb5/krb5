@@ -101,7 +101,7 @@ func (s *SPNEGO) AcceptSecContext(ct gssapi.ContextToken) (bool, context.Context
 		oid = t.NegTokenResp.SupportedMech
 	}
 
-	if !isKerberosMech(oid) {
+	if len(oid) > 0 && !isKerberosMech(oid) {
 		return false, ctx, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "SPNEGO OID of MechToken is not of type KRB5"}
 	}
 	// Flags in the NegInit must be used 	t.NegTokenInit.ReqFlags.
