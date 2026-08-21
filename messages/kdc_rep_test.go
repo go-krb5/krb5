@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/etypeID"
@@ -16,6 +17,7 @@ import (
 	"github.com/go-krb5/krb5/iana/patype"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/test/testdata"
+	"github.com/go-krb5/krb5/types"
 )
 
 const (
@@ -353,4 +355,87 @@ func TestUnmarshalASRepDecodeAndDecrypt_withPassword(t *testing.T) {
 	assert.Equal(t, testRealm, asRep.DecryptedEncPart.SRealm)
 	assert.Equal(t, nametype.KRB_NT_SRV_INST, asRep.DecryptedEncPart.SName.NameType)
 	assert.Equal(t, []string{"krbtgt", testRealm}, asRep.DecryptedEncPart.SName.NameString)
+}
+
+func TestTGSRepVerifyChecksTheServiceName(t *testing.T) {
+	t.Parallel()
+
+	// RFC 4120 Section 3.3.4: "The server name returned in the reply is the true principal name of the service."
+	// RFC 6806 Section 6 forbids the KDC changing it even when canonicalization is requested: "Names MUST NOT be
+	// changed in the response to a TGS request." A referral is the one reply that legitimately names something
+	// else, and carries a ticket granting ticket for the next hop.
+	asked := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
+
+	testCases := []struct {
+		name    string
+		replied types.PrincipalName
+		ok      bool
+	}{
+		{"the service requested", asked, true},
+		{"a referral to another realm", types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "krbtgt/OTHER.GOKRB5"), true},
+		{"a different service", types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/elsewhere.test.gokrb5"), false},
+		{"a different service on the same host", types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "ldap/host.test.gokrb5"), false},
+		{"no service name at all", types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST}, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			req, rep := tgsExchangeFor(asked, tc.replied)
+
+			ok, err := rep.Verify(config.New(), req)
+
+			assert.Equal(t, tc.ok, ok)
+
+			if tc.ok {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+			}
+		})
+	}
+}
+
+func TestTGSRepVerifyChecksTheTicketAgreesWithTheEncryptedPart(t *testing.T) {
+	t.Parallel()
+
+	// RFC 6806 Section 6 warns that "the service name in a ticket is not cryptographically protected and can be
+	// changed by parties other than the KDC". The name in the encrypted part is the authenticated one, so a
+	// reply whose two copies disagree has had the unprotected one altered.
+	asked := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
+
+	req, rep := tgsExchangeFor(asked, asked)
+	rep.Ticket.SName = types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/elsewhere.test.gokrb5")
+
+	ok, err := rep.Verify(config.New(), req)
+
+	assert.False(t, ok)
+	assert.Error(t, err)
+}
+
+func tgsExchangeFor(requested, replied types.PrincipalName) (TGSReq, TGSRep) {
+	const realm = "TEST.GOKRB5"
+
+	cname := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "testuser")
+	now := time.Now().UTC()
+
+	req := TGSReq{KDCReqFields{
+		ReqBody: KDCReqBody{CName: cname, Realm: realm, SName: requested, Nonce: 42},
+	}}
+
+	rep := TGSRep{KDCRepFields{
+		CName:  cname,
+		Ticket: Ticket{Realm: realm, SName: replied},
+		DecryptedEncPart: EncKDCRepPart{
+			Nonce:     42,
+			SRealm:    realm,
+			SName:     replied,
+			AuthTime:  now,
+			StartTime: now,
+			EndTime:   now.Add(time.Hour),
+		},
+	}}
+
+	return req, rep
 }
