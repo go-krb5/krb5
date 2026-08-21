@@ -47,3 +47,57 @@ func TestReferralASReqLeavesANonTGTServiceNameAlone(t *testing.T) {
 	assert.Equal(t, "NEW.GOKRB5", referred.ReqBody.Realm)
 	assert.Equal(t, []string{"kadmin", "changepw"}, referred.ReqBody.SName.NameString)
 }
+
+func TestSetPADataDoesNotAccumulateAcrossCalls(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "password", config.New())
+
+	req, err := messages.NewASReqForTGT("TEST.GOKRB5", cl.Config, cl.Credentials.CName())
+	require.NoError(t, err)
+
+	require.NoError(t, setPAData(cl, nil, &req))
+	first := len(req.PAData)
+
+	require.NotPanics(t, func() {
+		require.NoError(t, setPAData(cl, nil, &req))
+	})
+
+	assert.Equal(t, first, len(req.PAData), "a second call must replace the pre-authentication data, not add to it")
+	assert.Equal(t, 1, countPAData(req.PAData, patype.PA_REQ_ENC_PA_REP))
+}
+
+func TestSetPADataReplacesAnExistingEncTimestamp(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "password", config.New())
+	cl.settings.assumePreAuthentication = true
+
+	req, err := messages.NewASReqForTGT("TEST.GOKRB5", cl.Config, cl.Credentials.CName())
+	require.NoError(t, err)
+
+	req.PAData = types.PADataSequence{
+		{PADataType: patype.PA_ENC_TIMESTAMP, PADataValue: []byte("stale")},
+		{PADataType: patype.PA_ENC_TIMESTAMP, PADataValue: []byte("staler")},
+		{PADataType: patype.PA_ENC_TIMESTAMP, PADataValue: []byte("stalest")},
+	}
+
+	require.NotPanics(t, func() {
+		require.NoError(t, setPAData(cl, nil, &req))
+	})
+
+	assert.Equal(t, 1, countPAData(req.PAData, patype.PA_ENC_TIMESTAMP))
+	assert.Equal(t, 1, countPAData(req.PAData, patype.PA_REQ_ENC_PA_REP))
+}
+
+func countPAData(pas types.PADataSequence, t int32) int {
+	var n int
+
+	for _, pa := range pas {
+		if pa.PADataType == t {
+			n++
+		}
+	}
+
+	return n
+}

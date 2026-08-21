@@ -538,9 +538,10 @@ func TestEncryptMessage_ZeroUsage(t *testing.T) {
 
 	_, _, err := e.EncryptMessage(key, message, zeroUsage)
 
+	// RFC 4120 Section 7.5.1 assigns no key usage number zero. It previously reported a key size problem,
+	// which was the symptom of skipping derivation rather than the reason for the refusal.
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "incorrect keysize",
-		"Should fail with keysize error because derived key is empty")
+	assert.Contains(t, err.Error(), "key usage 0 is not assigned")
 }
 
 func TestDecryptData_InvalidKeySize_AES128(t *testing.T) {
