@@ -345,6 +345,12 @@ func (k *ASRep) Verify(cfg *config.Config, creds *credentials.Credentials, asReq
 	return true, nil
 }
 
+// isReferralSName reports whether the service name is that of a ticket granting service, which is what a KDC
+// names in place of the requested service when it refers the client to another realm. RFC 6806 Section 8.
+func isReferralSName(sname types.PrincipalName) bool {
+	return len(sname.NameString) > 0 && sname.NameString[0] == "krbtgt"
+}
+
 // DecryptEncPart decrypts the encrypted part of an TGS_REP.
 func (k *TGSRep) DecryptEncPart(key types.EncryptionKey) error {
 	b, err := crypto.DecryptEncPart(k.EncPart, key, keyusage.TGS_REP_ENCPART_SESSION_KEY)
@@ -377,22 +383,31 @@ func (k *TGSRep) Verify(cfg *config.Config, tgsReq TGSReq) (bool, error) {
 	if k.DecryptedEncPart.Nonce != tgsReq.ReqBody.Nonce {
 		return false, krberror.NewErrorf(krberror.KRBMsgError, "possible replay attack, nonce in response does not match that in request")
 	}
-	// if k.Ticket.SName.NameType != tgsReq.ReqBody.SName.NameType || k.Ticket.SName.NameString == nil {
-	//	return false, krberror.NewErrorf(krberror.KRBMsgError, "SName in response ticket does not match what was requested. Requested: %v; Reply: %v", tgsReq.ReqBody.SName, k.Ticket.SName)
-	//}
-	// for i := range k.Ticket.SName.NameString {
-	//	if k.Ticket.SName.NameString[i] != tgsReq.ReqBody.SName.NameString[i] {
-	//		return false, krberror.NewErrorf(krberror.KRBMsgError, "SName in response ticket does not match what was requested. Requested: %+v; Reply: %+v", tgsReq.ReqBody.SName, k.Ticket.SName)
-	//	}
-	//}
-	// if k.DecryptedEncPart.SName.NameType != tgsReq.ReqBody.SName.NameType || k.DecryptedEncPart.SName.NameString == nil {
-	//	return false, krberror.NewErrorf(krberror.KRBMsgError, "SName in response does not match what was requested. Requested: %v; Reply: %v", tgsReq.ReqBody.SName, k.DecryptedEncPart.SName)
-	//}
-	// for i := range k.DecryptedEncPart.SName.NameString {
-	//	if k.DecryptedEncPart.SName.NameString[i] != tgsReq.ReqBody.SName.NameString[i] {
-	//		return false, krberror.NewErrorf(krberror.KRBMsgError, "SName in response does not match what was requested. Requested: %+v; Reply: %+v", tgsReq.ReqBody.SName, k.DecryptedEncPart.SName)
-	//	}
-	// }.
+	// RFC 4120 Section 3.3.4: "The server name returned in the reply is the true principal name of the service."
+	// RFC 6806 Section 6 holds the KDC to it even when canonicalization is requested: "Names MUST NOT be changed
+	// in the response to a TGS request, although it is common for KDCs to maintain a set of aliases for service
+	// principals ... in the TGS request, the client receives a ticket for the alias requested." Canonicalization
+	// rewrites names in an AS reply, not in this one.
+	//
+	// A referral is the one reply that legitimately names something else: rather than the service, it carries a
+	// cross realm ticket granting ticket for the next hop, which the caller follows. RFC 6806 Section 8.
+	//
+	// The name in the encrypted part is the one compared, because it is the only one the KDC authenticated. The
+	// copy in the ticket is plaintext and, as Section 6 puts it, "can be changed by parties other than the KDC".
+	if !k.DecryptedEncPart.SName.Equal(tgsReq.ReqBody.SName) && !isReferralSName(k.DecryptedEncPart.SName) {
+		return false, krberror.NewErrorf(krberror.KRBMsgError,
+			"SName in response does not match what was requested. Requested: %s; Reply: %s",
+			tgsReq.ReqBody.SName.PrincipalNameString(), k.DecryptedEncPart.SName.PrincipalNameString())
+	}
+
+	// The plaintext copy is what the application server is presented with, so a reply whose two names disagree
+	// is one where the unprotected copy has been altered on the way here.
+	if !k.Ticket.SName.Equal(k.DecryptedEncPart.SName) {
+		return false, krberror.NewErrorf(krberror.KRBMsgError,
+			"SName in the ticket does not match the SName in the encrypted part of the response. Ticket: %s; Reply: %s",
+			k.Ticket.SName.PrincipalNameString(), k.DecryptedEncPart.SName.PrincipalNameString())
+	}
+
 	if k.DecryptedEncPart.SRealm != tgsReq.ReqBody.Realm {
 		return false, krberror.NewErrorf(krberror.KRBMsgError, "SRealm in response does not match what was requested. Requested: %s; Reply: %s", tgsReq.ReqBody.Realm, k.DecryptedEncPart.SRealm)
 	}
