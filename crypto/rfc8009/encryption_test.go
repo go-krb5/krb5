@@ -616,3 +616,50 @@ func TestVerifyIntegrityShouldRejectAShortCiphertext(t *testing.T) {
 		}, "a %d byte ciphertext must verify false, not panic", size)
 	}
 }
+
+func TestPseudoRandom(t *testing.T) {
+	t.Parallel()
+
+	octetString := []byte("test")
+
+	var tests = []struct {
+		name     string
+		inputKey string
+		expected string
+	}{
+		{
+			name:     "RFC 8009 Appendix A - AES128",
+			inputKey: "3705d96080c17728a0e800eab6e0d23c",
+			expected: "9d188616f63852fe86915bb840b4a886ff3e6bb0f819b49b893393d393854295",
+		},
+		{
+			name:     "RFC 8009 Appendix A - AES256",
+			inputKey: "6d404d37faf79f9df0d33568d320669800eb4836472ea8a026d16b7182460c52",
+			expected: "9801f69a368c2bf675e59521e177d9a07f67efe1cfde8d3c8d6f6a0256e3b17db3c1b62ad1b8553360d17367eb1514d2",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			key, err := hex.DecodeString(test.inputKey)
+			require.NoError(t, err)
+
+			var (
+				prf []byte
+				e   crypto.Aes128CtsHmacSha256128
+				e2  crypto.Aes256CtsHmacSha384192
+			)
+
+			if len(key) == 16 {
+				prf, err = rfc8009.DeriveRandom(key, octetString, e)
+			} else {
+				prf, err = rfc8009.DeriveRandom(key, octetString, e2)
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, hex.EncodeToString(prf))
+		})
+	}
+}
