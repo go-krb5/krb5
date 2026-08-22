@@ -1,13 +1,16 @@
 package messages
 
 import (
+	"bytes"
 	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
+	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
@@ -54,27 +57,73 @@ func TestMarshalAPReq(t *testing.T) {
 	assert.Equal(t, b, mb)
 }
 
-// TestAuthenticatorKeyUsageEmptyNameStringDoesNotPanic guards against a remotely reachable panic. A service ticket's
-// plaintext Ticket.SName sits outside EncPart, and PrincipalName.NameString may legally be empty, so a client
-// holding any valid service ticket can blank SName and still reach DecryptAuthenticator ->
-// authenticatorKeyUsage(a.Ticket.SName) - an unauthenticated caller must not be able to crash the server this way.
-func TestAuthenticatorKeyUsageEmptyNameStringDoesNotPanic(t *testing.T) {
+// TestDecryptAuthenticatorShouldNotPanicOnAnEmptySName guards a remotely reachable panic. A ticket's plaintext
+// SName sits outside EncPart and PrincipalName.NameString may legally be empty, so a client holding any valid
+// service ticket can blank it and still reach DecryptAuthenticator; nothing on that path may index it.
+func TestDecryptAuthenticatorShouldNotPanicOnAnEmptySName(t *testing.T) {
 	t.Parallel()
 
-	var usage int
+	var a APReq
 
 	assert.NotPanics(t, func() {
-		usage = authenticatorKeyUsage(types.PrincipalName{})
+		_ = a.DecryptAuthenticator(apReqTestKey())
 	})
-	assert.Equal(t, keyusage.AP_REQ_AUTHENTICATOR, usage)
 }
 
-// TestAuthenticatorKeyUsageKrbtgtSelectsTGSReqUsage pins the pre-existing behaviour the guard must not change: a
-// krbtgt SName (as a real TGT carries) still selects the TGS-REQ PA-DATA authenticator key usage.
-func TestAuthenticatorKeyUsageKrbtgtSelectsTGSReqUsage(t *testing.T) {
+// TestNewAPReqShouldUseTheAPREQKeyUsageForATGT pins that the key usage follows the AP_REQ's position rather than
+// what its ticket names. RFC 4120 Section 7.5.1 assigns 11 to an AP-REQ authenticator, and the ticket presented in
+// one is a TGT whenever the exchange is the user-to-user authentication of Section 3.7.
+func TestNewAPReqShouldUseTheAPREQKeyUsageForATGT(t *testing.T) {
 	t.Parallel()
 
-	pn := types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{"krbtgt", "TEST.GOKRB5"}}
+	key := apReqTestKey()
+	tgt := Ticket{
+		Realm: testRealm,
+		SName: types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{testKrbtgt, testRealm}},
+	}
 
-	assert.Equal(t, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR, authenticatorKeyUsage(pn))
+	apReq, err := NewAPReq(tgt, key, apReqTestAuthenticator(t))
+	require.NoError(t, err)
+
+	_, err = crypto.DecryptEncPart(apReq.EncryptedAuthenticator, key, keyusage.AP_REQ_AUTHENTICATOR)
+	require.NoError(t, err, "an AP-REQ authenticator takes key usage 11 whatever its ticket names")
+}
+
+// TestNewAPReqPATGSReqShouldUseTheTGSREQKeyUsageForAServiceTicket is the converse: the pre-authentication position
+// takes key usage 7, and renewal presents the service ticket being renewed rather than a TGT.
+func TestNewAPReqPATGSReqShouldUseTheTGSREQKeyUsageForAServiceTicket(t *testing.T) {
+	t.Parallel()
+
+	key := apReqTestKey()
+	svc := Ticket{
+		Realm: testRealm,
+		SName: types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{testHTTPService, testHTTPHost}},
+	}
+
+	apReq, err := newAPReqPATGSReq(svc, key, apReqTestAuthenticator(t))
+	require.NoError(t, err)
+
+	_, err = crypto.DecryptEncPart(apReq.EncryptedAuthenticator, key, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR)
+	require.NoError(t, err, "a PA-TGS-REQ authenticator takes key usage 7 whatever its ticket names")
+}
+
+// testKrbtgt and testHTTPService name the two ticket kinds an AP_REQ can carry, a TGT and a service ticket.
+const (
+	testKrbtgt      = "krbtgt"
+	testHTTPService = "HTTP"
+	testHTTPHost    = "host.test.gokrb5"
+)
+
+func apReqTestKey() types.EncryptionKey {
+	return types.EncryptionKey{KeyType: etypeID.AES256_CTS_HMAC_SHA1_96, KeyValue: bytes.Repeat([]byte{0x0E}, 32)}
+}
+
+func apReqTestAuthenticator(t *testing.T) types.Authenticator {
+	t.Helper()
+
+	auth, err := types.NewAuthenticator(testRealm,
+		types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{testUser}})
+	require.NoError(t, err)
+
+	return auth
 }

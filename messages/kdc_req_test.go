@@ -606,3 +606,23 @@ func TestNewASReqHonoursTheConfiguredRenewLifetime(t *testing.T) {
 	// The renew till should follow renew_lifetime, not a value fixed in the source.
 	assert.WithinDuration(t, before.Add(72*time.Hour), a.ReqBody.RTime, 10*time.Second)
 }
+
+func TestNewTGSReqRenewingAServiceTicketShouldUseTheTGSREQAuthenticatorKeyUsage(t *testing.T) {
+	t.Parallel()
+
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
+
+	cname := types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{testUser}}
+	key := types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0E}, 32)}
+
+	svc := Ticket{
+		Realm: testRealm,
+		SName: types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{testHTTPService, testHTTPHost}},
+	}
+
+	req, err := NewTGSReq(cname, testRealm, testRealm, c, svc, key, svc.SName, true)
+	require.NoError(t, err)
+
+	decryptForwardedAuthenticator(t, req, key)
+}
