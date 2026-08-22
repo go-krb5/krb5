@@ -157,6 +157,12 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 				// Picked up a redirect.
 				e.reqTarget.Header.Del(HTTPHeaderAuthRequest)
 
+				if rerr := c.checkRedirectHost(req, e.reqTarget); rerr != nil {
+					c.endNegotiation()
+
+					return resp, rerr
+				}
+
 				c.reqs = append(c.reqs, e.reqTarget)
 				if len(c.reqs) >= c.maxRedirects {
 					c.reqs = c.reqs[:0]
@@ -207,6 +213,27 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 	c.endNegotiation()
 
 	return resp, err
+}
+
+// checkRedirectHost refuses a redirect that leaves the host the configured service principal name belongs to.
+//
+// Deleting the Authorization header before following a redirect closes only half of the hazard: the negotiation
+// then starts again against the new host, and a configured name is used verbatim there. The client would obtain a
+// ticket for the host the caller named and send it to whichever host the redirect points at, in an AP_REQ the real
+// service has never seen and so will not have in its replay cache. Nothing binds an AP_REQ to the connection that
+// carried it unless channel bindings are configured, so that ticket is enough for the redirect target to
+// authenticate as the user against the service the caller meant to reach.
+//
+// The name is compared on the host alone: setRequestSPN builds "HTTP/<host>" with no port, so two ports on one
+// host are one service principal, and a redirect between them stays with the service the caller named. Where no
+// name is configured there is nothing to leave, and the SPN derived per request already follows the host being
+// addressed.
+func (c *Client) checkRedirectHost(from, to *http.Request) error {
+	if c.spn == "" || strings.EqualFold(from.URL.Hostname(), to.URL.Hostname()) {
+		return nil
+	}
+
+	return fmt.Errorf("stopped at the redirect from %s to %s: the service principal name %s the client is configured with does not name the redirect target", from.URL.Hostname(), to.URL.Hostname(), c.spn)
 }
 
 // nextNegotiationLeg sets the Authorization header answering a challenge, reporting whether there is a leg to send.

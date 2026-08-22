@@ -115,3 +115,14 @@ change will be elaborated on in time):
   should have caught it and displaced that entry for the next attempt. Deployments using `KeytabPrincipal` had no
   working replay protection at all. No configuration change is needed to pick the fix up, and without the override
   the two values are identical, so nothing changes for acceptors that do not set it.
+- `spnego.Client.Do` stops with an error at a redirect that leaves the host the configured service principal name
+  belongs to, where it previously followed the redirect and negotiated against the new host. The header carrying the
+  old ticket was already deleted before a redirect was followed, but the negotiation that started again at the target
+  used the configured name verbatim, so the client minted a fresh service ticket for the host the caller named and
+  sent it to whichever host the redirect pointed at. That AP-REQ has never been seen by the real service, so its
+  replay cache does not hold it, and nothing binds it to the connection it arrived on unless channel bindings are
+  configured: the redirect target can relay it and authenticate as the user. The comparison is on the host alone,
+  since the derived name carries no port, so a redirect to another port on the same host is still followed. Clients
+  constructed with an empty SPN are unaffected, the name being derived per request from the host actually addressed.
+  A deployment that relies on a redirect to another hostname must construct the client with an empty SPN and let it
+  derive the name, or handle the redirect itself and call `Do` again for the new host.
