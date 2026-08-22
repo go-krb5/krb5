@@ -19,24 +19,48 @@ type Cache struct {
 
 // clientEntries holds entries of client details sent to the service.
 type clientEntries struct {
-	replayMap map[time.Time]replayCacheEntry
+	replayMap map[replayKey]replayCacheEntry
 	seqNumber int64
 	subKey    types.EncryptionKey
 }
 
-// Cache entry tracking client time values of tickets sent to the service.
+// replayKey identifies one presentation of an authenticator to one service.
+//
+// RFC 4120 Section 3.2.3 has the cache "store at least the server name, along with the client name, time, and
+// microsecond fields from the recently-seen authenticators, and if a matching tuple is found, the KRB_AP_ERR_REPEAT
+// error is returned". The client name and realm choose the clientEntries this is looked up in; the rest of that
+// tuple is here.
+//
+// The server name and realm are part of the key rather than of the value. The same section requires that losing
+// track of a presentation reject rather than admit — "If a server loses track of authenticators presented within
+// the allowable clock skew, it MUST reject all requests until the clock skew interval has passed" — and a value can
+// be displaced by the next presentation under a different server name where a key cannot.
+type replayKey struct {
+	cTime  time.Time
+	sName  string
+	sRealm string
+}
+
+// Cache entry tracking when a presentation was seen, so that ClearOldEntries can retire it.
 type replayCacheEntry struct {
 	presentedTime time.Time
-
-	sName types.PrincipalName
-
-	// This combines the ticket's CTime and Cusec.
-	cTime time.Time
 }
 
 // clientKey identifies the client an entry belongs to.
 func clientKey(cname types.PrincipalName, crealm string) string {
 	return fmt.Sprintf("%q@%q", cname.PrincipalNameString(), crealm)
+}
+
+// newReplayKey identifies the presentation of the authenticator to the service named by sname in srealm.
+//
+// The name is compared by its components only, as PrincipalName.Equal does, because RFC 4120 Section 6.2 makes the
+// name type insignificant when comparing principal names.
+func newReplayKey(sname types.PrincipalName, srealm string, a types.Authenticator) replayKey {
+	return replayKey{
+		cTime:  a.CTime.Add(time.Duration(a.Cusec) * time.Microsecond).UTC(),
+		sName:  sname.PrincipalNameString(),
+		sRealm: srealm,
+	}
 }
 
 // getClientEntries returns the entries held for a client. The caller must hold at least the read lock.
@@ -71,27 +95,26 @@ func GetReplayCache(d time.Duration) *Cache {
 	return &replayCache
 }
 
-// AddEntry adds an entry to the Cache.
-func (c *Cache) AddEntry(sname types.PrincipalName, a types.Authenticator) {
+// AddEntry adds an entry to the Cache, recording that a was presented to the service named by sname in srealm.
+//
+// sname and srealm must identify the service principal whose key decrypted the ticket, not the service the ticket
+// claims in its unencrypted portion; see IsReplay.
+func (c *Cache) AddEntry(sname types.PrincipalName, srealm string, a types.Authenticator) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
-	c.addEntry(sname, a)
+	c.addEntry(sname, srealm, a)
 }
 
 // addEntry records an authenticator against its client. The caller must hold the write lock.
-func (c *Cache) addEntry(sname types.PrincipalName, a types.Authenticator) {
-	ct := a.CTime.Add(time.Duration(a.Cusec) * time.Microsecond)
-
+func (c *Cache) addEntry(sname types.PrincipalName, srealm string, a types.Authenticator) {
 	ce, ok := c.getClientEntries(a.CName, a.CRealm)
 	if !ok {
-		ce = clientEntries{replayMap: make(map[time.Time]replayCacheEntry)}
+		ce = clientEntries{replayMap: make(map[replayKey]replayCacheEntry)}
 	}
 
-	ce.replayMap[ct] = replayCacheEntry{
+	ce.replayMap[newReplayKey(sname, srealm, a)] = replayCacheEntry{
 		presentedTime: time.Now().UTC(),
-		sName:         sname,
-		cTime:         ct,
 	}
 	ce.seqNumber = a.SeqNumber
 	ce.subKey = a.SubKey
@@ -119,21 +142,26 @@ func (c *Cache) ClearOldEntries(d time.Duration) {
 	}
 }
 
-// IsReplay tests if the Authenticator provided is a replay within the duration defined. If this is not a replay
-// the entry is added to the cache for tracking.
-func (c *Cache) IsReplay(sname types.PrincipalName, a types.Authenticator) bool {
-	ct := a.CTime.Add(time.Duration(a.Cusec) * time.Microsecond)
+// IsReplay tests if the Authenticator provided has already been presented to the service named by sname in srealm
+// within the duration defined. If this is not a replay the entry is added to the cache for tracking.
+//
+// sname and srealm must identify the service principal whose key decrypted the ticket the authenticator arrived in,
+// which is the ticket's SName and Realm only where those chose the key. A ticket's unencrypted portion is covered
+// by no checksum, so keying the cache on what it claims would let a captured AP_REQ be replayed indefinitely by
+// rewriting the claim — see service.VerifyAPREQ, which resolves this before calling.
+func (c *Cache) IsReplay(sname types.PrincipalName, srealm string, a types.Authenticator) bool {
+	k := newReplayKey(sname, srealm, a)
 
 	c.mux.Lock()
 	defer c.mux.Unlock()
 
 	if ce, ok := c.getClientEntries(a.CName, a.CRealm); ok {
-		if e, ok := ce.replayMap[ct]; ok && e.sName.Equal(sname) {
+		if _, ok := ce.replayMap[k]; ok {
 			return true
 		}
 	}
 
-	c.addEntry(sname, a)
+	c.addEntry(sname, srealm, a)
 
 	return false
 }
