@@ -52,12 +52,7 @@ func NewAPReq(tkt Ticket, sessionKey types.EncryptionKey, auth types.Authenticat
 		APOptions:              types.NewKrbFlags(),
 		Ticket:                 tkt,
 		EncryptedAuthenticator: ed,
-		// Kept in the clear beside its encrypted form, the way Ticket keeps DecryptedEncPart. It
-		// never reaches the wire — Marshal builds marshalAPReq, which has no such field — and an
-		// initiator that wants to check a mutual-authentication reply has to remember the ctime and
-		// cusec it sent. Without this the field is populated on the acceptor (VerifyAPREQ decrypts
-		// into it) and zero on the initiator, which is the half that needs it.
-		Authenticator: auth,
+		Authenticator:          auth,
 	}
 
 	return a, nil

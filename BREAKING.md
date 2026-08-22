@@ -76,7 +76,7 @@ change will be elaborated on in time):
   `gssapi.ContextFlagDeleg`, where previously it returned a token. RFC 4121 §4.1.1 requires an initiator that sets the
   delegation flag to populate the `DlgOpt`, `Dlgth` and `Deleg` fields that follow the context flags with the
   delegation option identifier and a `KRB_CRED`; this library emitted the flag with all three zeroed. MIT rejects that
-  token with `GSS_S_FAILURE` once it reads `DlgOpt` as `0`, so no working deployment loses functionality — the change
+  token with `GSS_S_FAILURE` once it reads `DlgOpt` as `0`, so no working deployment loses functionality ; the change
   converts an opaque remote failure into a local one that names the cause. Credential delegation is not implemented;
   nothing in this library requests the flag, so only a caller passing `flagsGSSAPI` to `NewKRB5TokenAPREQ` directly is
   affected. **This entry has been superseded by the one below**: credential delegation is now implemented, and
@@ -89,7 +89,7 @@ change will be elaborated on in time):
   ticket it did not mark forwardable, and this library defaults the setting to `false`.
 - Acceptors now read the delegation fields of the AP-REQ authenticator checksum, and reject an AP-REQ that claims a
   delegation they cannot fully process with `KRB_AP_ERR_INAPP_CKSUM`, where they previously authenticated it and
-  silently ignored the delegation. `service.VerifyAPREQ` extracts unconditionally — there is no `Settings` opt in —
+  silently ignored the delegation. `service.VerifyAPREQ` extracts unconditionally ; there is no `Settings` opt in ;
   and every defect past the `GSS_C_DELEG_FLAG` bit is fatal: a 28 octet checksum with `DlgOpt` zeroed, which is
   precisely what this library itself emitted before the entry above, a `Dlgth` running past the end of the checksum,
   a `KRB_CRED` that will not unmarshal, and a `KRB_CRED` encrypted with an encryption type this library does not

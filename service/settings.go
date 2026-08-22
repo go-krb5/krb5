@@ -188,7 +188,7 @@ func (s *Settings) RequireChannelBinding() *gssapi.ChannelBinding {
 // This is deliberately NOT what RequireChannelBinding does, and the two are not interchangeable.
 // RequireChannelBinding demands that the binding match, so a stripped binding is refused. This setting only
 // demands that the peer be capable of binding, so a client that advertises KERB_AP_OPTIONS_CBT and then sends no
-// binding is accepted — which is the stripped-binding downgrade RequireChannelBinding exists to prevent. It is
+// binding is accepted; which is the stripped-binding downgrade RequireChannelBinding exists to prevent. It is
 // offered for parity with Windows deployments that must still admit such clients, and is the weaker of the two.
 //
 // Prefer RequireChannelBinding. Reach for this one only when a peer you cannot change forces it.
