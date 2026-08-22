@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/go-krb5/x/encoding/asn1"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/service"
+	"github.com/go-krb5/krb5/types"
 )
 
 // SPNEGO implements the GSS-API mechanism for RFC 4178.
@@ -24,6 +26,13 @@ type SPNEGO struct {
 	mechListMIC     []byte
 	mechTypes       []asn1.ObjectIdentifier
 	mechTypesRaw    []byte
+
+	// What an initiator needs to check the acceptor's reply: the session key the AP-REP is
+	// encrypted under, and the ctime/cusec it must echo. Set by InitSecContext and read by
+	// VerifyMutual; both zero on an acceptor, which never initiates.
+	sessionKey types.EncryptionKey
+	sentCTime  time.Time
+	sentCusec  int
 }
 
 // SPNEGOClient configures the SPNEGO mechanism suitable for client side use.
@@ -71,6 +80,8 @@ func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
 	if err != nil {
 		return &SPNEGOToken{}, fmt.Errorf("could not create NegTokenInit: %w", err)
 	}
+
+	s.rememberExchange(key, negTokenInit)
 
 	return &SPNEGOToken{
 		Init:         true,
@@ -262,4 +273,21 @@ func (s *SPNEGOToken) Verify() (bool, gssapi.Status) {
 // Context returns the SPNEGO context which will contain any verify user identity information.
 func (s *SPNEGOToken) Context() context.Context {
 	return s.context
+}
+
+// rememberExchange records what the acceptor's reply will be checked against: the session key the
+// AP-REP is encrypted under, and the ctime and cusec it must echo.
+//
+// Split out of InitSecContext so it can be exercised without a KDC. That is not only convenience:
+// what is worth testing is that the initiator remembers what it actually SENT, and a test that
+// assigned these fields by hand would be checking its own assignment rather than this one.
+func (s *SPNEGO) rememberExchange(key types.EncryptionKey, n NegTokenInit) {
+	s.sessionKey = key
+
+	// A NegTokenInit built any other way carries only the marshalled bytes, and the ctime inside
+	// them is encrypted. Nothing is remembered then, and VerifyMutual says so rather than comparing
+	// against a zero time that anything could echo.
+	if mt, ok := n.mechToken.(*KRB5Token); ok {
+		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
+	}
 }
