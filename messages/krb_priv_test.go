@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/addrtype"
 	"github.com/go-krb5/krb5/iana/msgtype"
@@ -117,4 +119,24 @@ func TestKRBPriv_EncryptEncPart(t *testing.T) {
 	}
 
 	require.NoError(t, a.EncryptEncPart(key))
+}
+
+func TestKRBPrivUnmarshalShouldNotAcceptADecryptedEncPart(t *testing.T) {
+	t.Parallel()
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5priv)
+	require.NoError(t, err)
+
+	forged, err := asn1.Marshal(EncKrbPrivPart{
+		UserData: []byte("attacker supplied"),
+		SAddress: types.HostAddress{AddrType: addrtype.IPv4, Address: []byte{127, 0, 0, 1}},
+	}, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	var k KRBPriv
+
+	if err := k.Unmarshal(appendToSequence(t, b, forged)); err == nil {
+		assert.Empty(t, k.DecryptedEncPart.UserData,
+			"user data appended to the wire message became its decrypted part")
+	}
 }

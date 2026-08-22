@@ -268,3 +268,117 @@ func TestGetPACType_NilLogger(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+// appendToSequence returns b, an [APPLICATION n] wrapping a SEQUENCE, with extra appended inside that SEQUENCE. It
+// is how a peer smuggles an element the type does not define past a decoder that tolerates trailing data.
+func appendToSequence(t *testing.T, b, extra []byte) []byte {
+	t.Helper()
+
+	lenBytes := func(n int) []byte {
+		if n < 128 {
+			//nolint:gosec // G115: guarded by the branch, n is below 128.
+			return []byte{byte(n)}
+		}
+
+		var l []byte
+		for m := n; m > 0; m >>= 8 {
+			l = append([]byte{byte(m & 0xff)}, l...)
+		}
+
+		//nolint:gosec // G115: l holds one octet per byte of an int, so its length cannot exceed 8.
+		return append([]byte{byte(0x80 | len(l))}, l...)
+	}
+
+	hdr := func(p int) int {
+		if b[p] < 0x80 {
+			return 1
+		}
+
+		return 1 + int(b[p]&0x7f)
+	}
+
+	p := 1 + hdr(1)
+	seqTag := b[p]
+	p++
+	p += hdr(p)
+
+	inner := append(append([]byte{}, b[p:]...), extra...)
+	seq := append([]byte{seqTag}, lenBytes(len(inner))...)
+	seq = append(seq, inner...)
+
+	out := append([]byte{b[0]}, lenBytes(len(seq))...)
+
+	return append(out, seq...)
+}
+
+// A Ticket's DecryptedEncPart is filled in by Decrypt, never by the peer. RFC 4120 Section 5.3 defines the wire
+// Ticket as four fields, so an element appended past them must not reach it: a caller reading DecryptedEncPart is
+// entitled to assume the KDC sealed what it finds there.
+func TestTicketUnmarshalShouldNotAcceptADecryptedEncPart(t *testing.T) {
+	t.Parallel()
+
+	tkt := testWireTicket()
+
+	b, err := tkt.Marshal()
+	require.NoError(t, err)
+
+	forged, err := asn1.Marshal(EncTicketPart{
+		Flags:     types.NewKrbFlags(),
+		Key:       types.EncryptionKey{KeyType: 18, KeyValue: []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")},
+		CRealm:    "EVIL.REALM",
+		CName:     types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"administrator"}},
+		Transited: TransitedEncoding{TRType: trtype.DOMAIN_X500_COMPRESS},
+		AuthTime:  time.Now().UTC(),
+		EndTime:   time.Now().UTC().Add(time.Hour),
+	}, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	var got Ticket
+
+	// Whether the trailing element is rejected or ignored is the decoder's business; what matters is that it
+	// never becomes the ticket's decrypted part.
+	if err := got.Unmarshal(appendToSequence(t, b, forged)); err == nil {
+		assert.Empty(t, got.DecryptedEncPart.CName.NameString,
+			"a client name appended to the wire ticket became its decrypted part")
+		assert.Empty(t, got.DecryptedEncPart.CRealm)
+		assert.Empty(t, got.DecryptedEncPart.Key.KeyValue,
+			"a session key appended to the wire ticket became its decrypted part")
+	}
+}
+
+func TestTicketMarshalShouldNotEmitTheDecryptedEncPart(t *testing.T) {
+	t.Parallel()
+
+	tkt := testWireTicket()
+
+	clean, err := tkt.Marshal()
+	require.NoError(t, err)
+
+	sessionKey := []byte("SUPER-SECRET-SESSION-KEY-32BYTES")
+	tkt.DecryptedEncPart = EncTicketPart{
+		Flags:     types.NewKrbFlags(),
+		Key:       types.EncryptionKey{KeyType: 18, KeyValue: sessionKey},
+		CRealm:    testRealm,
+		CName:     types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"testuser"}},
+		Transited: TransitedEncoding{TRType: trtype.DOMAIN_X500_COMPRESS},
+		AuthTime:  time.Now().UTC(),
+		EndTime:   time.Now().UTC().Add(time.Hour),
+	}
+
+	decrypted, err := tkt.Marshal()
+	require.NoError(t, err)
+
+	assert.NotContains(t, string(decrypted), string(sessionKey),
+		"marshalling a decrypted ticket put its session key on the wire")
+	assert.Equal(t, clean, decrypted,
+		"decrypting a ticket must not change the bytes it marshals to")
+}
+
+func testWireTicket() Ticket {
+	return Ticket{
+		TktVNO:  iana.PVNO,
+		Realm:   testRealm,
+		SName:   types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{"HTTP", "host.test.gokrb5"}},
+		EncPart: types.EncryptedData{EType: 18, KVNO: 1, Cipher: []byte{1, 2, 3, 4}},
+	}
+}
