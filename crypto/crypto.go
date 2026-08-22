@@ -19,10 +19,9 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 		return key, et, fmt.Errorf("error getting encryption type: %w", err)
 	}
 
-	sk2p := et.GetDefaultStringToKeyParams()
-
 	var (
 		salt string
+		sk2p string
 		paID int32
 	)
 
@@ -97,6 +96,10 @@ func GetKeyFromPassword(passwd string, cname types.PrincipalName, realm string, 
 
 	if salt == "" {
 		salt = cname.GetSalt(realm)
+	}
+
+	if sk2p == "" {
+		sk2p = et.GetDefaultStringToKeyParams()
 	}
 
 	k, err := et.StringToKey(passwd, salt, sk2p)

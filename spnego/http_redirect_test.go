@@ -155,6 +155,6 @@ func hostRoutingClient(hosts map[string]string) *http.Client {
 }
 
 const (
-	hostOrigin = "origin.test"
+	hostOrigin    = "origin.test"
 	hostElsewhere = "elsewhere.test"
 )
