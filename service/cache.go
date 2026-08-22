@@ -32,8 +32,8 @@ type clientEntries struct {
 // tuple is here.
 //
 // The server name and realm are part of the key rather than of the value. The same section requires that losing
-// track of a presentation reject rather than admit — "If a server loses track of authenticators presented within
-// the allowable clock skew, it MUST reject all requests until the clock skew interval has passed" — and a value can
+// track of a presentation reject rather than admit; "If a server loses track of authenticators presented within
+// the allowable clock skew, it MUST reject all requests until the clock skew interval has passed"; and a value can
 // be displaced by the next presentation under a different server name where a key cannot.
 type replayKey struct {
 	cTime  time.Time
@@ -148,7 +148,7 @@ func (c *Cache) ClearOldEntries(d time.Duration) {
 // sname and srealm must identify the service principal whose key decrypted the ticket the authenticator arrived in,
 // which is the ticket's SName and Realm only where those chose the key. A ticket's unencrypted portion is covered
 // by no checksum, so keying the cache on what it claims would let a captured AP_REQ be replayed indefinitely by
-// rewriting the claim — see service.VerifyAPREQ, which resolves this before calling.
+// rewriting the claim; see service.VerifyAPREQ, which resolves this before calling.
 func (c *Cache) IsReplay(sname types.PrincipalName, srealm string, a types.Authenticator) bool {
 	k := newReplayKey(sname, srealm, a)
 

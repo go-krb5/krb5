@@ -147,7 +147,13 @@ func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (t
 				return types.EncryptionKey{}, 0, fmt.Errorf("could not get PAData from KRBError to generate key from password: %w", err)
 			}
 
-			key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), krberr.CName, krberr.CRealm, etype.GetETypeID(), pas)
+			// RFC 4120 Section 3.1: "the contents of the KRB_ERROR message are not integrity-protected", so the
+			// principal and realm the error names are the attacker's choice wherever it can be substituted. Only
+			// the explicit salt in the pre-authentication data is taken from it; the default salt comes from the
+			// identity this client is authenticating as, so an attacker cannot pick the salt the password is
+			// stretched with.
+			key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cl.Credentials.CName(),
+				cl.Credentials.Domain(), etype.GetETypeID(), pas)
 
 			return key, 0, err
 		}
