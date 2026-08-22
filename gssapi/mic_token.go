@@ -172,6 +172,13 @@ func (mt *MICToken) Unmarshal(b []byte, expectFromAcceptor bool) error {
 		return errors.New("unexpected acceptor flag is not set: expecting a token from the acceptor, not in the initiator")
 	}
 
+	// RFC 4121 Section 4.2.2 says of the Sealed flag that it "SHALL NOT be set in MIC tokens". WrapToken.Unmarshal
+	// refuses the same flag, and the flags byte reaches the checksum computation from here, so the two types read
+	// this field as strictly as each other.
+	if flags&MICTokenFlagSealed != 0 {
+		return errors.New("MIC token has the sealed flag set: RFC 4121 Section 4.2.2 requires it not be set in a MIC token")
+	}
+
 	if !bytes.Equal(b[3:8], fillerBytes()[:]) {
 		return fmt.Errorf("unexpected filler bytes: expecting %s, was %s",
 			hex.EncodeToString(fillerBytes()[:]),

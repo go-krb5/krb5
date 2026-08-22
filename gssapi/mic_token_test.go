@@ -191,3 +191,17 @@ func TestNewInitiatorMICTokenSignatureAndMarshalling(t *testing.T) {
 	assert.Nil(t, tErr)
 	assert.Equal(t, getMICResponseReference(), token)
 }
+
+func TestMICTokenUnmarshalShouldRefuseTheSealedFlag(t *testing.T) {
+	t.Parallel()
+
+	challenge, err := hex.DecodeString(testMICChallengeFromAcceptor)
+	require.NoError(t, err)
+
+	challenge[2] |= MICTokenFlagSealed
+
+	var mt MICToken
+
+	assert.Error(t, mt.Unmarshal(challenge, true), "a MIC token carrying the Sealed flag must be refused")
+	assert.Nil(t, mt.Checksum, "nothing may be read out of a token that was refused")
+}
