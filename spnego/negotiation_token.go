@@ -444,7 +444,7 @@ func NewNegTokenInitKRB5(cl *client.Client, tkt messages.Ticket, sessionKey type
 
 	// The token is kept as well as its bytes: an initiator that asked for mutual authentication has
 	// to remember the ctime and cusec it sent in order to check the reply against them, and they are
-	// inside the AP-REQ's encrypted authenticator — readable here, where it was just built, and
+	// inside the AP-REQ's encrypted authenticator; readable here, where it was just built, and
 	// nowhere afterwards without decrypting it again.
 	return NegTokenInit{
 		MechTypes:      initiatorMechTypes(),

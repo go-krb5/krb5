@@ -23,16 +23,6 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
-// Mutual authentication, both halves.
-//
-// The acceptor's proof is that it could decrypt the ticket: an AP-REP encrypted under the session
-// key, echoing the initiator's own ctime and cusec. So every test here turns on which key encrypts
-// and which time is echoed, and the negative cases are the two ways a reply can be wrong — it came
-// from something that did not hold the service key, or it answers a different exchange.
-//
-// The session key is set on the token directly rather than by accepting a real AP-REQ: what these
-// exercise is what is done WITH a decrypted ticket, and acceptance is covered on its own elsewhere.
-
 // mutualSessionKey is the key an exchange's ticket carries. Fixed rather than random so a failure
 // names a behaviour instead of a seed.
 func mutualSessionKey(fill byte) types.EncryptionKey {
@@ -47,8 +37,8 @@ func mutualSessionKey(fill byte) types.EncryptionKey {
 // verifiedAPREQ is a KRB5Token in the state acceptance leaves it in: the ticket decrypted, so its
 // session key is readable, and the authenticator in the clear.
 //
-// The ctime deliberately carries nanoseconds. They never reach the wire — ctime travels as a
-// GeneralizedTime and is truncated to the second, with the sub-second part carried by cusec — and
+// The ctime deliberately carries nanoseconds. They never reach the wire; ctime travels as a
+// GeneralizedTime and is truncated to the second, with the sub-second part carried by cusec; and
 // a comparison that forgets this rejects every reply it should accept.
 func verifiedAPREQ(t *testing.T, key types.EncryptionKey) (*KRB5Token, types.Authenticator) {
 	t.Helper()
@@ -78,7 +68,7 @@ func verifiedAPREQ(t *testing.T, key types.EncryptionKey) (*KRB5Token, types.Aut
 }
 
 // initiator is an SPNEGO context in the state InitSecContext leaves it in, reached through the same
-// call InitSecContext makes rather than by assigning the fields here — a test that set them itself
+// call InitSecContext makes rather than by assigning the fields here; a test that set them itself
 // would be checking its own assignment.
 //
 // The KRB5Token carries the authenticator, so wrapping it in a NegTokenInit is all the capture
@@ -91,7 +81,7 @@ func initiator(key types.EncryptionKey, mt *KRB5Token) *SPNEGO {
 }
 
 // initiatorOf is the same, for the cases that need the remembered values to DIFFER from what was
-// sent — a reply to another exchange.
+// sent; a reply to another exchange.
 func initiatorOf(key types.EncryptionKey, auth types.Authenticator) *SPNEGO {
 	mt := &KRB5Token{}
 	mt.APReq.Authenticator = auth
@@ -118,7 +108,7 @@ func TestAPRepTokenAnswersAVerifiedAPREQ(t *testing.T) {
 	assert.Equal(t, key.KeyType, rep.APRep.EncPart.EType)
 
 	// The whole claim, checked directly: it decrypts under the session key, and it echoes what the
-	// initiator sent — at the precision the protocol carries.
+	// initiator sent; at the precision the protocol carries.
 	plain, err := crypto.DecryptEncPart(rep.APRep.EncPart, key, keyusage.AP_REP_ENCPART)
 	require.NoError(t, err)
 
@@ -249,7 +239,7 @@ func TestMutualRoundTrip(t *testing.T) {
 }
 
 // TestVerifyMutualRefusesAReplyToAnotherExchange: an AP-REP captured from an earlier exchange with
-// the SAME service decrypts perfectly — the session key is the only thing that changed hands — so
+// the SAME service decrypts perfectly; the session key is the only thing that changed hand; so
 // the echoed time is what tells the two apart.
 func TestVerifyMutualRefusesAReplyToAnotherExchange(t *testing.T) {
 	t.Parallel()
@@ -324,7 +314,7 @@ func TestVerifyMutualRefusesWithoutAnInitiatedContext(t *testing.T) {
 }
 
 // TestMutualRequested: the flag is optional and NewNegTokenInitKRB5 does not set it, so an absent
-// ReqFlags is answered anyway — the reply costs one encryption, an initiator that does not check it
+// ReqFlags is answered anyway; the reply costs one encryption, an initiator that does not check it
 // is unaffected, and for an authentication feature the conservative direction proves more.
 func TestMutualRequested(t *testing.T) {
 	t.Parallel()
@@ -483,8 +473,8 @@ func TestAPRepTokenRefusesAnUnsupportedEnctype(t *testing.T) {
 }
 
 // TestVerifyMutualRefusesAReplyThatDecryptsToRubbish is the boundary between "decrypts" and "means
-// something". A peer holding the session key can still send the wrong payload — through a bug, or
-// deliberately, to see what the verifier does with it — and the answer must be a refusal rather
+// something". A peer holding the session key can still send the wrong payload; through a bug, or
+// deliberately, to see what the verifier does with it; and the answer must be a refusal rather
 // than whatever a half-parsed EncAPRepPart happens to contain.
 func TestVerifyMutualRefusesAReplyThatDecryptsToRubbish(t *testing.T) {
 	t.Parallel()

@@ -14,19 +14,6 @@ import (
 	"github.com/go-krb5/krb5/messages"
 )
 
-// The acceptor's half of mutual authentication, and the initiator's check of it.
-//
-// An initiator that set GSS_C_MUTUAL_FLAG has proved who it is and is waiting to be told who it is
-// talking to. Without a reply it has authenticated ITSELF to a peer it has not authenticated, which
-// is the case mutual authentication exists to rule out — and it cannot tell that from a peer that
-// simply does not implement answering, so it either fails closed and can talk to nobody, or fails
-// open and gets nothing.
-//
-// The proof is that the acceptor could decrypt the ticket: the AP-REP echoes the initiator's own
-// ctime and cusec back, encrypted under the session key that only the ticket held. Nothing here is
-// secret from the initiator — it already knows both values. What it does not know is that anyone
-// else could produce them.
-
 // APRepToken builds the AP-REP GSSAPI mech token that answers a verified AP-REQ.
 //
 // It must be called on a token whose Verify has succeeded: the session key it encrypts under comes
@@ -42,9 +29,9 @@ func (m *KRB5Token) APRepToken() ([]byte, error) {
 		return nil, errors.New("spnego: the ticket carries no session key; verify the AP-REQ before answering it")
 	}
 
-	// SequenceNumber is echoed only when the initiator sent one. A zero there is not "sequence zero"
-	// — the field is OPTIONAL and the authenticator simply had none — and sending one back that the
-	// initiator never chose is a value it cannot check.
+	// SequenceNumber is echoed only when the initiator sent one. A zero there is not "sequence zero"; the field is
+	// OPTIONAL and the authenticator simply had none; and sending one back that the initiator never chose is a value
+	// it cannot check.
 	enc := messages.EncAPRepPart{
 		CTime: m.APReq.Authenticator.CTime,
 		Cusec: m.APReq.Authenticator.Cusec,
@@ -78,7 +65,7 @@ func (m *KRB5Token) APRepToken() ([]byte, error) {
 //
 // It is a separate call rather than a fourth return value from AcceptSecContext so that an acceptor
 // which does not do mutual authentication is unaffected, and so that a caller that does can decide
-// per request — an HTTP acceptor puts this in WWW-Authenticate, a gRPC one in a response header.
+// per request; an HTTP acceptor puts this in WWW-Authenticate, a gRPC one in a response header.
 func (s *SPNEGOToken) ResponseToken() ([]byte, error) {
 	if !s.Init {
 		return nil, errors.New("spnego: only an initiator's token is answered")
@@ -105,11 +92,10 @@ func (s *SPNEGOToken) ResponseToken() ([]byte, error) {
 
 // mutualRequested reports whether the initiator asked to be told who it is talking to.
 //
-// The flag lives in the NegTokenInit's ReqFlags, which is optional and frequently absent —
-// NewNegTokenInitKRB5 does not set it at all. A client that omits it has expressed no preference,
-// and answering anyway costs one encryption while giving a client that DOES check something to
-// check. So an absent ReqFlags is treated as "answer it": for an authentication feature the
-// conservative direction is the one that proves more, not less.
+// The flag lives in the NegTokenInit's ReqFlags, which is optional and frequently absent; NewNegTokenInitKRB5 does not
+// set it at all. A client that omits it has expressed no preference, and answering anyway costs one encryption while
+// giving a client that DOES check something to check. So an absent ReqFlags is treated as "answer it": for an
+// authentication feature the conservative direction is the one that proves more, not less.
 func mutualRequested(n NegTokenInit) bool {
 	if len(n.ReqFlags.Bytes) == 0 {
 		return true
@@ -123,7 +109,7 @@ const gssapiMutualFlagBit = 1
 
 // VerifyMutual checks the acceptor's reply and reports whether it proves the peer holds the service
 // key. It is the initiator's half of what APRepToken produces, and it closes this package's own
-// standing gap — KRB5Token.Verify still answers "verifying an AP_REP is not currently supported"
+// standing gap; KRB5Token.Verify still answers "verifying an AP_REP is not currently supported"
 // for the generic case, which is the path a caller reaches without the session key this one kept.
 //
 // The proof is decryption: the AP-REP is encrypted under the ticket's session key, and only a peer

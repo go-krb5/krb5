@@ -283,10 +283,7 @@ func (s *SPNEGOToken) Context() context.Context {
 // assigned these fields by hand would be checking its own assignment rather than this one.
 func (s *SPNEGO) rememberExchange(key types.EncryptionKey, n NegTokenInit) {
 	s.sessionKey = key
-
-	// A NegTokenInit built any other way carries only the marshalled bytes, and the ctime inside
-	// them is encrypted. Nothing is remembered then, and VerifyMutual says so rather than comparing
-	// against a zero time that anything could echo.
+	
 	if mt, ok := n.mechToken.(*KRB5Token); ok {
 		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
 	}
