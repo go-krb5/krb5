@@ -137,3 +137,10 @@ change will be elaborated on in time):
   Section 3.7, is now built and verified with usage 11 where it previously used 7 in both directions. That agrees
   with MIT and with the specification, but a peer running an older version of this library on the other side of a
   user-to-user exchange will not interoperate with it.
+- `config.Load`, `config.NewFromString`, `config.NewFromReader` and `config.NewFromScanner` return an error when the
+  scanner stops before the end of the input, where they previously returned the part of the configuration that had
+  been read. `bufio.Scanner` halts at the first line longer than `bufio.MaxScanTokenSize`, 64 KiB, and at any read
+  error, reporting either only through `Err()`, which was never called. A configuration whose tail was dropped came
+  back indistinguishable from a complete one, so directives as consequential as `permitted_enctypes` could be
+  missing with nothing to say so. A caller that was unknowingly relying on a truncated read now sees the error
+  instead of the defaults.

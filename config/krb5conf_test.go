@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bufio"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -761,4 +763,16 @@ func TestParseValuesContainingAnEqualsSign(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "FILE:/etc/krb5.keytab?a=b", c.LibDefaults.DefaultKeytabName)
+}
+
+func TestNewFromStringShouldReportALineTooLongForTheScanner(t *testing.T) {
+	t.Parallel()
+
+	s := "[libdefaults]\n  default_realm = " + strings.Repeat("A", bufio.MaxScanTokenSize+1) + "\n  forwardable = true\n"
+
+	c, err := NewFromString(s)
+
+	require.Error(t, err, "a configuration read only in part must not be returned as if it were whole")
+	assert.ErrorIs(t, err, bufio.ErrTooLong)
+	assert.Nil(t, c)
 }
