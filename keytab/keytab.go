@@ -277,7 +277,7 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 			}
 
 			if n+int(l) > len(b) {
-				return fmt.Errorf("%s's length is less than %d", b, n+int(l))
+				return fmt.Errorf("keytab is %d bytes, cannot read an entry of %d at offset %d", len(b), l, n)
 			}
 
 			eb := b[n : n+int(l)]
@@ -532,7 +532,7 @@ func readInt8(b []byte, p *int, e *binary.ByteOrder) (i int8, err error) {
 	}
 
 	if (*p + 1) > len(b) {
-		return 0, fmt.Errorf("%s's length is less than %d", b, *p+1)
+		return 0, fmt.Errorf("keytab is %d bytes, cannot read %d at offset %d", len(b), 1, *p)
 	}
 
 	buf := bytes.NewBuffer(b[*p : *p+1])
@@ -553,7 +553,7 @@ func readInt16(b []byte, p *int, e *binary.ByteOrder) (i int16, err error) {
 	}
 
 	if (*p + 2) > len(b) {
-		return 0, fmt.Errorf("%s's length is less than %d", b, *p+2)
+		return 0, fmt.Errorf("keytab is %d bytes, cannot read %d at offset %d", len(b), 2, *p)
 	}
 
 	buf := bytes.NewBuffer(b[*p : *p+2])
@@ -574,7 +574,7 @@ func readInt32(b []byte, p *int, e *binary.ByteOrder) (i int32, err error) {
 	}
 
 	if (*p + 4) > len(b) {
-		return 0, fmt.Errorf("%s's length is less than %d", b, *p+4)
+		return 0, fmt.Errorf("keytab is %d bytes, cannot read %d at offset %d", len(b), 4, *p)
 	}
 
 	buf := bytes.NewBuffer(b[*p : *p+4])
@@ -596,7 +596,7 @@ func readBytes(b []byte, p *int, s int, e *binary.ByteOrder) ([]byte, error) {
 	i := *p + s
 
 	if i > len(b) {
-		return nil, fmt.Errorf("%s's length is greater than %d", b, i)
+		return nil, fmt.Errorf("keytab is %d bytes, cannot read %d at offset %d", len(b), s, *p)
 	}
 
 	buf := bytes.NewBuffer(b[*p:i])

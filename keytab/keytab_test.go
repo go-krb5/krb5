@@ -127,7 +127,7 @@ func TestReadBytes(t *testing.T) {
 	var err error
 
 	_, err = readBytes(nil, &p, 1, &endian)
-	assert.EqualError(t, err, "'s length is greater than 1")
+	assert.EqualError(t, err, "keytab is 0 bytes, cannot read 1 at offset 0")
 
 	_, err = readBytes(nil, &p, -1, &endian)
 	assert.EqualError(t, err, "-1 cannot be less than zero")
@@ -262,4 +262,64 @@ func TestKeytab_GetEncryptionKeyWithIdenticalTimestamps(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 3, kvno)
+}
+
+func TestUnmarshalErrorsShouldNotContainKeyMaterial(t *testing.T) {
+	t.Parallel()
+
+	kt := New()
+	require.NoError(t, kt.AddEntry("HTTP/host.test.gokrb5", "TEST.GOKRB5", "passwordvalue",
+		time.Now().UTC(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
+
+	b, err := kt.Marshal()
+	require.NoError(t, err)
+
+	key := kt.Entries[0].Key.KeyValue
+	require.Len(t, key, 32)
+
+	var errs int
+
+	for n := 1; n < len(b); n++ {
+		var got Keytab
+
+		err := got.Unmarshal(b[:n])
+		if err == nil {
+			continue
+		}
+
+		errs++
+
+		assert.NotContains(t, err.Error(), string(key[:8]),
+			"the error from a keytab truncated to %d bytes carries the entry's key", n)
+	}
+
+	require.Positive(t, errs, "the truncated keytabs must produce errors for this to be testing anything")
+}
+
+func TestReaderErrorsShouldNotContainTheBuffer(t *testing.T) {
+	t.Parallel()
+
+	var endian binary.ByteOrder = binary.BigEndian
+
+	const secret = "SUPER-SECRET-KEY-MATERIAL"
+
+	b := []byte(secret)
+
+	for name, read := range map[string]func(p *int) error{
+		"readInt8":  func(p *int) error { _, err := readInt8(b, p, &endian); return err },
+		"readInt16": func(p *int) error { _, err := readInt16(b, p, &endian); return err },
+		"readInt32": func(p *int) error { _, err := readInt32(b, p, &endian); return err },
+		"readBytes": func(p *int) error { _, err := readBytes(b, p, len(b), &endian); return err },
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			p := len(b)
+
+			err := read(&p)
+
+			require.Error(t, err)
+			assert.NotContains(t, err.Error(), secret, "the error carries the buffer it was reading")
+		})
+	}
 }
