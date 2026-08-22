@@ -1090,3 +1090,93 @@ func resealEncTicketPart(t *testing.T, etp messages.EncTicketPart, kt *keytab.Ke
 
 	return ed
 }
+
+// TestVerifyAPREQ_ReplayWithRewrittenTicketSName covers the replay cache being keyed on the ticket's plaintext
+// service name. That field sits outside the KDC-sealed EncTicketPart and is covered by no checksum, and when
+// KeytabPrincipal overrides the keytab lookup it is used for nothing else, so rewriting it must not change whether
+// an authenticator is recognised as one that has already been presented.
+//
+// RFC 4120 Section 3.2.3 requires as much: "If a server loses track of authenticators presented within the allowable
+// clock skew, it MUST reject all requests until the clock skew interval has passed".
+func TestVerifyAPREQ_ReplayWithRewrittenTicketSName(t *testing.T) {
+	sname := types.PrincipalName{
+		NameType:   nametype.KRB_NT_PRINCIPAL,
+		NameString: []string{"HTTP", "host.test.gokrb5"},
+	}
+
+	b, err := hex.DecodeString(testdata.HTTP_KEYTAB)
+	require.NoError(t, err)
+
+	kt := keytab.New()
+	require.NoError(t, kt.Unmarshal(b))
+
+	// A client name of this test's own, so that the process wide replay cache singleton cannot be perturbed by
+	// another test presenting an authenticator for the same principal.
+	cname := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "replayrewriteuser")
+
+	st := time.Now().UTC()
+
+	tkt, sessionKey, err := messages.NewTicket(cname, "TEST.GOKRB5",
+		sname, "TEST.GOKRB5",
+		types.NewKrbFlags(),
+		kt,
+		18,
+		1,
+		st,
+		st,
+		st.Add(time.Duration(24)*time.Hour),
+		st.Add(time.Duration(48)*time.Hour),
+	)
+	require.NoError(t, err)
+
+	auth, err := types.NewAuthenticator("TEST.GOKRB5", cname)
+	require.NoError(t, err)
+
+	apReq, err := messages.NewAPReq(tkt, sessionKey, auth)
+	require.NoError(t, err)
+
+	// Captured off the wire before anything decrypts it, which is what an attacker replays.
+	wire, err := apReq.Marshal()
+	require.NoError(t, err)
+
+	h, _ := types.GetHostAddress("127.0.0.1:1234")
+	s := NewSettings(kt, ClientAddress(h), KeytabPrincipal("HTTP/host.test.gokrb5"))
+
+	verify := func(t *testing.T, b []byte) (bool, error) {
+		t.Helper()
+
+		var a messages.APReq
+		require.NoError(t, a.Unmarshal(b))
+
+		ok, _, err := VerifyAPREQ(&a, s)
+
+		return ok, err
+	}
+
+	ok, err := verify(t, wire)
+	require.NoError(t, err)
+	require.True(t, ok, "the first presentation is not a replay")
+
+	ok, err = verify(t, wire)
+	require.False(t, ok)
+	require.EqualError(t, err, "KRB Error: (34) KRB_AP_ERR_REPEAT Request is a replay - replay detected")
+
+	// The same AP_REQ with the ticket's plaintext service name rewritten. The override means the keytab lookup
+	// never consults it, so the ticket still decrypts and the authenticator is still the one already presented.
+	var tampered messages.APReq
+	require.NoError(t, tampered.Unmarshal(wire))
+
+	tampered.Ticket.SName = types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/anything-at-all")
+
+	tamperedWire, err := tampered.Marshal()
+	require.NoError(t, err)
+
+	ok, err = verify(t, tamperedWire)
+	assert.False(t, ok, "rewriting the ticket's unauthenticated SName must not defeat replay detection")
+	assert.EqualError(t, err, "KRB Error: (34) KRB_AP_ERR_REPEAT Request is a replay - replay detected")
+
+	// And the original must still be recognised: answering the rewritten one must not have displaced its entry.
+	ok, err = verify(t, wire)
+	assert.False(t, ok, "the entry for the original presentation must survive a presentation under another name")
+	assert.EqualError(t, err, "KRB Error: (34) KRB_AP_ERR_REPEAT Request is a replay - replay detected")
+}

@@ -39,8 +39,10 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 	}
 
 	// Check for replay.
+	sname, srealm := replayCacheService(&APReq.Ticket, s)
+
 	rc := GetReplayCache(s.MaxClockSkew())
-	if rc.IsReplay(APReq.Ticket.SName, APReq.Authenticator) {
+	if rc.IsReplay(sname, srealm, APReq.Authenticator) {
 		return false, creds,
 			messages.NewKRBError(APReq.Ticket.SName, APReq.Ticket.Realm, errorcode.KRB_AP_ERR_REPEAT, "replay detected")
 	}
@@ -81,6 +83,26 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 	}
 
 	return true, creds, nil
+}
+
+// replayCacheService returns the service principal a presentation is recorded against, which RFC 4120 Section 3.2.3
+// stores "along with the client name, time, and microsecond fields from the recently-seen authenticators".
+//
+// It is the principal whose key actually decrypted the ticket, which is not always the one the ticket names.
+// Ticket.SName sits outside the KDC-sealed EncTicketPart and is covered by no checksum, and where KeytabPrincipal
+// overrides the keytab lookup it is consulted for nothing else at all. Keying the replay cache on it there would let
+// a captured AP_REQ be replayed indefinitely by rewriting it, each rewrite both missing the entry that should have
+// caught it and displacing that entry for the next attempt.
+//
+// Without the override the two are the same value: DecryptEncPart resolved the key by that name and realm, so a
+// ticket naming anything else would not have decrypted. The realm is taken from the ticket in both cases for the
+// same reason, since it selects the key whether or not the name is overridden.
+func replayCacheService(tkt *messages.Ticket, s *Settings) (sname types.PrincipalName, srealm string) {
+	if kp := s.KeytabPrincipal(); kp != nil {
+		return *kp, tkt.Realm
+	}
+
+	return tkt.SName, tkt.Realm
 }
 
 // ErrBadChannelBinding identifies a channel binding verification failure. RFC 2743 Section 2.2.2 gives this failure

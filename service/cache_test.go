@@ -20,9 +20,9 @@ func TestIsReplayAcceptsOnceAndRejectsAfter(t *testing.T) {
 	sname := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
 	a := testAuthenticator("testuser", "TEST.GOKRB5", time.Now().UTC())
 
-	assert.False(t, c.IsReplay(sname, a), "the first presentation is not a replay")
-	assert.True(t, c.IsReplay(sname, a), "the second presentation of the same authenticator is a replay")
-	assert.True(t, c.IsReplay(sname, a), "and so is the third")
+	assert.False(t, c.IsReplay(sname, testSRealm, a), "the first presentation is not a replay")
+	assert.True(t, c.IsReplay(sname, testSRealm, a), "the second presentation of the same authenticator is a replay")
+	assert.True(t, c.IsReplay(sname, testSRealm, a), "and so is the third")
 }
 
 func TestIsReplayIsAtomicUnderConcurrency(t *testing.T) {
@@ -56,7 +56,7 @@ func TestIsReplayIsAtomicUnderConcurrency(t *testing.T) {
 
 				<-release
 
-				if !c.IsReplay(sname, a) {
+				if !c.IsReplay(sname, testSRealm, a) {
 					mu.Lock()
 					fresh++
 					mu.Unlock()
@@ -81,12 +81,12 @@ func TestIsReplayDistinguishesClientRealms(t *testing.T) {
 	sname := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
 	ct := time.Now().UTC()
 
-	assert.False(t, c.IsReplay(sname, testAuthenticator("collide", "REALM-A.GOKRB5", ct)))
-	assert.False(t, c.IsReplay(sname, testAuthenticator("collide", "REALM-B.GOKRB5", ct)),
+	assert.False(t, c.IsReplay(sname, testSRealm, testAuthenticator("collide", "REALM-A.GOKRB5", ct)))
+	assert.False(t, c.IsReplay(sname, testSRealm, testAuthenticator("collide", "REALM-B.GOKRB5", ct)),
 		"a different realm is a different principal, not a replay")
 
-	assert.True(t, c.IsReplay(sname, testAuthenticator("collide", "REALM-A.GOKRB5", ct)))
-	assert.True(t, c.IsReplay(sname, testAuthenticator("collide", "REALM-B.GOKRB5", ct)))
+	assert.True(t, c.IsReplay(sname, testSRealm, testAuthenticator("collide", "REALM-A.GOKRB5", ct)))
+	assert.True(t, c.IsReplay(sname, testSRealm, testAuthenticator("collide", "REALM-B.GOKRB5", ct)))
 }
 
 func TestIsReplayDistinguishesServices(t *testing.T) {
@@ -95,8 +95,8 @@ func TestIsReplayDistinguishesServices(t *testing.T) {
 	c := newTestCache()
 	a := testAuthenticator("testuser", "TEST.GOKRB5", time.Now().UTC())
 
-	assert.False(t, c.IsReplay(types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/one.test.gokrb5"), a))
-	assert.False(t, c.IsReplay(types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/two.test.gokrb5"), a))
+	assert.False(t, c.IsReplay(types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/one.test.gokrb5"), testSRealm, a))
+	assert.False(t, c.IsReplay(types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/two.test.gokrb5"), testSRealm, a))
 }
 
 func TestClearOldEntriesRemovesExpiredAndKeepsCurrent(t *testing.T) {
@@ -106,7 +106,7 @@ func TestClearOldEntriesRemovesExpiredAndKeepsCurrent(t *testing.T) {
 	sname := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
 
 	old := testAuthenticator("olduser", "TEST.GOKRB5", time.Now().UTC())
-	require.False(t, c.IsReplay(sname, old))
+	require.False(t, c.IsReplay(sname, testSRealm, old))
 
 	c.mux.Lock()
 	for k, ce := range c.entries {
@@ -120,12 +120,12 @@ func TestClearOldEntriesRemovesExpiredAndKeepsCurrent(t *testing.T) {
 	c.mux.Unlock()
 
 	current := testAuthenticator("currentuser", "TEST.GOKRB5", time.Now().UTC())
-	require.False(t, c.IsReplay(sname, current))
+	require.False(t, c.IsReplay(sname, testSRealm, current))
 
 	c.ClearOldEntries(time.Minute)
 
-	assert.False(t, c.IsReplay(sname, old), "the expired entry should have been cleared")
-	assert.True(t, c.IsReplay(sname, current), "the current entry should have been kept")
+	assert.False(t, c.IsReplay(sname, testSRealm, old), "the expired entry should have been cleared")
+	assert.True(t, c.IsReplay(sname, testSRealm, current), "the current entry should have been kept")
 }
 
 func TestIsReplayIsRaceFree(t *testing.T) {
@@ -145,7 +145,7 @@ func TestIsReplayIsRaceFree(t *testing.T) {
 			for j := range 32 {
 				a := testAuthenticator(fmt.Sprintf("user%d", i), "TEST.GOKRB5",
 					time.Now().UTC().Add(time.Duration(j)*time.Millisecond))
-				c.IsReplay(sname, a)
+				c.IsReplay(sname, testSRealm, a)
 			}
 		}(i)
 	}
@@ -160,6 +160,41 @@ func TestClientKeyDoesNotCollideAcrossNameAndRealm(t *testing.T) {
 
 	assert.NotEqual(t, a, b, "a name containing the separator must not collide with a name plus realm")
 }
+
+func TestIsReplayKeepsAnEntryWhenAnotherServiceIsPresented(t *testing.T) {
+	t.Parallel()
+
+	c := newTestCache()
+	a := testAuthenticator("evicteduser", "TEST.GOKRB5", time.Now().UTC())
+
+	one := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/one.test.gokrb5")
+	two := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/two.test.gokrb5")
+
+	require.False(t, c.IsReplay(one, testSRealm, a), "the first presentation is not a replay")
+	require.False(t, c.IsReplay(two, testSRealm, a), "a different service is a different presentation, not a replay")
+
+	assert.True(t, c.IsReplay(one, testSRealm, a), "the entry for the first service must survive the second being recorded")
+	assert.True(t, c.IsReplay(two, testSRealm, a))
+}
+
+func TestIsReplayDistinguishesServiceRealms(t *testing.T) {
+	t.Parallel()
+
+	c := newTestCache()
+	sname := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
+	a := testAuthenticator("crossrealmuser", "TEST.GOKRB5", time.Now().UTC())
+
+	// RFC 4120 Section 3.2.3: a server may be "registered in multiple realms, with different keys in each", so the
+	// same name in two realms is two service principals, not one.
+	require.False(t, c.IsReplay(sname, "REALM-A.GOKRB5", a))
+	assert.False(t, c.IsReplay(sname, "REALM-B.GOKRB5", a),
+		"the same service name in another realm is another principal, not a replay")
+
+	assert.True(t, c.IsReplay(sname, "REALM-A.GOKRB5", a))
+	assert.True(t, c.IsReplay(sname, "REALM-B.GOKRB5", a))
+}
+
+const testSRealm = "TEST.GOKRB5"
 
 func newTestCache() *Cache {
 	return &Cache{entries: make(map[string]clientEntries)}

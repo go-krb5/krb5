@@ -98,3 +98,20 @@ change will be elaborated on in time):
   that its forwarded ticket was discarded, so accepting the request while dropping the credential would leave the
   initiator believing a delegation happened that did not. Services that must keep authenticating such clients need
   those clients fixed or the encryption type registered with `crypto.AddEType`.
+- `service.Cache.IsReplay` and `service.Cache.AddEntry` take the service principal's realm as a new second argument,
+  `IsReplay(sname types.PrincipalName, srealm string, a types.Authenticator)`, and the replay cache is now keyed on
+  the whole tuple RFC 4120 §3.2.3 describes: the client name and realm, the service name and realm, and the
+  authenticator's `ctime` and `cusec`. Previously an entry was keyed on the client and the time alone, with the
+  service name held as its value and compared on lookup, so a presentation under a second service name both failed
+  to match the stored entry and *replaced* it — which §3.2.3 forbids: "If a server loses track of authenticators
+  presented within the allowable clock skew, it MUST reject all requests until the clock skew interval has passed."
+  Callers of these two methods must add the argument; there is no compatibility shim, because silently keying on an
+  empty realm would reintroduce the collision between a service principal registered in more than one realm.
+
+  `service.VerifyAPREQ` additionally now records a presentation against the service principal whose key **decrypted**
+  the ticket rather than against the `SName` the ticket carries in its unencrypted portion. Where
+  `service.KeytabPrincipal` overrides the keytab lookup those differ, and the ticket's copy is covered by no
+  checksum, so a captured AP-REQ could be replayed indefinitely by rewriting it: each rewrite missed the entry that
+  should have caught it and displaced that entry for the next attempt. Deployments using `KeytabPrincipal` had no
+  working replay protection at all. No configuration change is needed to pick the fix up, and without the override
+  the two values are identical, so nothing changes for acceptors that do not set it.
