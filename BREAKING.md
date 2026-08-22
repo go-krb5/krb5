@@ -103,7 +103,7 @@ change will be elaborated on in time):
   the whole tuple RFC 4120 §3.2.3 describes: the client name and realm, the service name and realm, and the
   authenticator's `ctime` and `cusec`. Previously an entry was keyed on the client and the time alone, with the
   service name held as its value and compared on lookup, so a presentation under a second service name both failed
-  to match the stored entry and *replaced* it — which §3.2.3 forbids: "If a server loses track of authenticators
+  to match the stored entry and *replaced* it; which §3.2.3 forbids: "If a server loses track of authenticators
   presented within the allowable clock skew, it MUST reject all requests until the clock skew interval has passed."
   Callers of these two methods must add the argument; there is no compatibility shim, because silently keying on an
   empty realm would reintroduce the collision between a service principal registered in more than one realm.
