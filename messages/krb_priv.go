@@ -16,6 +16,16 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
+// marshalKRBPriv is the wire form of a KRBPriv: the fields RFC 4120 Section 5.7.1 defines, and nothing else. See
+// marshalTicket in ticket.go for why the decrypted part cannot be a tagged field of the type callers hold.
+type marshalKRBPriv struct {
+	PVNO int `asn1:"explicit,tag:0"`
+
+	MsgType int `asn1:"explicit,tag:1"`
+
+	EncPart types.EncryptedData `asn1:"explicit,tag:3"`
+}
+
 // KRBPriv implements RFC 4120 type: https://tools.ietf.org/html/rfc4120#section-5.7.1.
 type KRBPriv struct {
 	PVNO int `asn1:"explicit,tag:0"`
@@ -24,8 +34,7 @@ type KRBPriv struct {
 
 	EncPart types.EncryptedData `asn1:"explicit,tag:3"`
 
-	// Not part of ASN1 bytes so marked as optional so unmarshalling works.
-	DecryptedEncPart EncKrbPrivPart `asn1:"optional,omitempty"`
+	DecryptedEncPart EncKrbPrivPart
 }
 
 // EncKrbPrivPart is the encrypted part of KRB_PRIV.
@@ -49,10 +58,14 @@ func NewKRBPriv(part EncKrbPrivPart) KRBPriv {
 
 // Unmarshal bytes b into the KRBPriv struct.
 func (k *KRBPriv) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, k, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.KRBPriv))
+	var m marshalKRBPriv
+
+	_, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%v", asn1apptag.KRBPriv))
 	if err != nil {
 		return processUnmarshalReplyError(b, err)
 	}
+
+	*k = KRBPriv{PVNO: m.PVNO, MsgType: m.MsgType, EncPart: m.EncPart}
 
 	expectedMsgType := msgtype.KRB_PRIV
 	if k.MsgType != expectedMsgType {
@@ -74,7 +87,7 @@ func (k *EncKrbPrivPart) Unmarshal(b []byte) error {
 
 // Marshal the KRBPriv.
 func (k *KRBPriv) Marshal() ([]byte, error) {
-	tk := KRBPriv{
+	tk := marshalKRBPriv{
 		PVNO:    k.PVNO,
 		MsgType: k.MsgType,
 		EncPart: k.EncPart,

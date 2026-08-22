@@ -25,6 +25,23 @@ import (
 // Reference: https://www.ietf.org/rfc/rfc4120.txt
 // Section: 5.3.
 
+// marshalTicket is the wire form of a Ticket: the four fields RFC 4120 Section 5.3 defines, and nothing else.
+//
+// Ticket itself carries DecryptedEncPart for the convenience of callers, and that field must take no part in the
+// encoding in either direction. Marshalling it appends the plaintext, session key and all, to a ticket about to go
+// on the wire; unmarshalling into it lets a peer append an element and have it read back as a decrypted part the
+// KDC never sealed. Tagging it optional does not keep it out of the SEQUENCE, it only makes it skippable, which is
+// why the separation has to be a distinct type. Every other message in this package has the same twin.
+type marshalTicket struct {
+	TktVNO int `asn1:"explicit,tag:0"`
+
+	Realm string `asn1:"general,explicit,tag:1"`
+
+	SName types.PrincipalName `asn1:"explicit,tag:2"`
+
+	EncPart types.EncryptedData `asn1:"explicit,tag:3"`
+}
+
 // Ticket implements the Kerberos ticket.
 type Ticket struct {
 	TktVNO int `asn1:"explicit,tag:0"`
@@ -35,8 +52,10 @@ type Ticket struct {
 
 	EncPart types.EncryptedData `asn1:"explicit,tag:3"`
 
-	// Not part of ASN1 bytes so marked as optional so unmarshalling works.
-	DecryptedEncPart EncTicketPart `asn1:"optional"`
+	// Filled in by Decrypt and DecryptEncPart, and deliberately untagged: this type is never handed to the asn1
+	// encoder, marshalTicket is. Note that no struct tag would exclude it if it were, this fork having no "-"
+	// param, which is what made the previous "optional" tag misleading rather than protective.
+	DecryptedEncPart EncTicketPart
 }
 
 // EncTicketPart is the encrypted part of the Ticket.
@@ -112,14 +131,34 @@ func NewTicket(cname types.PrincipalName, crealm string, sname types.PrincipalNa
 }
 
 // Unmarshal bytes b into a Ticket struct.
+//
+// The receiver is replaced rather than filled in, so that unmarshalling one ticket over another does not leave the
+// previous ticket's decrypted part behind for a caller to read as though it belonged to this one.
 func (t *Ticket) Unmarshal(b []byte) error {
-	_, err := asn1.UnmarshalWithParams(b, t, fmt.Sprintf("application,explicit,tag:%d", asn1apptag.Ticket))
-	return err
+	var m marshalTicket
+
+	if _, err := asn1.UnmarshalWithParams(b, &m, fmt.Sprintf("application,explicit,tag:%d", asn1apptag.Ticket)); err != nil {
+		return err
+	}
+
+	*t = Ticket{
+		TktVNO:  m.TktVNO,
+		Realm:   m.Realm,
+		SName:   m.SName,
+		EncPart: m.EncPart,
+	}
+
+	return nil
 }
 
 // Marshal the Ticket.
 func (t *Ticket) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*t, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1.Marshal(marshalTicket{
+		TktVNO:  t.TktVNO,
+		Realm:   t.Realm,
+		SName:   t.SName,
+		EncPart: t.EncPart,
+	}, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	if err != nil {
 		return nil, err
 	}
