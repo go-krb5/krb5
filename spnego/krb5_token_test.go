@@ -18,6 +18,7 @@ import (
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana/chksumtype"
+	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
@@ -726,4 +727,73 @@ func TestKRB5Token_UnmarshalRejectsAnUnrelatedMechanism(t *testing.T) {
 	var mt KRB5Token
 
 	assert.Error(t, mt.Unmarshal(krb5TokenWithOID(t, gssapi.OIDGSSIAKerb.OID())))
+}
+
+// krbErrorMechToken builds a Kerberos GSS-API mech token whose TOK_ID is TOK_ID_KRB_ERROR, which is what a peer
+// sends to report that it could not authenticate the exchange.
+func krbErrorMechToken(t *testing.T) []byte {
+	t.Helper()
+
+	kerr := messages.NewKRBError(
+		types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: []string{"HTTP", "host.test.gokrb5"}},
+		"TEST.GOKRB5", errorcode.KDC_ERR_PREAUTH_FAILED, "nothing to see here")
+
+	eb, err := kerr.Marshal()
+	require.NoError(t, err)
+
+	oid, err := asn1.Marshal(gssapi.OIDKRB5.OID(),
+		asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	tokID, err := hex.DecodeString(TOK_ID_KRB_ERROR)
+	require.NoError(t, err)
+
+	b := append(append(append([]byte{}, oid...), tokID...), eb...)
+
+	return asn1tools.AddASNAppTag(b, 0)
+}
+
+// A KRB_ERROR is the peer reporting that it could not authenticate the exchange. It is never an authentication, so
+// Verify must not report one: RFC 2743 Section 2.2.1 has an acceptor establish a context only on GSS_S_COMPLETE.
+func TestKRB5Token_VerifyShouldNotAuthenticateAKRBError(t *testing.T) {
+	t.Parallel()
+
+	var mt KRB5Token
+
+	require.NoError(t, mt.Unmarshal(krbErrorMechToken(t)))
+	require.True(t, mt.IsKRBError(), "the token under test must be a KRB_ERROR")
+
+	ok, status := mt.Verify()
+
+	assert.False(t, ok, "a KRB_ERROR reports that authentication failed, so it cannot authenticate anyone")
+	assert.Equal(t, gssapi.StatusUnavailable, status.Code,
+		"the status still distinguishes a KRB_ERROR from a defective token")
+}
+
+// The same thing through the exported GSS-API entry point an acceptor uses, which is where a caller branching on the
+// success indication rather than the status code would admit the request.
+func TestAcceptSecContextShouldNotAuthenticateAKRBError(t *testing.T) {
+	t.Parallel()
+
+	nt := NegTokenInit{
+		MechTypes:      []asn1.ObjectIdentifier{gssapi.OIDKRB5.OID()},
+		MechTokenBytes: krbErrorMechToken(t),
+	}
+
+	ntb, err := nt.Marshal()
+	require.NoError(t, err)
+
+	spOID, err := asn1.Marshal(gssapi.OIDSPNEGO.OID(),
+		asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	var st SPNEGOToken
+
+	require.NoError(t, st.Unmarshal(asn1tools.AddASNAppTag(append(spOID, ntb...), 0)))
+
+	authed, ctx, status := SPNEGOService(keytab.New()).AcceptSecContext(&st)
+
+	assert.False(t, authed, "a token carrying only a KRB_ERROR must not report an authenticated context")
+	assert.Nil(t, ctx, "and it establishes no context to carry an identity")
+	assert.NotEqual(t, gssapi.StatusComplete, status.Code)
 }

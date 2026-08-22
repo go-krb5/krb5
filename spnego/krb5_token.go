@@ -193,7 +193,11 @@ func (m *KRB5Token) Verify() (bool, gssapi.Status) {
 			return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "KRB5_Error token not valid"}
 		}
 
-		return true, gssapi.Status{Code: gssapi.StatusUnavailable}
+		// A KRB_ERROR is the peer reporting that it could not authenticate the exchange, so it never
+		// authenticates anyone and no context is established for it. RFC 2743 Section 2.2.1 has an acceptor
+		// establish one only on GSS_S_COMPLETE. The status stays StatusUnavailable, which is what separates a
+		// peer that answered with an error from a token that could not be read at all.
+		return false, gssapi.Status{Code: gssapi.StatusUnavailable, Message: m.KRBError.Error()}
 	}
 
 	return false, gssapi.Status{Code: gssapi.StatusDefectiveToken, Message: "unknown TOK_ID in KRB5 token"}
