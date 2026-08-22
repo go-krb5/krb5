@@ -126,3 +126,14 @@ change will be elaborated on in time):
   constructed with an empty SPN are unaffected, the name being derived per request from the host actually addressed.
   A deployment that relies on a redirect to another hostname must construct the client with an empty SPN and let it
   derive the name, or handle the redirect itself and call `Do` again for the new host.
+- The AP-REQ authenticator key usage is decided by where the AP_REQ sits rather than by what its ticket names.
+  RFC 4120 Section 7.5.1 assigns usage 7 to the "TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator" and usage 11 to an
+  AP-REQ authenticator, and the library previously chose between them by testing whether the ticket's first name
+  component was `krbtgt`. Renewing a service ticket sends that ticket as the credential in the TGS-REQ, so its
+  authenticator was encrypted with 11 where every KDC derives with 7: renewal failed with
+  `KRB_AP_ERR_BAD_INTEGRITY`, and `client.Client.GetCachedTicket` renews whenever a cached ticket is past its end
+  time but inside `renew_till`. Renewal now works, and no configuration change is needed to pick it up. The
+  converse case changes on the wire: an AP-REQ presenting a TGT, which is the user-to-user exchange of RFC 4120
+  Section 3.7, is now built and verified with usage 11 where it previously used 7 in both directions. That agrees
+  with MIT and with the specification, but a peer running an older version of this library on the other side of a
+  user-to-user exchange will not interoperate with it.

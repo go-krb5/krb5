@@ -331,7 +331,7 @@ func (k *TGSReq) setPAData(paRealm string, tgt Ticket, sessionKey types.Encrypti
 		Checksum:  cb,
 	}
 	// Create AP_REQ.
-	apReq, err := NewAPReq(tgt, sessionKey, auth)
+	apReq, err := newAPReqPATGSReq(tgt, sessionKey, auth)
 	if err != nil {
 		return krberror.Errorf(err, krberror.KRBMsgError, "error generating new AP_REQ")
 	}

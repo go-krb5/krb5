@@ -38,10 +38,26 @@ type APReq struct {
 }
 
 // NewAPReq generates a new KRB_AP_REQ struct.
+//
+// The authenticator is encrypted with the AP-REQ key usage of RFC 4120 Section 7.5.1. An AP_REQ carried as a
+// TGS-REQ's PA-TGS-REQ takes a different usage and is built by newAPReqPATGSReq.
 func NewAPReq(tkt Ticket, sessionKey types.EncryptionKey, auth types.Authenticator) (APReq, error) {
+	return newAPReq(tkt, sessionKey, auth, keyusage.AP_REQ_AUTHENTICATOR)
+}
+
+// newAPReqPATGSReq generates the KRB_AP_REQ a TGS-REQ carries as its PA-TGS-REQ pre-authentication data.
+//
+// RFC 4120 Section 7.5.1 assigns key usage 7 to the "TGS-REQ PA-TGS-REQ padata AP-REQ Authenticator", which is a
+// property of where the AP_REQ sits and not of what its ticket names. The ticket is a TGT whenever a new service
+// ticket is being obtained, but it is the service ticket itself when one is being renewed, and both take usage 7.
+func newAPReqPATGSReq(tkt Ticket, sessionKey types.EncryptionKey, auth types.Authenticator) (APReq, error) {
+	return newAPReq(tkt, sessionKey, auth, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR)
+}
+
+func newAPReq(tkt Ticket, sessionKey types.EncryptionKey, auth types.Authenticator, usage int) (APReq, error) {
 	var a APReq
 
-	ed, err := encryptAuthenticator(auth, sessionKey, tkt)
+	ed, err := encryptAuthenticator(auth, sessionKey, tkt, usage)
 	if err != nil {
 		return a, krberror.Errorf(err, krberror.KRBMsgError, "error creating Authenticator for AP_REQ")
 	}
@@ -58,16 +74,14 @@ func NewAPReq(tkt Ticket, sessionKey types.EncryptionKey, auth types.Authenticat
 	return a, nil
 }
 
-// Encrypt Authenticator.
-func encryptAuthenticator(a types.Authenticator, sessionKey types.EncryptionKey, tkt Ticket) (types.EncryptedData, error) {
+// encryptAuthenticator encrypts the authenticator with the key usage its AP_REQ's position calls for.
+func encryptAuthenticator(a types.Authenticator, sessionKey types.EncryptionKey, tkt Ticket, usage int) (types.EncryptedData, error) {
 	var ed types.EncryptedData
 
 	m, err := a.Marshal()
 	if err != nil {
 		return ed, krberror.Errorf(err, krberror.EncodingError, "marshaling error of EncryptedData form of Authenticator")
 	}
-
-	usage := authenticatorKeyUsage(tkt.SName)
 
 	ed, err = crypto.GetEncryptedData(m, sessionKey, uint32(usage), tkt.EncPart.KVNO)
 	if err != nil {
@@ -80,9 +94,7 @@ func encryptAuthenticator(a types.Authenticator, sessionKey types.EncryptionKey,
 // DecryptAuthenticator decrypts the Authenticator within the AP_REQ.
 // sessionKey may simply be the key within the decrypted EncPart of the ticket within the AP_REQ.
 func (a *APReq) DecryptAuthenticator(sessionKey types.EncryptionKey) (err error) {
-	usage := authenticatorKeyUsage(a.Ticket.SName)
-
-	ab, err := crypto.DecryptEncPart(a.EncryptedAuthenticator, sessionKey, uint32(usage))
+	ab, err := crypto.DecryptEncPart(a.EncryptedAuthenticator, sessionKey, keyusage.AP_REQ_AUTHENTICATOR)
 	if err != nil {
 		return fmt.Errorf("error decrypting authenticator: %w", err)
 	}
@@ -92,14 +104,6 @@ func (a *APReq) DecryptAuthenticator(sessionKey types.EncryptionKey) (err error)
 	}
 
 	return nil
-}
-
-func authenticatorKeyUsage(pn types.PrincipalName) int {
-	if len(pn.NameString) > 0 && pn.NameString[0] == "krbtgt" {
-		return keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR
-	}
-
-	return keyusage.AP_REQ_AUTHENTICATOR
 }
 
 // Unmarshal bytes b into the APReq struct.
