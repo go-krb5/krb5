@@ -137,7 +137,14 @@ func (c *Config) GetKpasswdServers(realm string, tcp bool) (int, map[int]string,
 	return count, kdcs, nil
 }
 
+// randServOrder returns the servers keyed by a randomised preference order.
+//
+// The shuffle works on a copy. The slice a caller passes is the Config's own, and a *Config is documented as
+// shareable between clients with every exchange calling GetKDCs, so permuting it in place would both reorder the
+// configured servers permanently and race with any concurrent call reading the same array.
 func randServOrder(ks []string) map[int]string {
+	ks = append([]string(nil), ks...)
+
 	kdcs := make(map[int]string)
 	count := len(ks)
 	i := 1

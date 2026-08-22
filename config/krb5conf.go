@@ -745,6 +745,10 @@ func NewFromScanner(scanner *bufio.Scanner) (*Config, error) {
 		lines = append(lines, scanner.Text())
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("error reading the configuration: %w", err)
+	}
+
 	for i, start := range sectionLineNum {
 		var end int
 		if i+1 >= len(sectionLineNum) {
