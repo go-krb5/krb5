@@ -4,6 +4,7 @@ package service
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-krb5/krb5/types"
@@ -70,13 +71,47 @@ func (c *Cache) getClientEntries(cname types.PrincipalName, crealm string) (clie
 	return ce, ok
 }
 
-// Instance of the ServiceCache. This needs to be a singleton.
-var replayCache Cache
+var (
+	replayCache     Cache
+	once            sync.Once
+	janitorInterval atomic.Int64
+)
 
-var once sync.Once
+// defaultJanitorInterval is the interval used when a caller asks for a non-positive one. It matches the floor
+// Settings.MaxClockSkew applies, because an entry has to outlive the skew it is protecting against.
+const defaultJanitorInterval = 5 * time.Minute
+
+// setJanitorInterval raises the janitor's interval to d and returns the interval now in force.
+//
+// A non-positive d is floored: zero would turn the janitor into a busy loop taking the cache's write lock and
+// retiring every entry the moment it was recorded, which is no replay protection at all. The interval only ever
+// grows, because the cache is a process-wide singleton and an entry must outlive the clock skew of every service
+// sharing it; letting a service with a narrower skew shorten it would retire presentations that are still
+// replayable against a service with a wider one.
+func setJanitorInterval(d time.Duration) time.Duration {
+	if d <= 0 {
+		d = defaultJanitorInterval
+	}
+
+	for {
+		current := janitorInterval.Load()
+		if int64(d) <= current {
+			return time.Duration(current)
+		}
+
+		if janitorInterval.CompareAndSwap(current, int64(d)) {
+			return d
+		}
+	}
+}
 
 // GetReplayCache returns a pointer to the Cache singleton.
+//
+// d is the age at which a presentation is retired, and how often the janitor looks for one to retire. Callers
+// share one cache, so the longest duration any of them has asked for is the one in force; see setJanitorInterval.
 func GetReplayCache(d time.Duration) *Cache {
+	setJanitorInterval(d)
+
 	// Create a singleton of the ReplayCache and start a background thread to regularly clean out old entries.
 	once.Do(func() {
 		replayCache = Cache{
@@ -85,7 +120,10 @@ func GetReplayCache(d time.Duration) *Cache {
 
 		go func() {
 			for {
-				// TODO consider using a context here.
+				// The interval is read each pass rather than captured, so a caller arriving later with a wider
+				// clock skew is honoured by the janitor already running.
+				d := time.Duration(janitorInterval.Load())
+
 				time.Sleep(d)
 				replayCache.ClearOldEntries(d)
 			}
