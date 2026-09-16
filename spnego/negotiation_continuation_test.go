@@ -72,7 +72,7 @@ func continuationToken(t *testing.T) ([]byte, *keytab.Keytab) {
 	require.NoError(t, kt.AddEntry("HTTP/host.test.gokrb5", "TEST.GOKRB5", "servicepassword",
 		time.Now(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
 
-	cname := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "testuser")
+	cname := fixtureClient()
 	now := time.Now().UTC()
 
 	tkt, sessionKey, err := messages.NewTicket(cname, "TEST.GOKRB5", sname, "TEST.GOKRB5",
