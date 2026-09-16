@@ -521,6 +521,139 @@ func TestDelegationFlaggedShouldTestTheBit(t *testing.T) {
 	}
 }
 
+// mutualMarkers builds a token from the flags, AP options and token options given, and reports whether it carries
+// GSS_C_MUTUAL_FLAG in the authenticator checksum and the MUTUAL-REQUIRED AP option.
+func mutualMarkers(t *testing.T, flagsGSSAPI, optionsAP []int, opts ...KRB5TokenOption) (flagged, required bool) {
+	t.Helper()
+
+	cl := ccacheClient(t, true)
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
+
+	mt, err := NewKRB5TokenAPREQ(cl, tkt, key, flagsGSSAPI, optionsAP, opts...)
+	require.NoError(t, err)
+
+	// The authenticator is sealed under the session key, so the checksum has to be decrypted back out to be read.
+	require.NoError(t, mt.APReq.DecryptAuthenticator(key))
+
+	var chksum gssapi.AuthenticatorChecksum
+
+	require.NoError(t, chksum.Unmarshal(mt.APReq.Authenticator.Cksum.Checksum))
+
+	return chksum.Flags&gssapi.ContextFlagMutual != 0, types.IsFlagSet(&mt.APReq.APOptions, flags.APOptionMutualRequired)
+}
+
+// TestNewKRB5TokenAPREQShouldRequestMutualAuthenticationInBothPlaces pins that a request for mutual authentication,
+// wherever it comes from, reaches the token as both the checksum flag and the AP option. An MIT acceptor reads only
+// the AP option, so a token carrying the flag alone asks it for nothing and the initiator is left with no AP_REP to
+// verify.
+func TestNewKRB5TokenAPREQShouldRequestMutualAuthenticationInBothPlaces(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		flags     []int
+		optionsAP []int
+		opts      []KRB5TokenOption
+		expected  bool
+	}{
+		{"ShouldRequestItWithTheOption", []int{gssapi.ContextFlagInteg}, nil, []KRB5TokenOption{MutualAuthentication()}, true},
+		{"ShouldRequestItWithTheContextFlag", []int{gssapi.ContextFlagInteg, gssapi.ContextFlagMutual}, nil, nil, true},
+		{"ShouldRequestItWithTheContextFlagCombinedIntoOneElement", []int{gssapi.ContextFlagInteg | gssapi.ContextFlagMutual}, nil, nil, true},
+		{"ShouldRequestItWithTheAPOption", []int{gssapi.ContextFlagInteg}, []int{flags.APOptionMutualRequired}, nil, true},
+		{"ShouldRequestItOnceWithEverySource", []int{gssapi.ContextFlagMutual}, []int{flags.APOptionMutualRequired}, []KRB5TokenOption{MutualAuthentication()}, true},
+		{"ShouldNotRequestItUnasked", []int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, []int{flags.APOptionUseSessionKey}, nil, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			flagged, required := mutualMarkers(t, tc.flags, tc.optionsAP, tc.opts...)
+
+			assert.Equal(t, tc.expected, flagged, "GSS_C_MUTUAL_FLAG in the authenticator checksum")
+			assert.Equal(t, tc.expected, required, "the MUTUAL-REQUIRED AP option")
+		})
+	}
+}
+
+// TestNewKRB5TokenAPREQShouldNotModifyTheCallersSlicesForMutualAuthentication pins that reconciling the request
+// copies rather than appends in place: the flags and options belong to the caller, and a slice with spare capacity
+// would otherwise gain an element the caller never sees but a later append overwrites.
+func TestNewKRB5TokenAPREQShouldNotModifyTheCallersSlicesForMutualAuthentication(t *testing.T) {
+	t.Parallel()
+
+	flagsBacking := make([]int, 4)
+	flagsBacking[0] = gssapi.ContextFlagInteg
+	optionsBacking := make([]int, 4)
+
+	mutualMarkers(t, flagsBacking[:1], optionsBacking[:0], MutualAuthentication())
+
+	assert.Equal(t, []int{gssapi.ContextFlagInteg, 0, 0, 0}, flagsBacking, "the spare capacity of the flags must be untouched")
+	assert.Equal(t, []int{0, 0, 0, 0}, optionsBacking, "the spare capacity of the AP options must be untouched")
+}
+
+// TestNewNegTokenInitKRB5ShouldPassMutualAuthenticationOn covers the SPNEGO entry point SPNEGOClient uses, which
+// builds its own flags and must hand the option on rather than drop it.
+func TestNewNegTokenInitKRB5ShouldPassMutualAuthenticationOn(t *testing.T) {
+	t.Parallel()
+
+	cl := ccacheClient(t, true)
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	key := types.EncryptionKey{KeyType: 18, KeyValue: make([]byte, 32)}
+
+	for _, mutual := range []bool{false, true} {
+		var opts []KRB5TokenOption
+		if mutual {
+			opts = append(opts, MutualAuthentication())
+		}
+
+		nti, err := NewNegTokenInitKRB5(cl, tkt, key, opts...)
+		require.NoError(t, err)
+
+		mt, ok := nti.mechToken.(*KRB5Token)
+		require.True(t, ok)
+		assert.Equal(t, mutual, types.IsFlagSet(&mt.APReq.APOptions, flags.APOptionMutualRequired),
+			"MUTUAL-REQUIRED with MutualAuthentication() given: %v", mutual)
+	}
+}
+
+func TestMutualFlaggedShouldTestTheBit(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, mutualFlagged([]int{gssapi.ContextFlagMutual}))
+	assert.True(t, mutualFlagged([]int{gssapi.ContextFlagInteg | gssapi.ContextFlagMutual}))
+	assert.False(t, mutualFlagged([]int{gssapi.ContextFlagInteg | gssapi.ContextFlagConf}))
+	assert.False(t, mutualFlagged(nil))
+}
+
+func TestMutualRequiredShouldCompareThePosition(t *testing.T) {
+	t.Parallel()
+
+	assert.True(t, mutualRequired([]int{flags.APOptionUseSessionKey, flags.APOptionMutualRequired}))
+	assert.False(t, mutualRequired([]int{flags.APOptionUseSessionKey}))
+	assert.False(t, mutualRequired(nil))
+}
+
+func TestNewKRB5TokenOptionsShouldDefaultToNoMutualAuthentication(t *testing.T) {
+	t.Parallel()
+
+	assert.False(t, newKRB5TokenOptions().mutual)
+	assert.True(t, newKRB5TokenOptions(MutualAuthentication()).mutual)
+}
+
 func TestNewKRB5TokenOptionsShouldDefaultToNoChannelBinding(t *testing.T) {
 	t.Parallel()
 
