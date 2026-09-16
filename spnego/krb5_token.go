@@ -230,6 +230,7 @@ type KRB5TokenOption func(*krb5TokenOptions)
 type krb5TokenOptions struct {
 	channelBinding *gssapi.ChannelBinding
 	delegation     bool
+	onBehalfOf     *client.Impersonation
 }
 
 // ChannelBinding configures the GSS-API channel binding to bind the AP_REQ to. The hash of the binding is carried in
@@ -258,6 +259,25 @@ func ChannelBinding(cb *gssapi.ChannelBinding) KRB5TokenOption {
 func Delegation() KRB5TokenOption {
 	return func(o *krb5TokenOptions) {
 		o.delegation = true
+	}
+}
+
+// OnBehalfOf makes the AP_REQ authenticate as the principal imp was obtained for, with the ticket and session key
+// client.Client.Impersonate returned, rather than as the client itself.
+//
+// The ticket is in that principal's name, so the authenticator has to be too: RFC 4120 Section 3.2.3 has the service
+// reject an authenticator whose client differs from the ticket's with KRB_AP_ERR_BADMATCH. The service sees the
+// principal, and in the PAC the service that asked for it, just as if the principal had authenticated in person.
+//
+// An initiator given this option uses the impersonated ticket instead of requesting one, and refuses when it was
+// issued for a different service than the one the context is for. Delegation cannot be combined with it: a
+// forwarded TGT exists only for a principal that holds its own.
+//
+//	imp, err := cl.Impersonate(user, realm, spn)
+//	s := SPNEGOClient(cl, spn, OnBehalfOf(imp)).
+func OnBehalfOf(imp client.Impersonation) KRB5TokenOption {
+	return func(o *krb5TokenOptions) {
+		o.onBehalfOf = &imp
 	}
 }
 
@@ -293,7 +313,17 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 		flagsGSSAPI = append(append([]int(nil), flagsGSSAPI...), gssapi.ContextFlagDeleg)
 	}
 
-	auth, err := krb5TokenAuthenticator(cl, tkt, sessionKey, flagsGSSAPI, opt.channelBinding)
+	crealm, cname := cl.Credentials.Domain(), cl.Credentials.CName()
+
+	if imp := opt.onBehalfOf; imp != nil {
+		if delegationFlagged(flagsGSSAPI) {
+			return m, errors.New("a ticket obtained on behalf of another principal cannot carry a delegated credential: only a principal holding its own TGT can forward it")
+		}
+
+		crealm, cname = imp.CRealm, imp.CName
+	}
+
+	auth, err := krb5TokenAuthenticator(cl, crealm, cname, tkt, sessionKey, flagsGSSAPI, opt.channelBinding)
 	if err != nil {
 		return m, err
 	}
@@ -345,9 +375,12 @@ func newAuthenticatorChksum(flags []int, cb *gssapi.ChannelBinding, deleg []byte
 // a KRB_CRED, encrypted under the session key of the ticket authenticating the context. RFC 4121 Section 4.1.1
 // requires that key specifically: "The EncryptedData field of the KRB_CRED message MUST be encrypted in the session
 // key of the ticket used to authenticate the context."
-func krb5TokenAuthenticator(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flags []int, cb *gssapi.ChannelBinding) (types.Authenticator, error) {
+//
+// crealm and cname name the client the ticket was issued to: the client itself, or the principal it obtained the
+// ticket on behalf of.
+func krb5TokenAuthenticator(cl *client.Client, crealm string, cname types.PrincipalName, tkt messages.Ticket, sessionKey types.EncryptionKey, flags []int, cb *gssapi.ChannelBinding) (types.Authenticator, error) {
 	// RFC 4121 Section 4.1.1.
-	auth, err := types.NewAuthenticator(cl.Credentials.Domain(), cl.Credentials.CName())
+	auth, err := types.NewAuthenticator(crealm, cname)
 	if err != nil {
 		return auth, krberror.Errorf(err, krberror.KRBMsgError, "error generating new authenticator")
 	}

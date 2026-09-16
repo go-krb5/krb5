@@ -370,6 +370,24 @@ func (k *TGSRep) DecryptEncPart(key types.EncryptionKey) error {
 	return nil
 }
 
+// VerifyOnBehalfOf checks the validity of a TGS_REP answering an S4U2Self or S4U2Proxy request made in the name of
+// user.
+//
+// Verify cannot be used on such a reply as it stands: it requires the reply's client to be the one that asked, and
+// the whole point of these exchanges is that it is not. The reply names the user instead, as MS-SFU Sections
+// 3.2.5.1.2 and 3.2.5.2.2 have the KDC do. Every other check Verify makes applies unchanged, so it is run against
+// the request with the user put in the requester's place.
+func (k *TGSRep) VerifyOnBehalfOf(cfg *config.Config, tgsReq TGSReq, user types.PrincipalName, userRealm string) (bool, error) {
+	if !k.CName.Equal(user) || k.CRealm != userRealm {
+		return false, krberror.NewErrorf(krberror.KRBMsgError, "the ticket is not in the name it was requested for. Requested: %s@%s; Reply: %s@%s", user.PrincipalNameString(), userRealm, k.CName.PrincipalNameString(), k.CRealm)
+	}
+
+	onBehalfOf := tgsReq
+	onBehalfOf.ReqBody.CName = user
+
+	return k.Verify(cfg, onBehalfOf)
+}
+
 // Verify checks the validity of the TGS_REP message.
 func (k *TGSRep) Verify(cfg *config.Config, tgsReq TGSReq) (bool, error) {
 	if !k.CName.Equal(tgsReq.ReqBody.CName) {
