@@ -71,6 +71,11 @@ type ADCredentials struct {
 	LogonDomainName     string
 	LogonDomainID       string
 	LogonServer         string
+	// DelegatedThrough names the services the ticket was obtained through by constrained delegation,
+	// from the PAC's S4U_DELEGATION_INFO (MS-PAC Section 2.9): empty when the principal presented a
+	// ticket of their own, and the service that impersonated them otherwise. The principal is who the
+	// request is authorized as; this is who made it on their behalf.
+	DelegatedThrough []string
 }
 
 // New creates a new Credentials instance.
