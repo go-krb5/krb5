@@ -250,22 +250,23 @@ func NewUser2UserTGSReq(cname types.PrincipalName, kdcRealm string, c *config.Co
 // trusted to authenticate for delegation, and only a forwardable ticket can be the evidence of a constrained
 // delegation request, so asking costs nothing and not asking would make the ticket useless for that.
 func NewS4U2SelfTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Config, tgt Ticket, sessionKey types.EncryptionKey, user types.PrincipalName, userRealm string) (TGSReq, error) {
-	a, err := tgsReq(cname, cname, kdcRealm, false, c)
-	if err != nil {
-		return a, err
-	}
-
-	types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
-
-	if err = a.setPAData(paRealm, tgt, sessionKey); err != nil {
-		return a, err
-	}
-
+	// First, because it is what can refuse the user: a KerberosString is IA5, and a name it cannot carry
+	// is not a request worth signing.
 	pfu := types.NewPAForUser(user, userRealm, sessionKey)
 
 	pa, err := pfu.PAData()
 	if err != nil {
-		return a, krberror.Errorf(err, krberror.EncodingError, "error marshaling PA-FOR-USER")
+		return TGSReq{}, krberror.Errorf(err, krberror.EncodingError, "error marshaling PA-FOR-USER")
+	}
+
+	a, err := tgsReq(cname, cname, kdcRealm, false, c)
+	if err == nil {
+		types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
+		err = a.setPAData(paRealm, tgt, sessionKey)
+	}
+
+	if err != nil {
+		return a, err
 	}
 
 	// setPAData replaces PAData wholesale, so PA-FOR-USER is appended after it rather than before.
@@ -283,15 +284,12 @@ func NewS4U2SelfTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *c
 // the evidence is placed before setPAData computes it.
 func NewS4U2ProxyTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Config, tgt Ticket, sessionKey types.EncryptionKey, sname types.PrincipalName, evidence Ticket) (TGSReq, error) {
 	a, err := tgsReq(cname, sname, kdcRealm, false, c)
-	if err != nil {
-		return a, err
+	if err == nil {
+		types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
+		types.SetFlag(&a.ReqBody.KDCOptions, flags.CNameInAddlTkt)
+		a.ReqBody.AdditionalTickets = []Ticket{evidence}
+		err = a.setPAData(paRealm, tgt, sessionKey)
 	}
-
-	types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
-	types.SetFlag(&a.ReqBody.KDCOptions, flags.CNameInAddlTkt)
-	a.ReqBody.AdditionalTickets = []Ticket{evidence}
-
-	err = a.setPAData(paRealm, tgt, sessionKey)
 
 	return a, err
 }

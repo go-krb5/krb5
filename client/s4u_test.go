@@ -391,3 +391,17 @@ func TestWithoutASessionNothingIsAsked(t *testing.T) {
 	_, _, err = cl.S4U2Proxy(messages.Ticket{}, alice(), s4uRealm, s4uTarget)
 	require.Error(t, err)
 }
+
+// TestAUserThatCannotBeNamedIsNotAskedFor: a name outside what a KerberosString carries fails while the request is
+// generated, and nothing reaches the KDC.
+func TestAUserThatCannotBeNamedIsNotAskedFor(t *testing.T) {
+	t.Parallel()
+
+	kdc := newS4UKDC(t, func(int, messages.TGSReq) []byte { return nil })
+	cl := s4uClient(t, kdc.addr)
+
+	_, _, err := cl.S4U2Self(types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffalice"), s4uRealm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "S4U2Self TGS_REQ")
+	assert.Empty(t, kdc.seen())
+}

@@ -121,3 +121,14 @@ func TestPAForUserStringsAreGeneralStrings(t *testing.T) {
 		assert.True(t, bytes.Contains(b, want), "%q is not encoded as a GeneralString in % x", s, b)
 	}
 }
+
+// TestAUserNameAKerberosStringCannotCarryIsRefused: the realm and the name components go out as GeneralString,
+// which the encoder holds to IA5, so a name outside it produces no PA-FOR-USER rather than a mangled one.
+func TestAUserNameAKerberosStringCannotCarryIsRefused(t *testing.T) {
+	t.Parallel()
+
+	p := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffalice"), "EXAMPLE.COM", testSessionKey(4))
+
+	_, err := p.PAData()
+	assert.Error(t, err)
+}
