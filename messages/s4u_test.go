@@ -183,3 +183,20 @@ func TestTGSRepVerifyOnBehalfOfAcceptsOnlyTheUsersName(t *testing.T) {
 	ok, _ = replayed.VerifyOnBehalfOf(c, req, user, s4uRealm)
 	assert.False(t, ok, "every check Verify makes still applies")
 }
+
+// TestAnS4URequestIsNotBuiltWithAKeyThatCannotSignIt: the authenticator checksum needs the TGT session key's
+// encryption type, and a key of a type this library does not implement produces no request rather than an unsigned
+// one.
+func TestAnS4URequestIsNotBuiltWithAKeyThatCannotSignIt(t *testing.T) {
+	t.Parallel()
+
+	c, service, tgt, _ := s4uFixture(t)
+	unknown := types.EncryptionKey{KeyType: 0, KeyValue: []byte("no such encryption type")}
+	user := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice")
+
+	_, err := NewS4U2SelfTGSReq(service, s4uRealm, s4uRealm, c, tgt, unknown, user, s4uRealm)
+	assert.Error(t, err)
+
+	_, err = NewS4U2ProxyTGSReq(service, s4uRealm, s4uRealm, c, tgt, unknown, types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/registry.example.com"), Ticket{})
+	assert.Error(t, err)
+}

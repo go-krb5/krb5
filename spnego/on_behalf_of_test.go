@@ -8,11 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/client"
+	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/messages"
+	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
 )
 
@@ -128,4 +130,30 @@ func TestOnBehalfOfRefusesDelegation(t *testing.T) {
 		OnBehalfOf(imp), Delegation())
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "delegated credential")
+}
+
+// TestOnlyAnInitiatorWithoutOnBehalfOfAsksTheKDC: without the option the initiator obtains its own ticket to the
+// service, and with it the ticket it was given is used as it is. A client that cannot reach any KDC shows the
+// difference: the first fails asking, the second never asks.
+func TestOnlyAnInitiatorWithoutOnBehalfOfAsksTheKDC(t *testing.T) {
+	t.Parallel()
+
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
+
+	for i := range c.Realms {
+		c.Realms[i].KDC = nil
+	}
+
+	cl := client.NewWithPassword("testuser1", impersonationRealm, "passwordvalue", c)
+
+	_, err = SPNEGOClient(cl, impersonationSPN).InitSecContext()
+	require.Error(t, err, "an initiator with no ticket of its own and no KDC produced a token")
+
+	imp, acceptor := impersonation(t)
+
+	st := initToken(t, SPNEGOClient(cl, impersonationSPN, OnBehalfOf(imp)))
+
+	ok, _, status := acceptor.AcceptSecContext(st)
+	assert.True(t, ok, "status was %d: %s", status.Code, status.Message)
 }
