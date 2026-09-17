@@ -2,6 +2,7 @@ package types
 
 import (
 	"crypto/hmac"
+	"crypto/md5" //nolint:gosec // G501: KERB_CHECKSUM_HMAC_MD5 is what MS-SFU pins PA-FOR-USER to.
 	"encoding/binary"
 	"errors"
 
@@ -40,24 +41,31 @@ type PAForUser struct {
 // MS-SFU Section 2.2.1 pins the checksum to KERB_CHECKSUM_HMAC_MD5 whatever the session key's own encryption type,
 // so an AES session key signs it too. That checksum is the only thing tying the request to the holder of the TGT;
 // the KDC refuses a PA-FOR-USER whose checksum does not verify under the session key it issued.
-func NewPAForUser(user PrincipalName, userRealm string, sessionKey EncryptionKey) (PAForUser, error) {
+func NewPAForUser(user PrincipalName, userRealm string, sessionKey EncryptionKey) PAForUser {
 	p := PAForUser{
 		UserName:    user,
 		UserRealm:   userRealm,
 		AuthPackage: PAForUserAuthPackage,
 	}
 
-	sum, err := rfc4757.Checksum(sessionKey.KeyValue, keyusage.KERB_NON_KERB_CKSUM_SALT, p.checksumData())
-	if err != nil {
-		return p, err
-	}
-
 	p.Cksum = Checksum{
 		CksumType: chksumtype.KERB_CHECKSUM_HMAC_MD5,
-		Checksum:  sum,
+		Checksum:  p.checksum(sessionKey),
 	}
 
-	return p, nil
+	return p
+}
+
+// checksum is the KERB_CHECKSUM_HMAC_MD5 of RFC 4757 Section 4 over checksumData, with the key usage MS-SFU gives it.
+//
+// It is the same computation as rfc4757.Checksum, spelled out because that function returns an error hashing into
+// memory can never produce, and a PA-FOR-USER constructor that could fail only on an impossible branch is one every
+// caller has to handle for nothing.
+func (p *PAForUser) checksum(sessionKey EncryptionKey) []byte {
+	ksign := rfc4757.HMAC(sessionKey.KeyValue, []byte("signaturekey\x00"))
+	inner := md5.Sum(append(rfc4757.UsageToMSMsgType(keyusage.KERB_NON_KERB_CKSUM_SALT), p.checksumData()...)) //nolint:gosec // G401: see the import.
+
+	return rfc4757.HMAC(ksign, inner[:])
 }
 
 // checksumData is what the PA-FOR-USER checksum covers, as MS-SFU Section 2.2.1 lays it out: the name type as a
@@ -81,12 +89,7 @@ func (p *PAForUser) Verify(sessionKey EncryptionKey) error {
 		return errors.New("PA-FOR-USER checksum is not KERB_CHECKSUM_HMAC_MD5")
 	}
 
-	want, err := rfc4757.Checksum(sessionKey.KeyValue, keyusage.KERB_NON_KERB_CKSUM_SALT, p.checksumData())
-	if err != nil {
-		return err
-	}
-
-	if !hmac.Equal(want, p.Cksum.Checksum) {
+	if !hmac.Equal(p.checksum(sessionKey), p.Cksum.Checksum) {
 		return errors.New("PA-FOR-USER checksum does not verify")
 	}
 

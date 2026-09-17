@@ -261,10 +261,7 @@ func NewS4U2SelfTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *c
 		return a, err
 	}
 
-	pfu, err := types.NewPAForUser(user, userRealm, sessionKey)
-	if err != nil {
-		return a, krberror.Errorf(err, krberror.ChksumError, "error signing PA-FOR-USER")
-	}
+	pfu := types.NewPAForUser(user, userRealm, sessionKey)
 
 	pa, err := pfu.PAData()
 	if err != nil {

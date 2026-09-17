@@ -37,8 +37,7 @@ func TestPAForUserChecksumIsTheOneMSSFUDescribes(t *testing.T) {
 	key := testSessionKey(7)
 	user := PrincipalName{NameType: nametype.KRB_NT_ENTERPRISE, NameString: []string{testPAForUserName, "admin"}}
 
-	p, err := NewPAForUser(user, "EXAMPLE.COM", key)
-	require.NoError(t, err)
+	p := NewPAForUser(user, "EXAMPLE.COM", key)
 
 	data := make([]byte, 0, 33)
 	data = append(data, byte(nametype.KRB_NT_ENTERPRISE), 0, 0, 0)
@@ -68,8 +67,7 @@ func TestPAForUserRoundTripsAndVerifies(t *testing.T) {
 	key := testSessionKey(1)
 	user := NewPrincipalName(nametype.KRB_NT_PRINCIPAL, testPAForUserName)
 
-	p, err := NewPAForUser(user, "EXAMPLE.COM", key)
-	require.NoError(t, err)
+	p := NewPAForUser(user, "EXAMPLE.COM", key)
 
 	pa, err := p.PAData()
 	require.NoError(t, err)
@@ -92,8 +90,7 @@ func TestPAForUserVerifyRefusesAnotherKeyOrUser(t *testing.T) {
 
 	key := testSessionKey(1)
 
-	p, err := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice"), "EXAMPLE.COM", key)
-	require.NoError(t, err)
+	p := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice"), "EXAMPLE.COM", key)
 
 	assert.Error(t, p.Verify(testSessionKey(2)))
 
@@ -112,8 +109,7 @@ func TestPAForUserVerifyRefusesAnotherKeyOrUser(t *testing.T) {
 func TestPAForUserStringsAreGeneralStrings(t *testing.T) {
 	t.Parallel()
 
-	p, err := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice"), "EXAMPLE.COM", testSessionKey(3))
-	require.NoError(t, err)
+	p := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice"), "EXAMPLE.COM", testSessionKey(3))
 
 	b, err := p.Marshal()
 	require.NoError(t, err)
