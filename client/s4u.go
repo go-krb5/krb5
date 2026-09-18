@@ -91,10 +91,13 @@ func (cl *Client) S4U2Self(user types.PrincipalName, userRealm string) (messages
 	}
 
 	req, err := messages.NewS4U2SelfTGSReq(cl.Credentials.CName(), realm, realm, cl.Config, tgt, sessionKey, user, userRealm)
-
-	b, err := marshalled(req, err)
 	if err != nil {
 		return tkt, dep, krberror.Errorf(err, krberror.KRBMsgError, "failed to generate an S4U2Self TGS_REQ")
+	}
+
+	b, err := req.Marshal()
+	if err != nil {
+		return tkt, dep, krberror.Errorf(err, krberror.EncodingError, "failed to marshal the S4U2Self TGS_REQ")
 	}
 
 	rep, err := cl.onBehalfOfExchange(req, b, realm, sessionKey, user, userRealm)
@@ -127,10 +130,13 @@ func (cl *Client) S4U2Proxy(evidence messages.Ticket, user types.PrincipalName, 
 	}
 
 	req, err := messages.NewS4U2ProxyTGSReq(cl.Credentials.CName(), realm, realm, cl.Config, tgt, sessionKey, princ, evidence)
-
-	b, err := marshalled(req, err)
 	if err != nil {
 		return tkt, dep, krberror.Errorf(err, krberror.KRBMsgError, "failed to generate an S4U2Proxy TGS_REQ")
+	}
+
+	b, err := req.Marshal()
+	if err != nil {
+		return tkt, dep, krberror.Errorf(err, krberror.EncodingError, "failed to marshal the S4U2Proxy TGS_REQ")
 	}
 
 	rep, err := cl.onBehalfOfExchange(req, b, realm, sessionKey, user, userRealm)
@@ -139,16 +145,6 @@ func (cl *Client) S4U2Proxy(evidence messages.Ticket, user types.PrincipalName, 
 	}
 
 	return rep.Ticket, rep.DecryptedEncPart, nil
-}
-
-// marshalled is a built request in its wire form, or the error building it failed with: generating a request
-// ends with its encoding, and one failure is reported for either half.
-func marshalled(req messages.TGSReq, err error) ([]byte, error) {
-	if err != nil {
-		return nil, err
-	}
-
-	return req.Marshal()
 }
 
 // onBehalfOfExchange sends an S4U request, b being req on the wire, and checks that the reply is a ticket in the
