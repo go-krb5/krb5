@@ -184,6 +184,40 @@ func TestTGSRepVerifyOnBehalfOfAcceptsOnlyTheUsersName(t *testing.T) {
 	assert.False(t, ok, "every check Verify makes still applies")
 }
 
+// TestTGSRepVerifyOnBehalfOfRefusesAReferral: a KDC holding no service of the requested name answers with a cross realm
+// TGT toward the realm that does. Verify admits that reply, for TGSExchange to follow; an S4U exchange follows
+// nothing, so the same reply to it is refused rather than returned as the ticket that was asked for.
+func TestTGSRepVerifyOnBehalfOfRefusesAReferral(t *testing.T) {
+	t.Parallel()
+
+	c, service, tgt, key := s4uFixture(t)
+	user := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice")
+
+	req, err := NewS4U2SelfTGSReq(service, s4uRealm, s4uRealm, c, tgt, key, user, s4uRealm)
+	require.NoError(t, err)
+
+	crossRealm := types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{"krbtgt", "OTHER.EXAMPLE"}}
+	now := time.Now().UTC()
+	rep := TGSRep{KDCRepFields{
+		CRealm: s4uRealm,
+		CName:  user,
+		Ticket: Ticket{Realm: s4uRealm, SName: crossRealm},
+		DecryptedEncPart: EncKDCRepPart{
+			Nonce:     req.ReqBody.Nonce,
+			AuthTime:  now,
+			StartTime: now,
+			EndTime:   now.Add(time.Hour),
+			SRealm:    s4uRealm,
+			SName:     crossRealm,
+		},
+	}}
+
+	ok, err := rep.VerifyOnBehalfOf(c, req, user, s4uRealm)
+	assert.False(t, ok)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "referral to krbtgt/OTHER.EXAMPLE")
+}
+
 // TestAnS4URequestIsNotBuiltWithAKeyThatCannotSignIt: the authenticator checksum needs the TGT session key's
 // encryption type, and a key of a type this library does not implement produces no request rather than an unsigned
 // one.

@@ -143,8 +143,23 @@ func s4uClient(t *testing.T, kdcAddr string) *Client {
 func reply(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, cname types.PrincipalName, forwardable bool) []byte {
 	t.Helper()
 
+	return replyNaming(t, req, sessionKey, cname, req.ReqBody.SName, forwardable)
+}
+
+// referral is what a KDC holding no service of the name req asks for sends instead of a ticket to it: a cross realm
+// TGT to realm, the next hop toward the service, RFC 6806 Section 8.
+func referral(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, cname types.PrincipalName, realm string) []byte {
+	t.Helper()
+
+	return replyNaming(t, req, sessionKey, cname, types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{s4uKrbtgt, realm}}, true)
+}
+
+// replyNaming is reply with the service the ticket is issued to named by sname rather than by req.
+func replyNaming(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, cname, sname types.PrincipalName, forwardable bool) []byte {
+	t.Helper()
+
 	kt := keytab.New()
-	require.NoError(t, kt.AddEntry(req.ReqBody.SName.PrincipalNameString(), req.ReqBody.Realm, "service key", time.Now(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
+	require.NoError(t, kt.AddEntry(sname.PrincipalNameString(), req.ReqBody.Realm, "service key", time.Now(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
 
 	tktFlags := types.NewKrbFlags()
 	if forwardable {
@@ -152,7 +167,7 @@ func reply(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, cn
 	}
 
 	now := time.Now().UTC()
-	tkt, key, err := messages.NewTicket(cname, s4uRealm, req.ReqBody.SName, req.ReqBody.Realm, tktFlags, kt,
+	tkt, key, err := messages.NewTicket(cname, s4uRealm, sname, req.ReqBody.Realm, tktFlags, kt,
 		etypeID.AES256_CTS_HMAC_SHA1_96, 1, now, now, now.Add(time.Hour), now.Add(time.Hour))
 	require.NoError(t, err)
 
@@ -164,7 +179,7 @@ func reply(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, cn
 		StartTime: now,
 		EndTime:   now.Add(time.Hour),
 		SRealm:    req.ReqBody.Realm,
-		SName:     req.ReqBody.SName,
+		SName:     sname,
 	}
 	b, err := enc.Marshal()
 	require.NoError(t, err)
@@ -349,6 +364,30 @@ func TestAnotherRealmIsRefusedWithoutAskingTheKDC(t *testing.T) {
 	assert.Contains(t, err.Error(), "OTHER.EXAMPLE")
 
 	assert.Empty(t, kdc.seen())
+}
+
+// TestAReferralIsNotTakenForTheTicket: a target whose realm the configuration cannot place passes the early check and
+// is asked of this realm's KDC, which, holding no such service, answers with a cross realm TGT toward the realm that
+// does. S4U follows no referrals, so that TGT comes back as an error rather than as the ticket to the target.
+func TestAReferralIsNotTakenForTheTicket(t *testing.T) {
+	t.Parallel()
+
+	const unplaced = "HTTP/host.unplaced.example" // no [domain_realm] entry covers it
+
+	kdc := newS4UKDC(t, func(n int, req messages.TGSReq) []byte {
+		if n == 1 {
+			return reply(t, req, s4uSessionKey(), alice(), true)
+		}
+
+		return referral(t, req, s4uSessionKey(), alice(), "UNPLACED.EXAMPLE")
+	})
+	cl := s4uClient(t, kdc.addr)
+
+	imp, err := cl.Impersonate(alice(), s4uRealm, unplaced)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "referral to krbtgt/UNPLACED.EXAMPLE")
+	assert.Empty(t, imp.Ticket.SName.NameString, "no ticket is handed back")
+	assert.Len(t, kdc.seen(), 2, "the target's realm is unknown here, so this realm's KDC is asked for it")
 }
 
 // TestARequestThatCannotBeBuiltIsNotSent: a session key of an encryption type the library does not implement cannot

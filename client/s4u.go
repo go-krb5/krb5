@@ -119,6 +119,8 @@ func (cl *Client) S4U2Proxy(evidence messages.Ticket, user types.PrincipalName, 
 
 	realm := cl.Credentials.Realm()
 
+	// A target the configuration places in another realm is refused before the KDC is asked. One it cannot place is
+	// asked of this realm's KDC, and if that KDC answers with a referral the reply check refuses it.
 	princ := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, spn)
 	if r := cl.spnRealm(princ); r != "" && r != realm {
 		return tkt, dep, fmt.Errorf("constrained delegation to %s: a service of another realm (%s) than %s is not supported", spn, r, realm)
@@ -148,7 +150,8 @@ func (cl *Client) S4U2Proxy(evidence messages.Ticket, user types.PrincipalName, 
 }
 
 // onBehalfOfExchange sends an S4U request, b being req on the wire, and checks that the reply is a ticket in the
-// user's name. Unlike TGSExchange it follows no referrals and does not touch the cache.
+// user's name. Unlike TGSExchange it follows no referrals, refusing a reply that is one (see TGSRep.VerifyOnBehalfOf),
+// and does not touch the cache.
 func (cl *Client) onBehalfOfExchange(req messages.TGSReq, b []byte, realm string, sessionKey types.EncryptionKey, user types.PrincipalName, userRealm string) (messages.TGSRep, error) {
 	var rep messages.TGSRep
 

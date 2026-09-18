@@ -377,9 +377,18 @@ func (k *TGSRep) DecryptEncPart(key types.EncryptionKey) error {
 // the whole point of these exchanges is that it is not. The reply names the user instead, as MS-SFU Sections
 // 3.2.5.1.2 and 3.2.5.2.2 have the KDC do. Every other check Verify makes applies unchanged, so it is run against
 // the request with the user put in the requester's place.
+//
+// One allowance Verify makes is withdrawn. Verify accepts a reply naming a ticket granting service in place of the
+// service requested, because TGSExchange follows such a referral to the next realm, RFC 6806 Section 8. These
+// exchanges follow none, so a referral admitted here would be handed back as the ticket the caller asked for: a cross
+// realm TGT standing in for a service ticket. It is refused instead.
 func (k *TGSRep) VerifyOnBehalfOf(cfg *config.Config, tgsReq TGSReq, user types.PrincipalName, userRealm string) (bool, error) {
 	if !k.CName.Equal(user) || k.CRealm != userRealm {
 		return false, krberror.NewErrorf(krberror.KRBMsgError, "the ticket is not in the name it was requested for. Requested: %s@%s; Reply: %s@%s", user.PrincipalNameString(), userRealm, k.CName.PrincipalNameString(), k.CRealm)
+	}
+
+	if sname := k.DecryptedEncPart.SName; isReferralSName(sname) && !sname.Equal(tgsReq.ReqBody.SName) {
+		return false, krberror.NewErrorf(krberror.KRBMsgError, "the KDC answered with a referral to %s instead of a ticket to %s, and a request on behalf of a user is not followed across realms", sname.PrincipalNameString(), tgsReq.ReqBody.SName.PrincipalNameString())
 	}
 
 	onBehalfOf := tgsReq
