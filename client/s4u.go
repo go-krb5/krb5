@@ -95,12 +95,7 @@ func (cl *Client) S4U2Self(user types.PrincipalName, userRealm string) (messages
 		return tkt, dep, krberror.Errorf(err, krberror.KRBMsgError, "failed to generate an S4U2Self TGS_REQ")
 	}
 
-	b, err := req.Marshal()
-	if err != nil {
-		return tkt, dep, krberror.Errorf(err, krberror.EncodingError, "failed to marshal the S4U2Self TGS_REQ")
-	}
-
-	rep, err := cl.onBehalfOfExchange(req, b, realm, sessionKey, user, userRealm)
+	rep, err := cl.onBehalfOfExchange(req, realm, sessionKey, user, userRealm)
 	if err != nil {
 		return tkt, dep, fmt.Errorf("protocol transition for %s@%s: %w", user.PrincipalNameString(), userRealm, err)
 	}
@@ -136,12 +131,7 @@ func (cl *Client) S4U2Proxy(evidence messages.Ticket, user types.PrincipalName, 
 		return tkt, dep, krberror.Errorf(err, krberror.KRBMsgError, "failed to generate an S4U2Proxy TGS_REQ")
 	}
 
-	b, err := req.Marshal()
-	if err != nil {
-		return tkt, dep, krberror.Errorf(err, krberror.EncodingError, "failed to marshal the S4U2Proxy TGS_REQ")
-	}
-
-	rep, err := cl.onBehalfOfExchange(req, b, realm, sessionKey, user, userRealm)
+	rep, err := cl.onBehalfOfExchange(req, realm, sessionKey, user, userRealm)
 	if err != nil {
 		return tkt, dep, fmt.Errorf("constrained delegation to %s on behalf of %s@%s: %w", spn, user.PrincipalNameString(), userRealm, err)
 	}
@@ -149,11 +139,15 @@ func (cl *Client) S4U2Proxy(evidence messages.Ticket, user types.PrincipalName, 
 	return rep.Ticket, rep.DecryptedEncPart, nil
 }
 
-// onBehalfOfExchange sends an S4U request, b being req on the wire, and checks that the reply is a ticket in the
-// user's name. Unlike TGSExchange it follows no referrals, refusing a reply that is one (see TGSRep.VerifyOnBehalfOf),
+// onBehalfOfExchange sends an S4U request and checks that the reply is a ticket in the user's name. Unlike TGSExchange it follows no referrals, refusing a reply that is one (see TGSRep.VerifyOnBehalfOf),
 // and does not touch the cache.
-func (cl *Client) onBehalfOfExchange(req messages.TGSReq, b []byte, realm string, sessionKey types.EncryptionKey, user types.PrincipalName, userRealm string) (messages.TGSRep, error) {
+func (cl *Client) onBehalfOfExchange(req messages.TGSReq, realm string, sessionKey types.EncryptionKey, user types.PrincipalName, userRealm string) (messages.TGSRep, error) {
 	var rep messages.TGSRep
+
+	b, err := req.Marshal()
+	if err != nil {
+		return rep, krberror.Errorf(err, krberror.EncodingError, "failed to marshal the TGS_REQ")
+	}
 
 	r, err := cl.sendToKDC(b, realm)
 	if err != nil {

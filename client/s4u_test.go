@@ -416,6 +416,24 @@ func TestARequestThatCannotBeBuiltIsNotSent(t *testing.T) {
 	assert.Empty(t, kdc.seen())
 }
 
+// TestARequestThatCannotBeEncodedIsNotSent: the builders encode the body while signing it, so a request they return
+// always marshals; the exchange still takes any TGSReq, and one naming a service a KerberosString cannot carry stops
+// at its encoding, before the KDC hears of it.
+func TestARequestThatCannotBeEncodedIsNotSent(t *testing.T) {
+	t.Parallel()
+
+	kdc := newS4UKDC(t, func(int, messages.TGSReq) []byte { return nil })
+	cl := s4uClient(t, kdc.addr)
+
+	var req messages.TGSReq
+	req.ReqBody.SName = types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffback")
+
+	_, err := cl.onBehalfOfExchange(req, s4uRealm, s4uSessionKey(), alice(), s4uRealm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "marshal the TGS_REQ")
+	assert.Empty(t, kdc.seen())
+}
+
 // TestWithoutASessionNothingIsAsked: a client that cannot log in has no TGT to make either request with.
 func TestWithoutASessionNothingIsAsked(t *testing.T) {
 	t.Parallel()
