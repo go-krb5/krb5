@@ -73,6 +73,7 @@ func (s *sessions) get(realm string) (*session, bool) {
 type session struct {
 	realm                string
 	authTime             time.Time
+	startTime            time.Time
 	endTime              time.Time
 	renewTill            time.Time
 	tgt                  messages.Ticket
@@ -106,6 +107,7 @@ func (cl *Client) addSession(tgt messages.Ticket, dep messages.EncKDCRepPart) {
 	s := &session{
 		realm:                realm,
 		authTime:             dep.AuthTime,
+		startTime:            dep.StartTime,
 		endTime:              dep.EndTime,
 		renewTill:            dep.RenewTill,
 		tgt:                  tgt,
@@ -126,6 +128,7 @@ func (s *session) update(tgt messages.Ticket, dep messages.EncKDCRepPart) {
 	defer s.mux.Unlock()
 
 	s.authTime = dep.AuthTime
+	s.startTime = dep.StartTime
 	s.endTime = dep.EndTime
 	s.renewTill = dep.RenewTill
 	s.tgt = tgt
@@ -326,22 +329,35 @@ func (cl *Client) refreshSession(s *session) (bool, error) {
 // ensureValidSession makes sure there is a valid session for the realm.
 func (cl *Client) ensureValidSession(realm string) error {
 	s, ok := cl.sessions.get(realm)
-	if ok {
-		s.mux.RLock()
-
-		d := s.endTime.Sub(s.authTime) / 6
-		if s.endTime.Sub(time.Now().UTC()) > d {
-			s.mux.RUnlock()
-			return nil
-		}
-
-		s.mux.RUnlock()
-		_, err := cl.refreshSession(s)
-
-		return err
+	if !ok {
+		return cl.realmLogin(realm)
 	}
 
-	return cl.realmLogin(realm)
+	if !s.refreshDue() {
+		return nil
+	}
+
+	if _, err := cl.refreshSession(s); err != nil {
+		if !s.valid() {
+			return err
+		}
+
+		cl.Log("error refreshing TGT session for %s, continuing with the current TGT: %v", realm, err)
+	}
+
+	return nil
+}
+
+func (s *session) refreshDue() bool {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	start := s.startTime
+	if start.IsZero() {
+		start = s.authTime
+	}
+
+	return s.endTime.Sub(time.Now().UTC()) <= s.endTime.Sub(start)/6
 }
 
 // sessionTGTDetails is a thread safe way to get the TGT and session key values for a realm.

@@ -98,6 +98,7 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 	cl.sessions.Entries[c.DefaultPrincipal.Realm] = &session{
 		realm:      c.DefaultPrincipal.Realm,
 		authTime:   cred.AuthTime,
+		startTime:  cred.StartTime,
 		endTime:    cred.EndTime,
 		renewTill:  cred.RenewTill,
 		tgt:        tgt,
