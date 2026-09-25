@@ -32,7 +32,7 @@ func TestOnBehalfOfIsAcceptedAsTheUser(t *testing.T) {
 
 	imp, acceptor := impersonation(t)
 
-	init := SPNEGOClient(getClient(t), impersonationSPN, OnBehalfOf(imp))
+	init := SPNEGOClient(getClient(t), impersonationSPN, OnBehalfOf(imp), MutualAuthentication())
 
 	st := initToken(t, init)
 

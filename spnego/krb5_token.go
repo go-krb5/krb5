@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/go-krb5/x/encoding/asn1"
 
@@ -269,8 +270,8 @@ func Delegation() KRB5TokenOption {
 // service answers with an AP_REP, which SPNEGO.VerifyMutual checks.
 //
 // The AP option is the half an MIT krb5 acceptor reads: without it gss_accept_sec_context produces no AP_REP, and an
-// initiator waiting for one has nothing to verify. This library's acceptor answers either way, see
-// SPNEGOToken.ResponseToken, so the omission is invisible between two peers built on it.
+// initiator waiting for one has nothing to verify. This library's acceptor reads either, see
+// SPNEGOToken.ResponseToken, and answers an AP_REQ carrying neither with no AP_REP.
 //
 //	s := SPNEGOClient(cl, spn, MutualAuthentication()).
 func MutualAuthentication() KRB5TokenOption {
@@ -489,13 +490,7 @@ func mutualFlagged(contextFlags []int) bool {
 // mutualRequired reports whether the MUTUAL-REQUIRED AP option appears. AP options are bit positions, not masks, so
 // the values are compared.
 func mutualRequired(optionsAP []int) bool {
-	for _, o := range optionsAP {
-		if o == flags.APOptionMutualRequired {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(optionsAP, flags.APOptionMutualRequired)
 }
 
 // delegationFlags reports which delegation flags appear. The bits are tested rather than the values, because
