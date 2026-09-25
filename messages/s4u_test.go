@@ -35,8 +35,9 @@ func TestNewS4U2SelfTGSReqAsksForAForwardableTicketToItselfInTheUsersName(t *tes
 	auth := tgsAuthenticator(t, req, key)
 	assert.True(t, auth.CName.Equal(service), "the authenticator is the service's, the user is only named in PA-FOR-USER")
 
-	require.Len(t, req.PAData, 2)
+	require.Len(t, req.PAData, 3)
 	require.Equal(t, patype.PA_FOR_USER, req.PAData[1].PADataType)
+	require.Equal(t, patype.PA_FOR_X509_USER, req.PAData[2].PADataType)
 
 	var pfu types.PAForUser
 	require.NoError(t, pfu.Unmarshal(req.PAData[1].PADataValue))
