@@ -24,9 +24,6 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
-// TestADCredentialsNameTheServiceADelegatedTicketCameThrough: a ticket issued by S4U2Proxy carries the
-// services it was obtained through, and the acceptor has to say so; a ticket of the principal's own
-// carries none and says nothing.
 func TestADCredentialsNameTheServiceADelegatedTicketCameThrough(t *testing.T) {
 	t.Parallel()
 
@@ -57,9 +54,6 @@ func TestADCredentialsNameTheServiceADelegatedTicketCameThrough(t *testing.T) {
 	assert.Equal(t, []string{frontEnd}, ad.DelegatedThrough)
 }
 
-// TestVerifyAPREQCarriesThePACIntoTheCredentials runs a ticket holding a real PAC through the acceptor: the PAC is
-// verified with the service key and what it says reaches the credentials. The PAC is the captured test vector, which
-// is signed for sysHTTP, and nobody delegated this ticket, so it names no service it came through.
 func TestVerifyAPREQCarriesThePACIntoTheCredentials(t *testing.T) {
 	t.Parallel()
 

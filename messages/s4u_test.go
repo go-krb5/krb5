@@ -18,59 +18,6 @@ import (
 	"github.com/go-krb5/krb5/types"
 )
 
-const s4uRealm = "EXAMPLE.COM"
-
-func s4uFixture(t *testing.T) (*config.Config, types.PrincipalName, Ticket, types.EncryptionKey) {
-	t.Helper()
-
-	c := config.New()
-	c.LibDefaults.NoAddresses = true
-
-	key := types.EncryptionKey{KeyType: etypeID.AES256_CTS_HMAC_SHA1_96, KeyValue: make([]byte, 32)}
-	for i := range key.KeyValue {
-		key.KeyValue[i] = byte(i)
-	}
-
-	tgt := Ticket{
-		TktVNO:  iana.PVNO,
-		Realm:   s4uRealm,
-		SName:   types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{testKrbtgt, s4uRealm}},
-		EncPart: types.EncryptedData{EType: etypeID.AES256_CTS_HMAC_SHA1_96, KVNO: 1, Cipher: []byte("opaque to the client")},
-	}
-
-	return c, types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/app.example.com"), tgt, key
-}
-
-// tgsAuthenticator opens the AP-REQ a TGS-REQ carries and checks that its checksum covers the request body as it will
-// be sent. A body changed after setPAData, such as additional tickets added too late, fails here the way it fails at
-// a KDC: KRB_AP_ERR_MODIFIED.
-func tgsAuthenticator(t *testing.T, req TGSReq, key types.EncryptionKey) types.Authenticator {
-	t.Helper()
-
-	require.NotEmpty(t, req.PAData)
-	require.Equal(t, patype.PA_TGS_REQ, req.PAData[0].PADataType)
-
-	var ap APReq
-	require.NoError(t, ap.Unmarshal(req.PAData[0].PADataValue))
-
-	plain, err := crypto.DecryptEncPart(ap.EncryptedAuthenticator, key, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR)
-	require.NoError(t, err)
-
-	var auth types.Authenticator
-	require.NoError(t, auth.Unmarshal(plain))
-
-	body, err := req.ReqBody.Marshal()
-	require.NoError(t, err)
-
-	et, err := crypto.GetEType(key.KeyType)
-	require.NoError(t, err)
-
-	assert.True(t, et.VerifyChecksum(key.KeyValue, body, auth.Cksum.Checksum, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR_CHKSUM),
-		"the authenticator checksum does not cover the request body")
-
-	return auth
-}
-
 func TestNewS4U2SelfTGSReqAsksForAForwardableTicketToItselfInTheUsersName(t *testing.T) {
 	t.Parallel()
 
@@ -97,7 +44,6 @@ func TestNewS4U2SelfTGSReqAsksForAForwardableTicketToItselfInTheUsersName(t *tes
 	assert.Equal(t, s4uRealm, pfu.UserRealm)
 	assert.NoError(t, pfu.Verify(key), "PA-FOR-USER is signed with the TGT session key")
 
-	// The request survives the wire.
 	b, err := req.Marshal()
 	require.NoError(t, err)
 
@@ -131,8 +77,6 @@ func TestNewS4U2ProxyTGSReqCarriesTheEvidenceUnderTheChecksum(t *testing.T) {
 
 	tgsAuthenticator(t, req, key)
 
-	// Bit 14 is the one MS-SFU assigns; a KDC reading any other would treat this as an ordinary request from the
-	// service and issue a ticket in the service's own name.
 	assert.Equal(t, byte(0x02), req.ReqBody.KDCOptions.Bytes[1]&0x02)
 }
 
@@ -163,11 +107,9 @@ func TestTGSRepVerifyOnBehalfOfAcceptsOnlyTheUsersName(t *testing.T) {
 	ok, err := rep.VerifyOnBehalfOf(c, req, user, s4uRealm)
 	assert.True(t, ok, "%v", err)
 
-	// Verify on its own refuses the same reply: the client is not the one that asked.
 	ok, _ = rep.Verify(c, req)
 	assert.False(t, ok)
 
-	// A reply in any other name, including the service's own, is not the ticket that was asked for.
 	asService := rep
 	asService.CName = service
 	ok, _ = asService.VerifyOnBehalfOf(c, req, user, s4uRealm)
@@ -184,9 +126,6 @@ func TestTGSRepVerifyOnBehalfOfAcceptsOnlyTheUsersName(t *testing.T) {
 	assert.False(t, ok, "every check Verify makes still applies")
 }
 
-// TestTGSRepVerifyOnBehalfOfRefusesAReferral: a KDC holding no service of the requested name answers with a cross realm
-// TGT toward the realm that does. Verify admits that reply, for TGSExchange to follow; an S4U exchange follows
-// nothing, so the same reply to it is refused rather than returned as the ticket that was asked for.
 func TestTGSRepVerifyOnBehalfOfRefusesAReferral(t *testing.T) {
 	t.Parallel()
 
@@ -218,9 +157,6 @@ func TestTGSRepVerifyOnBehalfOfRefusesAReferral(t *testing.T) {
 	assert.Contains(t, err.Error(), "referral to krbtgt/OTHER.EXAMPLE")
 }
 
-// TestAnS4URequestIsNotBuiltWithAKeyThatCannotSignIt: the authenticator checksum needs the TGT session key's
-// encryption type, and a key of a type this library does not implement produces no request rather than an unsigned
-// one.
 func TestAnS4URequestIsNotBuiltWithAKeyThatCannotSignIt(t *testing.T) {
 	t.Parallel()
 
@@ -231,11 +167,60 @@ func TestAnS4URequestIsNotBuiltWithAKeyThatCannotSignIt(t *testing.T) {
 	_, err := NewS4U2SelfTGSReq(service, s4uRealm, s4uRealm, c, tgt, unknown, user, s4uRealm)
 	assert.Error(t, err)
 
-	// A user a KerberosString cannot name is refused before anything is signed.
 	unnamable := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffalice")
 	_, err = NewS4U2SelfTGSReq(service, s4uRealm, s4uRealm, c, tgt, key, unnamable, s4uRealm)
 	assert.ErrorContains(t, err, "PA-FOR-USER")
 
 	_, err = NewS4U2ProxyTGSReq(service, s4uRealm, s4uRealm, c, tgt, unknown, types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/registry.example.com"), Ticket{})
 	assert.Error(t, err)
+}
+
+const s4uRealm = "EXAMPLE.COM"
+
+func s4uFixture(t *testing.T) (*config.Config, types.PrincipalName, Ticket, types.EncryptionKey) {
+	t.Helper()
+
+	c := config.New()
+	c.LibDefaults.NoAddresses = true
+
+	key := types.EncryptionKey{KeyType: etypeID.AES256_CTS_HMAC_SHA1_96, KeyValue: make([]byte, 32)}
+	for i := range key.KeyValue {
+		key.KeyValue[i] = byte(i)
+	}
+
+	tgt := Ticket{
+		TktVNO:  iana.PVNO,
+		Realm:   s4uRealm,
+		SName:   types.PrincipalName{NameType: nametype.KRB_NT_SRV_INST, NameString: []string{testKrbtgt, s4uRealm}},
+		EncPart: types.EncryptedData{EType: etypeID.AES256_CTS_HMAC_SHA1_96, KVNO: 1, Cipher: []byte("opaque to the client")},
+	}
+
+	return c, types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/app.example.com"), tgt, key
+}
+
+func tgsAuthenticator(t *testing.T, req TGSReq, key types.EncryptionKey) types.Authenticator {
+	t.Helper()
+
+	require.NotEmpty(t, req.PAData)
+	require.Equal(t, patype.PA_TGS_REQ, req.PAData[0].PADataType)
+
+	var ap APReq
+	require.NoError(t, ap.Unmarshal(req.PAData[0].PADataValue))
+
+	plain, err := crypto.DecryptEncPart(ap.EncryptedAuthenticator, key, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR)
+	require.NoError(t, err)
+
+	var auth types.Authenticator
+	require.NoError(t, auth.Unmarshal(plain))
+
+	body, err := req.ReqBody.Marshal()
+	require.NoError(t, err)
+
+	et, err := crypto.GetEType(key.KeyType)
+	require.NoError(t, err)
+
+	assert.True(t, et.VerifyChecksum(key.KeyValue, body, auth.Cksum.Checksum, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR_CHKSUM),
+		"the authenticator checksum does not cover the request body")
+
+	return auth
 }

@@ -16,21 +16,6 @@ import (
 	"github.com/go-krb5/krb5/iana/patype"
 )
 
-const testPAForUserName = "alice"
-
-func testSessionKey(fill byte) EncryptionKey {
-	k := EncryptionKey{KeyType: etypeID.AES256_CTS_HMAC_SHA1_96, KeyValue: make([]byte, 32)}
-	for i := range k.KeyValue {
-		k.KeyValue[i] = fill + byte(i)
-	}
-
-	return k
-}
-
-// TestPAForUserChecksumIsTheOneMSSFUDescribes recomputes the checksum from the layout MS-SFU Section 2.2.1 gives,
-// written out byte by byte, and the RFC 4757 Section 4 HMAC-MD5 written out step by step, rather than through the
-// code under test. A KDC verifies exactly these bytes, so agreeing with the implementation's own helpers would prove
-// nothing.
 func TestPAForUserChecksumIsTheOneMSSFUDescribes(t *testing.T) {
 	t.Parallel()
 
@@ -83,8 +68,6 @@ func TestPAForUserRoundTripsAndVerifies(t *testing.T) {
 	assert.NoError(t, got.Verify(key))
 }
 
-// TestPAForUserVerifyRefusesAnotherKeyOrUser covers the two ways a request is forged: signed by something that does
-// not hold the TGT session key, and a signed request with the user swapped afterwards.
 func TestPAForUserVerifyRefusesAnotherKeyOrUser(t *testing.T) {
 	t.Parallel()
 
@@ -103,9 +86,6 @@ func TestPAForUserVerifyRefusesAnotherKeyOrUser(t *testing.T) {
 	assert.Error(t, other.Verify(key))
 }
 
-// TestPAForUserStringsAreGeneralStrings pins the DER string type. userRealm and auth-package are KerberosStrings, and
-// MIT's decoder refuses anything but a GeneralString there (KRB_ERR_GENERIC, DECODE_PA_FOR_USER), while a lenient
-// decoder, this library's included, reads a PrintableString without complaint; so only the bytes catch it.
 func TestPAForUserStringsAreGeneralStrings(t *testing.T) {
 	t.Parallel()
 
@@ -122,8 +102,6 @@ func TestPAForUserStringsAreGeneralStrings(t *testing.T) {
 	}
 }
 
-// TestAUserNameAKerberosStringCannotCarryIsRefused: the realm and the name components go out as GeneralString,
-// which the encoder holds to IA5, so a name outside it produces no PA-FOR-USER rather than a mangled one.
 func TestAUserNameAKerberosStringCannotCarryIsRefused(t *testing.T) {
 	t.Parallel()
 
@@ -131,4 +109,15 @@ func TestAUserNameAKerberosStringCannotCarryIsRefused(t *testing.T) {
 
 	_, err := p.PAData()
 	assert.Error(t, err)
+}
+
+const testPAForUserName = "alice"
+
+func testSessionKey(fill byte) EncryptionKey {
+	k := EncryptionKey{KeyType: etypeID.AES256_CTS_HMAC_SHA1_96, KeyValue: make([]byte, 32)}
+	for i := range k.KeyValue {
+		k.KeyValue[i] = fill + byte(i)
+	}
+
+	return k
 }

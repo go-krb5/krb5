@@ -92,16 +92,18 @@ func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
 	}, nil
 }
 
-// serviceTicket returns the ticket the context authenticates with: the one given by OnBehalfOf, or else this
-// client's own ticket to the service.
 func (s *SPNEGO) serviceTicket() (messages.Ticket, types.EncryptionKey, error) {
-	imp := newKRB5TokenOptions(s.tokenOptions...).onBehalfOf
+	return serviceTicket(s.client, s.spn, s.tokenOptions...)
+}
+
+func serviceTicket(cl *client.Client, spn string, opts ...KRB5TokenOption) (messages.Ticket, types.EncryptionKey, error) {
+	imp := newKRB5TokenOptions(opts...).onBehalfOf
 	if imp == nil {
-		return s.client.GetServiceTicket(s.spn)
+		return cl.GetServiceTicket(spn)
 	}
 
-	if want := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, s.spn); !imp.Ticket.SName.Equal(want) {
-		return messages.Ticket{}, types.EncryptionKey{}, fmt.Errorf("the ticket obtained on behalf of %s@%s is for %s, not for %s", imp.CName.PrincipalNameString(), imp.CRealm, imp.Ticket.SName.PrincipalNameString(), s.spn)
+	if want := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, spn); !imp.Ticket.SName.Equal(want) {
+		return messages.Ticket{}, types.EncryptionKey{}, fmt.Errorf("the ticket obtained on behalf of %s@%s is for %s, not for %s", imp.CName.PrincipalNameString(), imp.CRealm, imp.Ticket.SName.PrincipalNameString(), spn)
 	}
 
 	return imp.Ticket, imp.SessionKey, nil
@@ -300,7 +302,7 @@ func (s *SPNEGOToken) Context() context.Context {
 // assigned these fields by hand would be checking its own assignment rather than this one.
 func (s *SPNEGO) rememberExchange(key types.EncryptionKey, n NegTokenInit) {
 	s.sessionKey = key
-	
+
 	if mt, ok := n.mechToken.(*KRB5Token); ok {
 		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
 	}

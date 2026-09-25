@@ -56,11 +56,6 @@ func NewPAForUser(user PrincipalName, userRealm string, sessionKey EncryptionKey
 	return p
 }
 
-// checksum is the KERB_CHECKSUM_HMAC_MD5 of RFC 4757 Section 4 over checksumData, with the key usage MS-SFU gives it.
-//
-// It is the same computation as rfc4757.Checksum, spelled out because that function returns an error hashing into
-// memory can never produce, and a PA-FOR-USER constructor that could fail only on an impossible branch is one every
-// caller has to handle for nothing.
 func (p *PAForUser) checksum(sessionKey EncryptionKey) []byte {
 	ksign := rfc4757.HMAC(sessionKey.KeyValue, []byte("signaturekey\x00"))
 	inner := md5.Sum(append(rfc4757.UsageToMSMsgType(keyusage.KERB_NON_KERB_CKSUM_SALT), p.checksumData()...)) //nolint:gosec // G401: see the import.
@@ -68,9 +63,6 @@ func (p *PAForUser) checksum(sessionKey EncryptionKey) []byte {
 	return rfc4757.HMAC(ksign, inner[:])
 }
 
-// checksumData is what the PA-FOR-USER checksum covers, as MS-SFU Section 2.2.1 lays it out: the name type as a
-// little endian 32 bit integer, then each name component, the realm and the authentication package, concatenated
-// without separators.
 func (p *PAForUser) checksumData() []byte {
 	b := binary.LittleEndian.AppendUint32(nil, uint32(p.UserName.NameType)) //nolint:gosec // G115: name types are small constants.
 

@@ -173,36 +173,6 @@ without the matching session key, so this is not a way to impersonate anyone, bu
 `creds.UserName()` and then acts through the delegated cache may be acting as a different principal than the one it
 authorised. Compare them yourself if that matters to your authorisation model.
 
-### Protocol Transition and Constrained Delegation
-
-MS-SFU lets a service obtain a ticket to another service in a user's name without the user taking part: S4U2Self
-gets a ticket to the service itself for a user it authenticated by other means, and S4U2Proxy turns that into a ticket
-to a service the KDC lists for it. The service that receives the result sees the user, and the PAC the KDC computed
-for the user, just as if the user had authenticated in person.
-
-`client.Client.Impersonate` runs both exchanges; `S4U2Self` and `S4U2Proxy` are there for callers who need one of
-them. The result goes to the SPNEGO client with the `spnego.OnBehalfOf` option, which also names the user in the
-authenticator, as RFC 4120 Section 3.2.3 requires of an authenticator presented with such a ticket:
-
-```go
-imp, err := cl.Impersonate(types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice"), "EXAMPLE.COM", "HTTP/api.example.com")
-if err != nil {
-    return err
-}
-
-s := spnego.SPNEGOClient(cl, "HTTP/api.example.com", spnego.OnBehalfOf(imp))
-```
-
-The KDC decides, with two separate permissions on the requesting service. Without trust to authenticate for
-delegation (MIT's `ok_to_auth_as_delegate`) the S4U2Self ticket is not forwardable and `Impersonate` stops with
-`client.ErrEvidenceNotForwardable`; a target outside the delegation list (MIT's `krbAllowedToDelegateTo`) is the KDC's
-refusal, recoverable with `errors.As` as a `messages.KRBError`. The tickets are not cached by the client, because they
-are in another principal's name; cache the `Impersonation` yourself until its `EndTime`. Only a user and a target of
-the client's own realm are supported.
-
-Tested against MIT krb5 1.20 (S4U2Self; its db2 back end refuses S4U2Proxy for every client, MIT's own `kvno -P`
-included) and against a KDC implementing both exchanges.
-
 ### Tested Scenarios
 
 The following is working/tested:
