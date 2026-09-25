@@ -65,7 +65,8 @@ func (m *KRB5Token) APRepToken() ([]byte, error) {
 }
 
 // ResponseToken returns the SPNEGO token an acceptor sends back once AcceptSecContext has succeeded:
-// a NegTokenResp carrying the AP-REP, with the negotiation marked complete.
+// a NegTokenResp with the negotiation marked complete, carrying the AP-REP when the AP-REQ asked for
+// mutual authentication.
 //
 // It is a separate call rather than a fourth return value from AcceptSecContext so that an acceptor
 // which does not do mutual authentication is unaffected, and so that a caller that does can decide
@@ -79,19 +80,37 @@ func (s *SPNEGOToken) ResponseToken() ([]byte, error) {
 		return nil, errors.New("spnego: no verified KRB5 mech token to answer")
 	}
 
+	rep, err := acceptorAPRep(mt)
+	if err != nil {
+		return nil, err
+	}
+
 	resp := NegTokenResp{
 		NegState:      asn1.Enumerated(NegStateAcceptCompleted),
 		SupportedMech: mt.OID,
-	}
-	if mutualRequested(mt) {
-		rep, err := mt.APRepToken()
-		if err != nil {
-			return nil, err
-		}
-		resp.ResponseToken = rep
+		ResponseToken: rep,
 	}
 
 	return resp.Marshal()
+}
+
+func (s *SPNEGOToken) verifiedMechToken() *KRB5Token {
+	var mt *KRB5Token
+	if s.Init {
+		mt, _ = s.NegTokenInit.mechToken.(*KRB5Token)
+	} else if s.Resp {
+		mt, _ = s.NegTokenResp.mechToken.(*KRB5Token)
+	}
+
+	return mt
+}
+
+func acceptorAPRep(mt *KRB5Token) ([]byte, error) {
+	if mt == nil || !mutualRequested(mt) {
+		return nil, nil
+	}
+
+	return mt.APRepToken()
 }
 
 // mutualRequested reports whether the initiator asked to be told who it is talking to.

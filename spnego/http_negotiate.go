@@ -39,6 +39,10 @@ func negotiateChallenge(resp *http.Response) ([]byte, bool, error) {
 		return nil, false, nil
 	}
 
+	return negotiateHeader(resp)
+}
+
+func negotiateHeader(resp *http.Response) ([]byte, bool, error) {
 	for _, h := range resp.Header.Values(HTTPHeaderAuthResponse) {
 		scheme, token, _ := strings.Cut(h, " ")
 		if !strings.EqualFold(scheme, HTTPHeaderAuthResponseValueKey) {
@@ -112,15 +116,39 @@ func (c *Client) negotiate(req *http.Request, resp *http.Response, token []byte)
 		return false, err
 	}
 
+	opts := c.requestTokenOptions(resp)
+
 	switch action {
 	case negotiationInitiate:
-		return true, SetSPNEGOHeader(c.krb5Client, req, c.spn, c.requestTokenOptions(resp)...)
+		s, err := setSPNEGOHeader(c.krb5Client, req, c.spn, opts...)
+		c.expectAcceptor(s, opts)
+
+		return true, err
 	case negotiationContinue:
-		return true, setSPNEGOContinuationHeader(c.krb5Client, req, c.spn, c.requestTokenOptions(resp)...)
+		s, err := setSPNEGOContinuationHeader(c.krb5Client, req, c.spn, opts...)
+		c.expectAcceptor(s, opts)
+
+		return true, err
 	case negotiationAnswerMIC:
-		return true, setSPNEGOMechListMICHeader(c.krb5Client, req, c.spn, nr.MechListMIC, c.requestTokenOptions(resp)...)
+		if c.exchange != nil && len(nr.ResponseToken) > 0 {
+			if err = c.exchange.VerifyMutual(token); err != nil {
+				return false, err
+			}
+
+			c.exchange = nil
+		}
+
+		return true, setSPNEGOMechListMICHeader(c.krb5Client, req, c.spn, nr.MechListMIC, opts...)
 	default:
 		return false, nil
+	}
+}
+
+func (c *Client) expectAcceptor(s *SPNEGO, opts []KRB5TokenOption) {
+	c.exchange = nil
+
+	if s != nil && newKRB5TokenOptions(opts...).mutual {
+		c.exchange = s
 	}
 }
 
@@ -131,26 +159,33 @@ func (c *Client) negotiate(req *http.Request, resp *http.Response, token []byte)
 // supportedMech there because that field appears "only in the first reply from the target"; the mech token itself
 // names the mechanism. The AP_REQ is built afresh rather than reused, since the one already sent has been seen by
 // the target and a service that keeps a replay cache would refuse it.
-func setSPNEGOContinuationHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) error {
+func setSPNEGOContinuationHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) (*SPNEGO, error) {
 	spn, err := requestSPN(cl, r, spn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	mt, err := negotiationMechToken(cl, spn, opts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	b, err := mt.Marshal()
 	if err != nil {
-		return fmt.Errorf("could not marshal the KRB5 token continuing the negotiation: %w", err)
+		return nil, fmt.Errorf("could not marshal the KRB5 token continuing the negotiation: %w", err)
 	}
 
-	return setNegotiationHeader(r, NegTokenResp{
+	if err = setNegotiationHeader(r, NegTokenResp{
 		NegState:      asn1.Enumerated(NegStateAcceptIncomplete),
 		ResponseToken: b,
-	})
+	}); err != nil {
+		return nil, err
+	}
+
+	s := SPNEGOClient(cl, spn, opts...)
+	s.rememberExchange(mt.key, NegTokenInit{mechToken: &mt})
+
+	return s, nil
 }
 
 // setSPNEGOMechListMICHeader answers a target's request-mic, as RFC 4178 Section 5(c)(IV) describes: "The initiator
