@@ -15,6 +15,8 @@ import (
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana"
+	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
@@ -22,72 +24,6 @@ import (
 	"github.com/go-krb5/krb5/test/testdata"
 	"github.com/go-krb5/krb5/types"
 )
-
-// mutualSessionKey is the key an exchange's ticket carries. Fixed rather than random so a failure
-// names a behaviour instead of a seed.
-func mutualSessionKey(fill byte) types.EncryptionKey {
-	v := make([]byte, 32)
-	for i := range v {
-		v[i] = fill
-	}
-
-	return types.EncryptionKey{KeyType: 18, KeyValue: v}
-}
-
-// verifiedAPREQ is a KRB5Token in the state acceptance leaves it in: the ticket decrypted, so its
-// session key is readable, and the authenticator in the clear.
-//
-// The ctime deliberately carries nanoseconds. They never reach the wire; ctime travels as a
-// GeneralizedTime and is truncated to the second, with the sub-second part carried by cusec; and
-// a comparison that forgets this rejects every reply it should accept.
-func verifiedAPREQ(t *testing.T, key types.EncryptionKey) (*KRB5Token, types.Authenticator) {
-	t.Helper()
-
-	creds := credentials.New("hftsai", testdata.TEST_REALM)
-	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
-
-	cl := client.Client{Credentials: creds}
-
-	var tkt messages.Ticket
-
-	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
-	require.NoError(t, err)
-	require.NoError(t, tkt.Unmarshal(b))
-
-	mt, err := NewKRB5TokenAPREQ(&cl, tkt, key, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagMutual}, []int{})
-	require.NoError(t, err)
-
-	auth := mt.APReq.Authenticator
-	require.False(t, auth.CTime.IsZero(), "NewAPReq must keep the plaintext authenticator; the initiator has no other way to remember what it sent")
-
-	auth.CTime = auth.CTime.Add(123456 * time.Nanosecond)
-	mt.APReq.Authenticator = auth
-	mt.APReq.Ticket.DecryptedEncPart.Key = key
-
-	return &mt, auth
-}
-
-// initiator is an SPNEGO context in the state InitSecContext leaves it in, reached through the same
-// call InitSecContext makes rather than by assigning the fields here; a test that set them itself
-// would be checking its own assignment.
-//
-// The KRB5Token carries the authenticator, so wrapping it in a NegTokenInit is all the capture
-// needs; the KDC round trip InitSecContext does first is what this avoids.
-func initiator(key types.EncryptionKey, mt *KRB5Token) *SPNEGO {
-	s := SPNEGOClient(&client.Client{}, "HTTP/host.test.gokrb5")
-	s.rememberExchange(key, NegTokenInit{mechToken: mt})
-
-	return s
-}
-
-// initiatorOf is the same, for the cases that need the remembered values to DIFFER from what was
-// sent; a reply to another exchange.
-func initiatorOf(key types.EncryptionKey, auth types.Authenticator) *SPNEGO {
-	mt := &KRB5Token{}
-	mt.APReq.Authenticator = auth
-
-	return initiator(key, mt)
-}
 
 func TestAPRepTokenAnswersAVerifiedAPREQ(t *testing.T) {
 	t.Parallel()
@@ -107,8 +43,6 @@ func TestAPRepTokenAnswersAVerifiedAPREQ(t *testing.T) {
 	assert.Equal(t, iana.PVNO, rep.APRep.PVNO)
 	assert.Equal(t, key.KeyType, rep.APRep.EncPart.EType)
 
-	// The whole claim, checked directly: it decrypts under the session key, and it echoes what the
-	// initiator sent; at the precision the protocol carries.
 	plain, err := crypto.DecryptEncPart(rep.APRep.EncPart, key, keyusage.AP_REP_ENCPART)
 	require.NoError(t, err)
 
@@ -119,8 +53,6 @@ func TestAPRepTokenAnswersAVerifiedAPREQ(t *testing.T) {
 	assert.Equal(t, auth.Cusec, enc.Cusec)
 }
 
-// TestAPRepTokenIsUnreadableWithoutTheSessionKey is the property the reply exists for: only
-// something that decrypted the ticket could have produced it.
 func TestAPRepTokenIsUnreadableWithoutTheSessionKey(t *testing.T) {
 	t.Parallel()
 
@@ -161,8 +93,6 @@ func TestAPRepTokenRefusesATokenThatIsNotAnAPREQ(t *testing.T) {
 	assert.Contains(t, err.Error(), "AP-REQ")
 }
 
-// TestKRB5TokenMarshalsAnAPRep pins the change underneath APRepToken: Marshal used to refuse this
-// token id outright, so an acceptor had nothing to send even once it could build one.
 func TestKRB5TokenMarshalsAnAPRep(t *testing.T) {
 	t.Parallel()
 
@@ -216,8 +146,6 @@ func TestResponseTokenRefusesWhatIsNotAnInitiatorsToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "mech token")
 }
 
-// TestMutualRoundTrip is the loop the feature exists for: the acceptor answers, and the initiator
-// that sent the AP-REQ accepts the answer.
 func TestMutualRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -227,9 +155,6 @@ func TestMutualRoundTrip(t *testing.T) {
 	reply, err := (&SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{mechToken: mt}}).ResponseToken()
 	require.NoError(t, err)
 
-	// The capture is asserted here rather than taken on trust: it is the one link that decides what
-	// the reply is compared against, and everything below it would still pass if it remembered the
-	// wrong exchange but remembered it consistently.
 	init := initiator(key, mt)
 	assert.Equal(t, key, init.sessionKey)
 	assert.Equal(t, auth.CTime, init.sentCTime, "the initiator did not remember the ctime it sent")
@@ -238,9 +163,6 @@ func TestMutualRoundTrip(t *testing.T) {
 	assert.NoError(t, init.VerifyMutual(reply))
 }
 
-// TestVerifyMutualRefusesAReplyToAnotherExchange: an AP-REP captured from an earlier exchange with
-// the SAME service decrypts perfectly; the session key is the only thing that changed hand; so
-// the echoed time is what tells the two apart.
 func TestVerifyMutualRefusesAReplyToAnotherExchange(t *testing.T) {
 	t.Parallel()
 
@@ -257,7 +179,6 @@ func TestVerifyMutualRefusesAReplyToAnotherExchange(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "another one")
 
-	// And the same for cusec alone, which is the sub-second half of the comparison.
 	other = auth
 	other.Cusec = auth.Cusec + 1
 
@@ -284,8 +205,6 @@ func TestVerifyMutualRefusesAnEmptyOrRejectedReply(t *testing.T) {
 	key := mutualSessionKey(0xcc)
 	_, auth := verifiedAPREQ(t, key)
 
-	// Accepted, but proving nothing: this is what "the server said something" looks like, and it is
-	// exactly what a presence check would have let through.
 	bare := NegTokenResp{NegState: asn1.Enumerated(NegStateAcceptCompleted), SupportedMech: gssapi.OIDKRB5.OID()}
 
 	b, err := bare.Marshal()
@@ -313,23 +232,73 @@ func TestVerifyMutualRefusesWithoutAnInitiatedContext(t *testing.T) {
 	assert.Contains(t, err.Error(), "never initiated")
 }
 
-// TestMutualRequested: the flag is optional and NewNegTokenInitKRB5 does not set it, so an absent
-// ReqFlags is answered anyway; the reply costs one encryption, an initiator that does not check it
-// is unaffected, and for an authentication feature the conservative direction proves more.
-func TestMutualRequested(t *testing.T) {
+func TestMutualRequestedReadsTheAPREQ(t *testing.T) {
 	t.Parallel()
 
-	assert.True(t, mutualRequested(NegTokenInit{}), "an absent ReqFlags must be answered, not skipped")
+	testCases := []struct {
+		name     string
+		option   bool
+		flagged  bool
+		expected bool
+	}{
+		{"TheAPOptionAlone", true, false, true},
+		{"TheChecksumFlagAlone", false, true, true},
+		{"BothAsAnInitiatorSendsThem", true, true, true},
+		{"NeitherIsNotARequest", false, false, false},
+	}
 
-	set := asn1.BitString{Bytes: []byte{0x40}, BitLength: 8} // delegFlag(0), mutualFlag(1)
-	assert.True(t, mutualRequested(NegTokenInit{ReqFlags: set}))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	clear := asn1.BitString{Bytes: []byte{0x80}, BitLength: 8} // delegFlag only
-	assert.False(t, mutualRequested(NegTokenInit{ReqFlags: clear}))
+			assert.Equal(t, tc.expected, mutualRequested(mutualAPREQ(t, tc.option, tc.flagged)))
+		})
+	}
 }
 
-// TestNewAPReqKeepsThePlaintextAuthenticatorOffTheWire covers the supporting change and its one
-// risk: the initiator needs the authenticator it sent, and the wire must not carry it.
+func TestMutualRequestedIgnoresReqFlags(t *testing.T) {
+	t.Parallel()
+
+	clear := asn1.BitString{Bytes: []byte{0x80}, BitLength: 8}
+	set := asn1.BitString{Bytes: []byte{0x40}, BitLength: 8}
+
+	asking := &SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{ReqFlags: clear, mechToken: mutualAPREQ(t, true, true)}}
+
+	b, err := asking.ResponseToken()
+	require.NoError(t, err)
+
+	var resp NegTokenResp
+
+	require.NoError(t, resp.Unmarshal(b))
+	assert.NotEmpty(t, resp.ResponseToken, "an AP_REQ that asked was denied its AP_REP by a field RFC 4178 forbids reading")
+
+	silent := &SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{ReqFlags: set, mechToken: mutualAPREQ(t, false, false)}}
+
+	b, err = silent.ResponseToken()
+	require.NoError(t, err)
+
+	resp = NegTokenResp{}
+
+	require.NoError(t, resp.Unmarshal(b))
+	assert.Empty(t, resp.ResponseToken, "an AP_REQ that did not ask was answered on the strength of that same field")
+}
+
+func TestResponseTokenWithoutARequestCompletesWithoutAnAPRep(t *testing.T) {
+	t.Parallel()
+
+	st := &SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{mechToken: mutualAPREQ(t, false, false)}}
+
+	b, err := st.ResponseToken()
+	require.NoError(t, err)
+
+	var resp NegTokenResp
+
+	require.NoError(t, resp.Unmarshal(b))
+	assert.Equal(t, asn1.Enumerated(NegStateAcceptCompleted), resp.NegState)
+	assert.True(t, resp.SupportedMech.Equal(gssapi.OIDKRB5.OID()))
+	assert.Empty(t, resp.ResponseToken)
+}
+
 func TestNewAPReqKeepsThePlaintextAuthenticatorOffTheWire(t *testing.T) {
 	t.Parallel()
 
@@ -348,8 +317,6 @@ func TestNewAPReqKeepsThePlaintextAuthenticatorOffTheWire(t *testing.T) {
 	assert.NotEmpty(t, wire.EncryptedAuthenticator.Cipher, "the encrypted authenticator did not")
 }
 
-// TestNewNegTokenInitKRB5KeepsTheMechToken covers the other supporting change: without it the
-// initiator cannot read back what it just sent, and ResponseToken has nothing to answer.
 func TestNewNegTokenInitKRB5KeepsTheMechToken(t *testing.T) {
 	t.Parallel()
 
@@ -373,9 +340,6 @@ func TestNewNegTokenInitKRB5KeepsTheMechToken(t *testing.T) {
 	assert.False(t, mt.APReq.Authenticator.CTime.IsZero())
 }
 
-// TestVerifyMutualRefusesMalformedReplies walks the shapes a broken or hostile peer can send. None
-// of them is exotic: the reply arrives over the same channel as everything else, and a verifier that
-// panics or accepts on garbage is worse than one that does not exist.
 func TestVerifyMutualRefusesMalformedReplies(t *testing.T) {
 	t.Parallel()
 
@@ -385,7 +349,6 @@ func TestVerifyMutualRefusesMalformedReplies(t *testing.T) {
 	apRep, err := mt.APRepToken()
 	require.NoError(t, err)
 
-	// A KRB5 token that is an AP-REQ rather than an AP-REP: well-formed, wrong direction.
 	notAReply := KRB5Token{OID: mt.OID, APReq: mt.APReq}
 	notAReply.tokID, _ = hex.DecodeString(TOK_ID_KRB_AP_REQ)
 
@@ -427,26 +390,6 @@ func TestVerifyMutualRefusesMalformedReplies(t *testing.T) {
 	}
 }
 
-// corruptCipher flips the last byte of an AP-REP's ciphertext, which the integrity check catches.
-func corruptCipher(t *testing.T, apRep []byte) []byte {
-	t.Helper()
-
-	var rep KRB5Token
-
-	require.NoError(t, rep.Unmarshal(apRep))
-	require.NotEmpty(t, rep.APRep.EncPart.Cipher)
-
-	rep.APRep.EncPart.Cipher[len(rep.APRep.EncPart.Cipher)-1] ^= 0xff
-
-	b, err := rep.Marshal()
-	require.NoError(t, err)
-
-	return b
-}
-
-// TestResponseTokenSurfacesAnUnanswerableToken: an acceptor asked to answer a token whose ticket was
-// never decrypted must say so rather than send a NegTokenResp with nothing in it, which a client
-// checking only for presence would have accepted.
 func TestResponseTokenSurfacesAnUnanswerableToken(t *testing.T) {
 	t.Parallel()
 
@@ -458,9 +401,6 @@ func TestResponseTokenSurfacesAnUnanswerableToken(t *testing.T) {
 	assert.Contains(t, err.Error(), "session key")
 }
 
-// TestAPRepTokenRefusesAnUnsupportedEnctype: the ticket decides the enctype, and a build that does
-// not implement it cannot answer. Better a named refusal than a NegTokenResp with nothing in it,
-// which is indistinguishable from an acceptor that does not do mutual authentication at all.
 func TestAPRepTokenRefusesAnUnsupportedEnctype(t *testing.T) {
 	t.Parallel()
 
@@ -472,10 +412,6 @@ func TestAPRepTokenRefusesAnUnsupportedEnctype(t *testing.T) {
 	assert.Contains(t, err.Error(), "encrypt")
 }
 
-// TestVerifyMutualRefusesAReplyThatDecryptsToRubbish is the boundary between "decrypts" and "means
-// something". A peer holding the session key can still send the wrong payload; through a bug, or
-// deliberately, to see what the verifier does with it; and the answer must be a refusal rather
-// than whatever a half-parsed EncAPRepPart happens to contain.
 func TestVerifyMutualRefusesAReplyThatDecryptsToRubbish(t *testing.T) {
 	t.Parallel()
 
@@ -506,4 +442,143 @@ func TestVerifyMutualRefusesAReplyThatDecryptsToRubbish(t *testing.T) {
 	err = initiatorOf(key, auth).VerifyMutual(b)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "malformed")
+}
+
+func TestMutualAuthenticationOptionDecidesTheAPRep(t *testing.T) {
+	t.Parallel()
+
+	asked := acceptedToken(t, "mutual-asked", MutualAuthentication())
+	assert.Equal(t, asn1.Enumerated(NegStateAcceptCompleted), asked.NegState)
+	assert.NotEmpty(t, asked.ResponseToken, "MutualAuthentication() was given and no AP_REP came back")
+
+	silent := acceptedToken(t, "mutual-silent")
+	assert.Equal(t, asn1.Enumerated(NegStateAcceptCompleted), silent.NegState,
+		"an initiator that did not ask must still complete the negotiation")
+	assert.Empty(t, silent.ResponseToken, "an initiator that did not ask was answered anyway")
+}
+
+func mutualSessionKey(fill byte) types.EncryptionKey {
+	v := make([]byte, 32)
+	for i := range v {
+		v[i] = fill
+	}
+
+	return types.EncryptionKey{KeyType: 18, KeyValue: v}
+}
+
+func verifiedAPREQ(t *testing.T, key types.EncryptionKey, contextFlags ...int) (*KRB5Token, types.Authenticator) {
+	t.Helper()
+
+	if len(contextFlags) == 0 {
+		contextFlags = []int{gssapi.ContextFlagInteg, gssapi.ContextFlagMutual}
+	}
+
+	creds := credentials.New("hftsai", testdata.TEST_REALM)
+	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
+
+	cl := client.Client{Credentials: creds}
+
+	var tkt messages.Ticket
+
+	b, err := hex.DecodeString(testdata.MarshaledKRB5ticket)
+	require.NoError(t, err)
+	require.NoError(t, tkt.Unmarshal(b))
+
+	mt, err := NewKRB5TokenAPREQ(&cl, tkt, key, contextFlags, []int{})
+	require.NoError(t, err)
+
+	auth := mt.APReq.Authenticator
+	require.False(t, auth.CTime.IsZero(), "NewAPReq must keep the plaintext authenticator; the initiator has no other way to remember what it sent")
+
+	auth.CTime = auth.CTime.Add(123456 * time.Nanosecond)
+	mt.APReq.Authenticator = auth
+	mt.APReq.Ticket.DecryptedEncPart.Key = key
+
+	return &mt, auth
+}
+
+func initiator(key types.EncryptionKey, mt *KRB5Token) *SPNEGO {
+	s := SPNEGOClient(&client.Client{}, "HTTP/host.test.gokrb5")
+	s.rememberExchange(key, NegTokenInit{mechToken: mt})
+
+	return s
+}
+
+func initiatorOf(key types.EncryptionKey, auth types.Authenticator) *SPNEGO {
+	mt := &KRB5Token{}
+	mt.APReq.Authenticator = auth
+
+	return initiator(key, mt)
+}
+
+func acceptedToken(t *testing.T, cname string, opts ...KRB5TokenOption) NegTokenResp {
+	t.Helper()
+
+	kt := testKeytab(t)
+	sname := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
+	now := time.Now().UTC()
+
+	tkt, key, err := messages.NewTicket(types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, cname), "TEST.GOKRB5",
+		sname, "TEST.GOKRB5", types.NewKrbFlags(), kt, etypeID.AES256_CTS_HMAC_SHA1_96, 1,
+		now, now, now.Add(time.Hour), now.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	creds := credentials.New(cname, "TEST.GOKRB5")
+	creds.SetCName(types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, cname))
+
+	n, err := NewNegTokenInitKRB5(&client.Client{Credentials: creds}, tkt, key, opts...)
+	require.NoError(t, err)
+
+	b, err := (&SPNEGOToken{Init: true, NegTokenInit: n}).Marshal()
+	require.NoError(t, err)
+
+	var st SPNEGOToken
+
+	require.NoError(t, st.Unmarshal(b))
+
+	ok, _, status := SPNEGOService(kt).AcceptSecContext(&st)
+	require.True(t, ok, "status was %d: %s", status.Code, status.Message)
+
+	reply, err := st.ResponseToken()
+	require.NoError(t, err)
+
+	var resp NegTokenResp
+
+	require.NoError(t, resp.Unmarshal(reply))
+
+	return resp
+}
+
+func corruptCipher(t *testing.T, apRep []byte) []byte {
+	t.Helper()
+
+	var rep KRB5Token
+
+	require.NoError(t, rep.Unmarshal(apRep))
+	require.NotEmpty(t, rep.APRep.EncPart.Cipher)
+
+	rep.APRep.EncPart.Cipher[len(rep.APRep.EncPart.Cipher)-1] ^= 0xff
+
+	b, err := rep.Marshal()
+	require.NoError(t, err)
+
+	return b
+}
+
+func mutualAPREQ(t *testing.T, option, flagged bool) *KRB5Token {
+	t.Helper()
+
+	contextFlags := []int{gssapi.ContextFlagInteg}
+	if flagged {
+		contextFlags = append(contextFlags, gssapi.ContextFlagMutual)
+	}
+
+	mt, _ := verifiedAPREQ(t, mutualSessionKey(0x31), contextFlags...)
+
+	mt.APReq.APOptions = types.NewKrbFlags()
+	if option {
+		types.SetFlag(&mt.APReq.APOptions, flags.APOptionMutualRequired)
+	}
+
+	return mt
 }
