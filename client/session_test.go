@@ -4,9 +4,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/go-krb5/krb5/iana/addrtype"
 	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/iana/flags"
+	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/test"
@@ -225,4 +228,109 @@ func TestSessionShouldRetainTheKDCSupportedEncryptionTypes(t *testing.T) {
 		EncPAData: types.PADataSequence{want.PAData()},
 	})
 	assert.Equal(t, want, s.supported())
+}
+
+func TestSessionTGTDoesNotRenewARenewedTGTWithMostOfItsLifetimeLeft(t *testing.T) {
+	t.Parallel()
+
+	kdc := newCountingKDC(t)
+	now := time.Now().UTC()
+
+	// RFC 4120 Section 3.3.3.1: a renewed ticket keeps the original authtime.
+	cl := renewedSessionClient(t, kdc.addr, now.Add(-72*time.Hour), now.Add(-time.Hour), now.Add(9*time.Hour))
+
+	_, _, err := cl.sessionTGT(sessionTestRealm)
+	require.NoError(t, err)
+	assert.Zero(t, kdc.dials())
+}
+
+func TestSessionTGTReturnsTheCurrentTGTWhenRefreshingFails(t *testing.T) {
+	t.Parallel()
+
+	kdc := newCountingKDC(t)
+	now := time.Now().UTC()
+
+	cl := renewedSessionClient(t, kdc.addr, now.Add(-9*time.Hour), now.Add(-9*time.Hour), now.Add(30*time.Minute))
+
+	tgt, _, err := cl.sessionTGT(sessionTestRealm)
+	require.NoError(t, err)
+	assert.Equal(t, sessionTestRealm, tgt.Realm)
+	assert.NotZero(t, kdc.dials(), "a TGT this close to its end time must still be refreshed")
+}
+
+func TestSessionTGTFailsWhenRefreshingAnExpiredTGTFails(t *testing.T) {
+	t.Parallel()
+
+	kdc := newCountingKDC(t)
+	now := time.Now().UTC()
+
+	cl := renewedSessionClient(t, kdc.addr, now.Add(-11*time.Hour), now.Add(-11*time.Hour), now.Add(-time.Hour))
+
+	_, _, err := cl.sessionTGT(sessionTestRealm)
+	assert.Error(t, err)
+}
+
+const sessionTestRealm = "TEST.GOKRB5"
+
+type countingKDC struct {
+	addr string
+	n    atomic.Int32
+}
+
+func (k *countingKDC) dials() int32 {
+	return k.n.Load()
+}
+
+func newCountingKDC(t *testing.T) *countingKDC {
+	t.Helper()
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	t.Cleanup(func() { _ = ln.Close() })
+
+	k := &countingKDC{addr: ln.Addr().String()}
+
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+
+			k.n.Add(1)
+
+			_ = c.Close()
+		}
+	}()
+
+	return k
+}
+
+func renewedSessionClient(t *testing.T, kdcAddr string, authTime, startTime, endTime time.Time) *Client {
+	t.Helper()
+
+	c := config.New()
+	c.LibDefaults.DefaultRealm = sessionTestRealm
+	c.LibDefaults.NoAddresses = true
+	c.LibDefaults.UDPPreferenceLimit = 1
+	c.Realms = []config.Realm{{Realm: sessionTestRealm, KDC: []string{kdcAddr}}}
+
+	cl := NewWithPassword("testuser", sessionTestRealm, "passwordvalue", c)
+
+	cl.sessions.update(&session{
+		realm:     sessionTestRealm,
+		authTime:  authTime,
+		startTime: startTime,
+		endTime:   endTime,
+		renewTill: endTime,
+		tgt: messages.Ticket{
+			Realm: sessionTestRealm,
+			SName: types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "krbtgt/"+sessionTestRealm),
+		},
+		sessionKey: types.EncryptionKey{KeyType: etypeID.AES256_CTS_HMAC_SHA1_96, KeyValue: make([]byte, 32)},
+		flags:      types.NewKrbFlags(),
+	})
+
+	return cl
 }
