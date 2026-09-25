@@ -83,6 +83,8 @@ func (cl *Client) ASExchange(realm string, ASReq messages.ASReq, referral int) (
 		return messages.ASRep{}, krberror.Errorf(err, krberror.KRBMsgError, "AS Exchange Error: AS_REP is not valid or client password/keytab incorrect")
 	}
 
+	cl.settings.preAuthPAData.store(cl.Credentials.CName(), cl.Credentials.Domain(), ASRep.PAData)
+
 	return ASRep, nil
 }
 

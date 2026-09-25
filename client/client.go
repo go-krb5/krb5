@@ -9,12 +9,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-krb5/x/encoding/asn1"
+
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/crypto/etype"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/nametype"
+	"github.com/go-krb5/krb5/iana/patype"
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/messages"
@@ -134,37 +137,88 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 // Key returns the client's encryption key for the specified encryption type and its kvno (kvno of zero will find latest).
 // The key can be retrieved either from the keytab or generated from the client's password.
 // If the client has both a keytab and a password defined the keytab is favoured as the source for the key
-// A KRBError can be passed in the event the KDC returns one of type KDC_ERR_PREAUTH_REQUIRED and is required to derive
-// the key for pre-authentication from the client's password. If a KRBError is not available, pass nil to this argument.
+// A KRBError can be passed in the event the KDC returns one of type KDC_ERR_PREAUTH_REQUIRED or KDC_ERR_PREAUTH_FAILED
+// and is required to derive the key for pre-authentication from the client's password. If a KRBError is not
+// available, pass nil to this argument. The error's salt and string-to-key parameters are used for that call only.
+// Without an error, the parameters that decrypted the last verified AS_REP are used, since a KDC only sends them when
+// it asks for pre-authentication, and an unauthenticated KRBError must not decide the key of a later request.
 func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (types.EncryptionKey, int, error) {
 	if cl.Credentials.HasKeytab() && etype != nil {
 		return cl.Credentials.Keytab().GetEncryptionKey(cl.Credentials.CName(), cl.Credentials.Domain(), kvno, etype.GetETypeID())
 	} else if cl.Credentials.HasPassword() {
-		if krberr != nil && krberr.ErrorCode == errorcode.KDC_ERR_PREAUTH_REQUIRED {
-			var pas types.PADataSequence
+		cname, realm := cl.Credentials.CName(), cl.Credentials.Domain()
+		pas := cl.settings.preAuthPAData.load(cname, realm)
+
+		if krberr != nil && len(krberr.EData) > 0 &&
+			(krberr.ErrorCode == errorcode.KDC_ERR_PREAUTH_REQUIRED || krberr.ErrorCode == errorcode.KDC_ERR_PREAUTH_FAILED) {
+			pas = nil
 
 			err := pas.Unmarshal(krberr.EData)
 			if err != nil {
 				return types.EncryptionKey{}, 0, fmt.Errorf("could not get PAData from KRBError to generate key from password: %w", err)
 			}
-
-			// RFC 4120 Section 3.1: "the contents of the KRB_ERROR message are not integrity-protected", so the
-			// principal and realm the error names are the attacker's choice wherever it can be substituted. Only
-			// the explicit salt in the pre-authentication data is taken from it; the default salt comes from the
-			// identity this client is authenticating as, so an attacker cannot pick the salt the password is
-			// stretched with.
-			key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cl.Credentials.CName(),
-				cl.Credentials.Domain(), etype.GetETypeID(), pas)
-
-			return key, 0, err
 		}
 
-		key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cl.Credentials.CName(), cl.Credentials.Domain(), etype.GetETypeID(), types.PADataSequence{})
+		// RFC 4120 Section 3.1: "the contents of the KRB_ERROR message are not integrity-protected", so the
+		// principal and realm the error names are the attacker's choice wherever it can be substituted. Only
+		// the explicit salt in the pre-authentication data is taken from it; the default salt comes from the
+		// identity this client is authenticating as, so an attacker cannot pick the salt the password is
+		// stretched with.
+		key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cname, realm, etype.GetETypeID(),
+			paDataForEType(pas, etype.GetETypeID()))
 
 		return key, 0, err
 	}
 
 	return types.EncryptionKey{}, 0, errors.New("credential has neither keytab or password to generate key")
+}
+
+func paDataForEType(pas types.PADataSequence, etypeID int32) types.PADataSequence {
+	var out types.PADataSequence
+
+	for _, pa := range pas {
+		switch pa.PADataType {
+		case patype.PA_ETYPE_INFO2:
+			info, err := pa.GetETypeInfo2()
+			if err != nil {
+				out = append(out, pa)
+				continue
+			}
+
+			for _, e := range info {
+				if e.EType == etypeID {
+					out = appendETypeInfo(out, pa.PADataType, types.ETypeInfo2{e})
+					break
+				}
+			}
+		case patype.PA_ETYPE_INFO:
+			info, err := pa.GetETypeInfo()
+			if err != nil {
+				out = append(out, pa)
+				continue
+			}
+
+			for _, e := range info {
+				if e.EType == etypeID {
+					out = appendETypeInfo(out, pa.PADataType, types.ETypeInfo{e})
+					break
+				}
+			}
+		default:
+			out = append(out, pa)
+		}
+	}
+
+	return out
+}
+
+func appendETypeInfo(pas types.PADataSequence, paType int32, info any) types.PADataSequence {
+	b, err := asn1.Marshal(info, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	if err != nil {
+		return pas
+	}
+
+	return append(pas, types.PAData{PADataType: paType, PADataValue: b})
 }
 
 // IsConfigured indicates if the client has the values required set.

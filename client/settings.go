@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"slices"
+	"sync"
 	"time"
+
+	"github.com/go-krb5/krb5/types"
 )
 
 // Settings holds optional client settings.
@@ -13,8 +17,41 @@ type Settings struct {
 	disablePAFXFast         bool
 	assumePreAuthentication bool
 	preAuthEType            int32
+	preAuthPAData           keptPAData
 	logger                  *log.Logger
 	dialer                  Dialer
+}
+
+type keptPAData struct {
+	mu    sync.Mutex
+	cname types.PrincipalName
+	realm string
+	pas   types.PADataSequence
+}
+
+func (k *keptPAData) store(cname types.PrincipalName, realm string, pas types.PADataSequence) {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	cname.NameString = slices.Clone(cname.NameString)
+
+	pas = slices.Clone(pas)
+	for i := range pas {
+		pas[i].PADataValue = slices.Clone(pas[i].PADataValue)
+	}
+
+	k.cname, k.realm, k.pas = cname, realm, pas
+}
+
+func (k *keptPAData) load(cname types.PrincipalName, realm string) types.PADataSequence {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+
+	if !k.cname.Equal(cname) || k.realm != realm {
+		return nil
+	}
+
+	return k.pas
 }
 
 // A Dialer is a means to establish a connection.
