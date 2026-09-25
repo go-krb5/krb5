@@ -1,6 +1,8 @@
 package client
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +11,7 @@ import (
 	"github.com/go-krb5/x/encoding/asn1"
 
 	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/etypeID"
@@ -152,4 +155,133 @@ func TestKeyShouldStillHonourTheExplicitSaltInTheKRBErrors(t *testing.T) {
 	assert.Equal(t, expected, key.KeyValue)
 }
 
-const attackerRealm = "EVIL.GOKRB5"
+func TestKeyUsesTheSaltForTheRequestedEType(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
+
+	krberr := preAuthRequired(t, types.ETypeInfo2{
+		{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: aes256Salt},
+		{EType: etypeID.AES128_CTS_HMAC_SHA1_96, Salt: "TEST.GOKRB5aes128salt"},
+	})
+
+	et, err := crypto.GetEType(etypeID.AES128_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
+
+	key, _, err := cl.Key(et, 0, &krberr)
+	require.NoError(t, err)
+
+	expected, err := et.StringToKey("passwordvalue", "TEST.GOKRB5aes128salt", et.GetDefaultStringToKeyParams())
+	require.NoError(t, err)
+
+	assert.Equal(t, etypeID.AES128_CTS_HMAC_SHA1_96, key.KeyType)
+	assert.Equal(t, expected, key.KeyValue)
+}
+
+func TestKeyDoesNotApplyAnotherETypesKeptSalt(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
+
+	krberr := preAuthRequired(t, types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: aes256Salt}})
+
+	aes256, err := crypto.GetEType(etypeID.AES256_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
+
+	_, _, err = cl.Key(aes256, 0, &krberr)
+	require.NoError(t, err)
+
+	aes128, err := crypto.GetEType(etypeID.AES128_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
+
+	key, _, err := cl.Key(aes128, 0, nil)
+	require.NoError(t, err)
+
+	expected, _, err := crypto.GetKeyFromPassword("passwordvalue", cl.Credentials.CName(), cl.Credentials.Domain(),
+		etypeID.AES128_CTS_HMAC_SHA1_96, types.PADataSequence{})
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, key)
+}
+
+func TestKeyForgetsTheKeptSaltWhenTheCredentialsChange(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
+
+	krberr := preAuthRequired(t, types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: keptSalt}})
+
+	et, err := crypto.GetEType(etypeID.AES256_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
+
+	_, _, err = cl.Key(et, 0, &krberr)
+	require.NoError(t, err)
+
+	cl.Credentials = credentials.New("otheruser", "TEST.GOKRB5").WithPassword("passwordvalue")
+
+	key, _, err := cl.Key(et, 0, nil)
+	require.NoError(t, err)
+
+	expected, _, err := crypto.GetKeyFromPassword("passwordvalue", cl.Credentials.CName(), cl.Credentials.Domain(),
+		etypeID.AES256_CTS_HMAC_SHA1_96, types.PADataSequence{})
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, key)
+}
+
+func TestKeyIsSafeForConcurrentUse(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
+
+	et, err := crypto.GetEType(etypeID.AES256_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
+
+	var wg sync.WaitGroup
+
+	for i := range 8 {
+		salt := fmt.Sprintf("TEST.GOKRB5salt%d", i)
+		krberr := preAuthRequired(t, types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: salt}})
+
+		expected, err := et.StringToKey("passwordvalue", salt, et.GetDefaultStringToKeyParams())
+		require.NoError(t, err)
+
+		wg.Add(2)
+
+		go func() {
+			defer wg.Done()
+
+			key, _, err := cl.Key(et, 0, &krberr)
+			assert.NoError(t, err)
+			assert.Equal(t, expected, key.KeyValue, "a key was derived with a salt from another call")
+		}()
+
+		go func() {
+			defer wg.Done()
+
+			_, _, err := cl.Key(et, 0, nil)
+			assert.NoError(t, err)
+		}()
+	}
+
+	wg.Wait()
+}
+
+func preAuthRequired(t *testing.T, info types.ETypeInfo2) messages.KRBError {
+	t.Helper()
+
+	v, err := asn1.Marshal(info, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	pas, err := asn1.Marshal(types.PADataSequence{{PADataType: patype.PA_ETYPE_INFO2, PADataValue: v}},
+		asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	return messages.KRBError{ErrorCode: errorcode.KDC_ERR_PREAUTH_REQUIRED, EData: pas}
+}
+
+const (
+	attackerRealm = "EVIL.GOKRB5"
+	aes256Salt    = "TEST.GOKRB5aes256salt"
+	keptSalt      = "TEST.GOKRB5keptsalt"
+)
