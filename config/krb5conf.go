@@ -447,19 +447,11 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 	r.Realm = name
 
 	var (
-		adminServerFinal   bool
-		KDCFinal           bool
-		kpasswdServerFinal bool
-		masterKDCFinal     bool
-		ignore             bool
+		finals realmFinals
+		c      int
 	)
 
-	var c int
 	for _, line := range lines {
-		if ignore && c > 0 && !strings.Contains(line, "{") && !strings.Contains(line, "}") {
-			continue
-		}
-
 		if idx := strings.IndexAny(line, "#;"); idx != -1 {
 			line = line[:idx]
 		}
@@ -474,64 +466,24 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 			return InvalidErrorf("realms section line (%s)", line)
 		}
 
-		if strings.Contains(line, "v4_") {
-			ignore = true
-			err = UnsupportedDirective{"v4 configurations are not supported"}
+		if e := unsupportedRealmDirective(line); c == 0 && e != nil {
+			err = e
 		}
 
-		if strings.Contains(line, "auth_to_local_names") {
-			ignore = true
-			err = UnsupportedDirective{"auth_to_local_names are not supported"}
-		}
-
-		if strings.Contains(line, "{") {
-			c++
-
-			if ignore {
-				continue
-			}
-		}
-
-		if strings.Contains(line, "}") {
-			c--
-			if c < 0 {
+		if opens, closes := strings.Count(line, "{"), strings.Count(line, "}"); opens+closes > 0 {
+			if c += opens - closes; c < 0 {
 				return InvalidErrorf("unpaired curly brackets")
 			}
 
-			if ignore {
-				if c < 1 {
-					c = 0
-					ignore = false
-				}
+			continue
+		}
 
-				continue
-			}
+		if c > 0 {
+			continue
 		}
 
 		p := strings.SplitN(line, "=", 2)
-		key := strings.TrimSpace(strings.ToLower(p[0]))
-		v := strings.TrimSpace(p[1])
-
-		switch key {
-		case ConfigKeyAdminServer:
-			appendUntilFinal(&r.AdminServer, v, &adminServerFinal)
-		case ConfigKeyDefaultDomain:
-			r.DefaultDomain = v
-		case ConfigKeyKDC:
-			if !strings.Contains(v, ":") {
-				if strings.HasSuffix(v, `*`) {
-					v = strings.TrimSpace(strings.TrimSuffix(v, `*`)) + ":88*"
-				} else {
-					v = strings.TrimSpace(v) + ":88"
-				}
-			}
-
-			appendUntilFinal(&r.KDC, v, &KDCFinal)
-		case ConfigKeyKPasswdServer:
-			appendUntilFinal(&r.KPasswdServer, v, &kpasswdServerFinal)
-		case ConfigKeyMasterKDC:
-			appendUntilFinal(&r.MasterKDC, v, &masterKDCFinal)
-		}
+		r.parseRelation(strings.TrimSpace(strings.ToLower(p[0])), strings.TrimSpace(p[1]), &finals)
 	}
 
 	if len(r.KPasswdServer) < 1 {
@@ -542,6 +494,47 @@ func (r *Realm) parseLines(name string, lines []string) (err error) {
 	}
 
 	return
+}
+
+type realmFinals struct {
+	adminServer   bool
+	kdc           bool
+	kpasswdServer bool
+	masterKDC     bool
+}
+
+func (r *Realm) parseRelation(key, v string, f *realmFinals) {
+	switch key {
+	case ConfigKeyAdminServer:
+		appendUntilFinal(&r.AdminServer, v, &f.adminServer)
+	case ConfigKeyDefaultDomain:
+		r.DefaultDomain = v
+	case ConfigKeyKDC:
+		if !strings.Contains(v, ":") {
+			if strings.HasSuffix(v, `*`) {
+				v = strings.TrimSpace(strings.TrimSuffix(v, `*`)) + ":88*"
+			} else {
+				v = strings.TrimSpace(v) + ":88"
+			}
+		}
+
+		appendUntilFinal(&r.KDC, v, &f.kdc)
+	case ConfigKeyKPasswdServer:
+		appendUntilFinal(&r.KPasswdServer, v, &f.kpasswdServer)
+	case ConfigKeyMasterKDC:
+		appendUntilFinal(&r.MasterKDC, v, &f.masterKDC)
+	}
+}
+
+func unsupportedRealmDirective(line string) error {
+	switch {
+	case strings.Contains(line, "v4_"):
+		return UnsupportedDirective{"v4 configurations are not supported"}
+	case strings.Contains(line, "auth_to_local_names"):
+		return UnsupportedDirective{"auth_to_local_names are not supported"}
+	default:
+		return nil
+	}
 }
 
 // Parse the lines of the [realms] section of the configuration into an slice of Realm structs.

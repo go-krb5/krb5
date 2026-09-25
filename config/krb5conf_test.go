@@ -819,3 +819,59 @@ func TestParsePreferredPreauthTypesRejectsAnEmptyList(t *testing.T) {
 		assert.Error(t, err, "value %q", value)
 	}
 }
+
+func TestParseRealmsIgnoresANestedSubsection(t *testing.T) {
+	t.Parallel()
+
+	conf := `[realms]
+ TEST.GOKRB5 = {
+  kdc = kdc1.test.gokrb5
+  unknown = {
+   kdc = kdc.evil.example
+   setting = 1
+  }
+  admin_server = kadmin.test.gokrb5
+ }
+`
+
+	var (
+		c   *Config
+		err error
+	)
+
+	require.NotPanics(t, func() { c, err = NewFromString(conf) })
+	require.NoError(t, err)
+	require.Len(t, c.Realms, 1)
+
+	assert.Equal(t, []string{nestedRealmKDC}, c.Realms[0].KDC)
+	assert.Equal(t, []string{"kadmin.test.gokrb5"}, c.Realms[0].AdminServer)
+}
+
+func TestParseRealmsIgnoresASubsectionNestedInAnother(t *testing.T) {
+	t.Parallel()
+
+	conf := `[realms]
+ TEST.GOKRB5 = {
+  outer = {
+   inner = {
+    kdc = kdc.evil.example
+   }
+   kdc = kdc.evil.example
+  }
+  kdc = kdc1.test.gokrb5
+ }
+`
+
+	var (
+		c   *Config
+		err error
+	)
+
+	require.NotPanics(t, func() { c, err = NewFromString(conf) })
+	require.NoError(t, err)
+	require.Len(t, c.Realms, 1)
+
+	assert.Equal(t, []string{nestedRealmKDC}, c.Realms[0].KDC)
+}
+
+const nestedRealmKDC = "kdc1.test.gokrb5:88"
