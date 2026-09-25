@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"slices"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ func (k *keptPAData) store(cname types.PrincipalName, realm string, pas types.PA
 	k.mu.Lock()
 	defer k.mu.Unlock()
 
+	cname.NameString = slices.Clone(cname.NameString)
 	k.cname, k.realm, k.pas = cname, realm, pas
 }
 
