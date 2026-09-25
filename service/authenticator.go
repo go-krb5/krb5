@@ -65,6 +65,20 @@ func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, er
 		return
 	}
 
+	// Only the ticket's encrypted part is sealed by the KDC; the replies that carried it are not proof of anything
+	// when the KDC traffic can be spoofed, so the ticket itself must name this user and be current.
+	if !tkt.DecryptedEncPart.CName.Equal(cl.Credentials.CName()) || tkt.DecryptedEncPart.CRealm != cl.Credentials.Realm() {
+		err = fmt.Errorf("service ticket was issued to %s@%s, not %s@%s", tkt.DecryptedEncPart.CName.PrincipalNameString(),
+			tkt.DecryptedEncPart.CRealm, cl.Credentials.CName().PrincipalNameString(), cl.Credentials.Realm())
+
+		return
+	}
+
+	if _, err = tkt.Valid(a.serviceSettings.MaxClockSkew()); err != nil {
+		err = fmt.Errorf("service ticket is not valid: %w", err)
+		return
+	}
+
 	cl.Credentials.SetAuthTime(time.Now().UTC())
 	cl.Credentials.SetAuthenticated(true)
 
