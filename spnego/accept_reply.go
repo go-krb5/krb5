@@ -8,10 +8,14 @@ import (
 	"github.com/go-krb5/x/encoding/asn1"
 
 	"github.com/go-krb5/krb5/crypto"
+	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana"
+	"github.com/go-krb5/krb5/iana/chksumtype"
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/messages"
+	"github.com/go-krb5/krb5/types"
 )
 
 // APRepToken builds the AP-REP GSSAPI mech token that answers a verified AP-REQ.
@@ -79,7 +83,7 @@ func (s *SPNEGOToken) ResponseToken() ([]byte, error) {
 		NegState:      asn1.Enumerated(NegStateAcceptCompleted),
 		SupportedMech: mt.OID,
 	}
-	if mutualRequested(s.NegTokenInit) {
+	if mutualRequested(mt) {
 		rep, err := mt.APRepToken()
 		if err != nil {
 			return nil, err
@@ -92,20 +96,42 @@ func (s *SPNEGOToken) ResponseToken() ([]byte, error) {
 
 // mutualRequested reports whether the initiator asked to be told who it is talking to.
 //
-// The flag lives in the NegTokenInit's ReqFlags, which is optional and frequently absent; NewNegTokenInitKRB5 does not
-// set it at all. A client that omits it has expressed no preference, and answering anyway costs one encryption while
-// giving a client that DOES check something to check. So an absent ReqFlags is treated as "answer it": for an
-// authentication feature the conservative direction is the one that proves more, not less.
-func mutualRequested(n NegTokenInit) bool {
-	if len(n.ReqFlags.Bytes) == 0 {
+// The request is read from the AP_REQ, where Kerberos puts it, and not from the NegTokenInit's ReqFlags, where
+// SPNEGO once did. RFC 4178 Section 4.2.1 is explicit that the latter is not an acceptor's to read: "This field is
+// inherited from RFC 2478 and is not integrity protected. For implementations of this specification, the initiator
+// SHOULD omit this reqFlags field and the acceptor MUST ignore this reqFlags field."
+//
+// Two places in the AP_REQ carry the request and either one is taken as asking, because initiators differ in which
+// they set:
+//
+//   - GSS_C_MUTUAL_FLAG in the authenticator checksum, RFC 4121 Section 4.1.1.1. This is the one an acceptor can
+//     trust: the checksum is inside the authenticator, encrypted under the ticket's session key.
+//   - The MUTUAL-REQUIRED AP option, RFC 4120 Section 5.5.1, which Section 3.2.5 makes the trigger for the AP_REP.
+//     It travels in the clear, so it can be added or stripped in flight; an initiator that asked and had the bit
+//     stripped gets no AP_REP and fails closed in SPNEGO.VerifyMutual, which is the safe direction.
+//
+// An AP_REQ carrying neither is not asking, and gets no AP_REP: RFC 4120 Section 3.2.5 conditions the reply on the
+// request, and an initiator that did not ask has nothing to check and ignores what it cannot use.
+func mutualRequested(mt *KRB5Token) bool {
+	if types.IsFlagSet(&mt.APReq.APOptions, flags.APOptionMutualRequired) {
 		return true
 	}
-	return n.ReqFlags.At(gssapiMutualFlagBit) == 1
-}
 
-// gssapiMutualFlagBit is GSS_C_MUTUAL_FLAG's position in the SPNEGO ContextFlags bit string
-// (RFC 4178 §4.2.1: delegFlag(0), mutualFlag(1), …).
-const gssapiMutualFlagBit = 1
+	cksum := mt.APReq.Authenticator.Cksum.Checksum
+	if mt.APReq.Authenticator.Cksum.CksumType != chksumtype.GSSAPI || len(cksum) < gssapi.ChecksumMinLen {
+		return false
+	}
+
+	var c gssapi.AuthenticatorChecksum
+
+	// A checksum too malformed to read is not a request. Verifying the AP_REQ is what rejects it; this only
+	// decides whether to answer one that was already accepted.
+	if err := c.Unmarshal(cksum); err != nil {
+		return false
+	}
+
+	return c.Mutual()
+}
 
 // VerifyMutual checks the acceptor's reply and reports whether it proves the peer holds the service
 // key. It is the initiator's half of what APRepToken produces, and it closes this package's own

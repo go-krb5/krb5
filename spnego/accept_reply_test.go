@@ -15,6 +15,8 @@ import (
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana"
+	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/iana/nametype"
@@ -40,8 +42,15 @@ func mutualSessionKey(fill byte) types.EncryptionKey {
 // The ctime deliberately carries nanoseconds. They never reach the wire; ctime travels as a
 // GeneralizedTime and is truncated to the second, with the sub-second part carried by cusec; and
 // a comparison that forgets this rejects every reply it should accept.
-func verifiedAPREQ(t *testing.T, key types.EncryptionKey) (*KRB5Token, types.Authenticator) {
+// verifiedAPREQ is an AP_REQ in the state an acceptor has it in once AcceptSecContext has succeeded: the ticket's
+// session key recovered and the authenticator decrypted. contextFlags replaces the RFC 4121 Section 4.1.1.1 flags
+// the initiator asks with; omitted, it asks for integrity and mutual authentication.
+func verifiedAPREQ(t *testing.T, key types.EncryptionKey, contextFlags ...int) (*KRB5Token, types.Authenticator) {
 	t.Helper()
+
+	if len(contextFlags) == 0 {
+		contextFlags = []int{gssapi.ContextFlagInteg, gssapi.ContextFlagMutual}
+	}
 
 	creds := credentials.New("hftsai", testdata.TEST_REALM)
 	creds.SetCName(types.PrincipalName{NameType: nametype.KRB_NT_PRINCIPAL, NameString: testdata.TEST_PRINCIPALNAME_NAMESTRING})
@@ -54,7 +63,7 @@ func verifiedAPREQ(t *testing.T, key types.EncryptionKey) (*KRB5Token, types.Aut
 	require.NoError(t, err)
 	require.NoError(t, tkt.Unmarshal(b))
 
-	mt, err := NewKRB5TokenAPREQ(&cl, tkt, key, []int{gssapi.ContextFlagInteg, gssapi.ContextFlagMutual}, []int{})
+	mt, err := NewKRB5TokenAPREQ(&cl, tkt, key, contextFlags, []int{})
 	require.NoError(t, err)
 
 	auth := mt.APReq.Authenticator
@@ -313,19 +322,101 @@ func TestVerifyMutualRefusesWithoutAnInitiatedContext(t *testing.T) {
 	assert.Contains(t, err.Error(), "never initiated")
 }
 
-// TestMutualRequested: the flag is optional and NewNegTokenInitKRB5 does not set it, so an absent
-// ReqFlags is answered anyway; the reply costs one encryption, an initiator that does not check it
-// is unaffected, and for an authentication feature the conservative direction proves more.
-func TestMutualRequested(t *testing.T) {
+// mutualAPREQ is a verified AP_REQ asking for mutual authentication in the ways given: through the AP option of
+// RFC 4120 Section 5.5.1, through GSS_C_MUTUAL_FLAG in the authenticator checksum of RFC 4121 Section 4.1.1.1, or
+// neither. They are set independently, which no initiator does, so that each can be shown to be read on its own.
+func mutualAPREQ(t *testing.T, option, flagged bool) *KRB5Token {
+	t.Helper()
+
+	contextFlags := []int{gssapi.ContextFlagInteg}
+	if flagged {
+		contextFlags = append(contextFlags, gssapi.ContextFlagMutual)
+	}
+
+	mt, _ := verifiedAPREQ(t, mutualSessionKey(0x31), contextFlags...)
+
+	// NewKRB5TokenAPREQ reconciles the two, so they are forced apart here rather than asked for apart.
+	mt.APReq.APOptions = types.NewKrbFlags()
+	if option {
+		types.SetFlag(&mt.APReq.APOptions, flags.APOptionMutualRequired)
+	}
+
+	return mt
+}
+
+// TestMutualRequestedReadsTheAPREQ pins where the request is read from. RFC 4178 Section 4.2.1 puts the
+// NegTokenInit's ReqFlags out of bounds for an acceptor -- "the acceptor MUST ignore this reqFlags field" -- so
+// the AP_REQ is the only thing consulted, and an AP_REQ that asks in either place is answered.
+func TestMutualRequestedReadsTheAPREQ(t *testing.T) {
 	t.Parallel()
 
-	assert.True(t, mutualRequested(NegTokenInit{}), "an absent ReqFlags must be answered, not skipped")
+	testCases := []struct {
+		name     string
+		option   bool
+		flagged  bool
+		expected bool
+	}{
+		{"TheAPOptionAlone", true, false, true},
+		{"TheChecksumFlagAlone", false, true, true},
+		{"BothAsAnInitiatorSendsThem", true, true, true},
+		{"NeitherIsNotARequest", false, false, false},
+	}
 
-	set := asn1.BitString{Bytes: []byte{0x40}, BitLength: 8} // delegFlag(0), mutualFlag(1)
-	assert.True(t, mutualRequested(NegTokenInit{ReqFlags: set}))
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-	clear := asn1.BitString{Bytes: []byte{0x80}, BitLength: 8} // delegFlag only
-	assert.False(t, mutualRequested(NegTokenInit{ReqFlags: clear}))
+			assert.Equal(t, tc.expected, mutualRequested(mutualAPREQ(t, tc.option, tc.flagged)))
+		})
+	}
+}
+
+// TestMutualRequestedIgnoresReqFlags is the point of the change: a NegTokenInit that says mutual authentication is
+// not wanted cannot suppress the AP_REP, and one that says it is cannot summon it. RFC 4178 Section 4.2.1 notes
+// the field "is not integrity protected", which is why an acceptor must not act on it.
+func TestMutualRequestedIgnoresReqFlags(t *testing.T) {
+	t.Parallel()
+
+	clear := asn1.BitString{Bytes: []byte{0x80}, BitLength: 8} // delegFlag(0) only, mutualFlag(1) clear
+	set := asn1.BitString{Bytes: []byte{0x40}, BitLength: 8}   // mutualFlag(1)
+
+	asking := &SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{ReqFlags: clear, mechToken: mutualAPREQ(t, true, true)}}
+
+	b, err := asking.ResponseToken()
+	require.NoError(t, err)
+
+	var resp NegTokenResp
+
+	require.NoError(t, resp.Unmarshal(b))
+	assert.NotEmpty(t, resp.ResponseToken, "an AP_REQ that asked was denied its AP_REP by a field RFC 4178 forbids reading")
+
+	silent := &SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{ReqFlags: set, mechToken: mutualAPREQ(t, false, false)}}
+
+	b, err = silent.ResponseToken()
+	require.NoError(t, err)
+
+	resp = NegTokenResp{}
+
+	require.NoError(t, resp.Unmarshal(b))
+	assert.Empty(t, resp.ResponseToken, "an AP_REQ that did not ask was answered on the strength of that same field")
+}
+
+// TestResponseTokenWithoutARequestCompletesWithoutAnAPRep: the negotiation still completes, it simply carries no
+// proof. RFC 4120 Section 3.2.5 conditions the AP_REP on the request having been made.
+func TestResponseTokenWithoutARequestCompletesWithoutAnAPRep(t *testing.T) {
+	t.Parallel()
+
+	st := &SPNEGOToken{Init: true, NegTokenInit: NegTokenInit{mechToken: mutualAPREQ(t, false, false)}}
+
+	b, err := st.ResponseToken()
+	require.NoError(t, err)
+
+	var resp NegTokenResp
+
+	require.NoError(t, resp.Unmarshal(b))
+	assert.Equal(t, asn1.Enumerated(NegStateAcceptCompleted), resp.NegState)
+	assert.True(t, resp.SupportedMech.Equal(gssapi.OIDKRB5.OID()))
+	assert.Empty(t, resp.ResponseToken)
 }
 
 // TestNewAPReqKeepsThePlaintextAuthenticatorOffTheWire covers the supporting change and its one
@@ -506,4 +597,62 @@ func TestVerifyMutualRefusesAReplyThatDecryptsToRubbish(t *testing.T) {
 	err = initiatorOf(key, auth).VerifyMutual(b)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "malformed")
+}
+
+// acceptedToken drives a real exchange: an initiator builds a NegTokenInit with opts, an acceptor holding the
+// service key verifies it, and the acceptor's reply comes back. cname is the initiator's principal, which must
+// differ between exchanges because the replay cache is per process and keyed by client, ctime and cusec.
+func acceptedToken(t *testing.T, cname string, opts ...KRB5TokenOption) NegTokenResp {
+	t.Helper()
+
+	kt := testKeytab(t)
+	sname := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
+	now := time.Now().UTC()
+
+	tkt, key, err := messages.NewTicket(types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, cname), "TEST.GOKRB5",
+		sname, "TEST.GOKRB5", types.NewKrbFlags(), kt, etypeID.AES256_CTS_HMAC_SHA1_96, 1,
+		now, now, now.Add(time.Hour), now.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	creds := credentials.New(cname, "TEST.GOKRB5")
+	creds.SetCName(types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, cname))
+
+	n, err := NewNegTokenInitKRB5(&client.Client{Credentials: creds}, tkt, key, opts...)
+	require.NoError(t, err)
+
+	b, err := (&SPNEGOToken{Init: true, NegTokenInit: n}).Marshal()
+	require.NoError(t, err)
+
+	var st SPNEGOToken
+
+	require.NoError(t, st.Unmarshal(b))
+
+	ok, _, status := SPNEGOService(kt).AcceptSecContext(&st)
+	require.True(t, ok, "status was %d: %s", status.Code, status.Message)
+
+	reply, err := st.ResponseToken()
+	require.NoError(t, err)
+
+	var resp NegTokenResp
+
+	require.NoError(t, resp.Unmarshal(reply))
+
+	return resp
+}
+
+// TestMutualAuthenticationOptionDecidesTheAPRep is the contract this package now offers: an AP_REP comes back to
+// an initiator that asked for one and to no other. Before, the acceptor answered every initiator, because it read
+// the request from the NegTokenInit's ReqFlags, which RFC 4178 Section 4.2.1 has initiators omit and acceptors
+// ignore, and treated its absence as a request.
+func TestMutualAuthenticationOptionDecidesTheAPRep(t *testing.T) {
+	t.Parallel()
+
+	asked := acceptedToken(t, "mutual-asked", MutualAuthentication())
+	assert.Equal(t, asn1.Enumerated(NegStateAcceptCompleted), asked.NegState)
+	assert.NotEmpty(t, asked.ResponseToken, "MutualAuthentication() was given and no AP_REP came back")
+
+	silent := acceptedToken(t, "mutual-silent")
+	assert.Equal(t, asn1.Enumerated(NegStateAcceptCompleted), silent.NegState,
+		"an initiator that did not ask must still complete the negotiation")
+	assert.Empty(t, silent.ResponseToken, "an initiator that did not ask was answered anyway")
 }

@@ -111,6 +111,16 @@ func (c *AuthenticatorChecksum) Delegated() bool {
 	return c.Flags&ContextFlagDeleg != 0
 }
 
+// Mutual reports whether GSS_C_MUTUAL_FLAG is set in Flags, which is how RFC 4121 Section 4.1.1.1 has an initiator
+// ask to be told who it is talking to.
+//
+// This is the request an acceptor can trust: the checksum sits inside the authenticator, which is encrypted under
+// the ticket's session key, so only the initiator could have set it. The MUTUAL-REQUIRED AP option of RFC 4120
+// Section 5.5.1 carries the same request in the clear, where anyone on the path can add or strip it.
+func (c *AuthenticatorChecksum) Mutual() bool {
+	return c.Flags&ContextFlagMutual != 0
+}
+
 // Marshal returns the checksum in the RFC 4121 Section 4.1.1 layout.
 //
 // The delegation flag is derived from Deleg rather than trusted from Flags: a non-empty Deleg sets it, and the flag
