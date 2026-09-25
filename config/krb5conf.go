@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/go-krb5/x/encoding/asn1"
 
@@ -346,18 +347,9 @@ func (l *LibDefaults) parseLines(lines []string) error {
 		case ConfigKeyPermittedEncTypes:
 			l.PermittedEnctypes = strings.Fields(p[1])
 		case ConfigKeyPreferredPreAuthTypes:
-			p[1] = strings.TrimSpace(p[1])
-			t := strings.Split(p[1], ",")
-
-			var v []int
-
-			for _, s := range t {
-				i, err := strconv.ParseInt(s, 10, 32)
-				if err != nil {
-					return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-				}
-
-				v = append(v, int(i))
+			v, err := parsePreauthTypes(p[1])
+			if err != nil {
+				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
 			}
 
 			l.PreferredPreauthTypes = v
@@ -940,4 +932,23 @@ func (c *Config) JSON() (string, error) {
 	}
 
 	return string(b), nil
+}
+
+func parsePreauthTypes(s string) ([]int, error) {
+	var v []int
+
+	for _, f := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || unicode.IsSpace(r) }) {
+		i, err := strconv.ParseInt(f, 10, 32)
+		if err != nil {
+			return nil, err
+		}
+
+		v = append(v, int(i))
+	}
+
+	if len(v) == 0 {
+		return nil, errors.New("no pre-authentication types")
+	}
+
+	return v, nil
 }
