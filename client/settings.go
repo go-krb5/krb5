@@ -34,6 +34,12 @@ func (k *keptPAData) store(cname types.PrincipalName, realm string, pas types.PA
 	defer k.mu.Unlock()
 
 	cname.NameString = slices.Clone(cname.NameString)
+
+	pas = slices.Clone(pas)
+	for i := range pas {
+		pas[i].PADataValue = slices.Clone(pas[i].PADataValue)
+	}
+
 	k.cname, k.realm, k.pas = cname, realm, pas
 }
 
