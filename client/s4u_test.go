@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/errorcode"
@@ -25,14 +26,6 @@ import (
 	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/types"
-)
-
-const (
-	s4uRealm   = "TEST.GOKRB5"
-	s4uService = "HTTP/front.test.gokrb5"
-	s4uTarget  = "HTTP/back.test.gokrb5"
-	s4uUser    = "alice"
-	s4uKrbtgt  = "krbtgt"
 )
 
 func TestImpersonateAsksForItselfInTheUsersNameThenForTheTarget(t *testing.T) {
@@ -274,6 +267,89 @@ type s4uKDC struct {
 	requests []messages.TGSReq
 }
 
+func TestS4U2SelfFallsBackToTheServicesOwnKeyWithoutAConfirmation(t *testing.T) {
+	t.Parallel()
+
+	kdc := newS4UKDC(t, func(_ int, req messages.TGSReq) []byte {
+		return marshalTGSRep(t, tgsRepNaming(t, req, s4uSessionKey(), alice(), req.ReqBody.SName, true))
+	})
+	cl := s4uClientWithPassword(t, kdc.addr, s4uServiceKey)
+
+	tkt, _, err := cl.S4U2Self(alice(), s4uRealm)
+	require.NoError(t, err)
+	assert.Equal(t, s4uService, tkt.SName.PrincipalNameString())
+}
+
+func TestS4U2SelfFallbackRefusesATicketSealedForAnotherUser(t *testing.T) {
+	t.Parallel()
+
+	kdc := newS4UKDC(t, func(_ int, req messages.TGSReq) []byte {
+		rep := tgsRepNaming(t, req, s4uSessionKey(), types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "bob"), req.ReqBody.SName, true)
+		rep.CName = alice()
+
+		return marshalTGSRep(t, rep)
+	})
+	cl := s4uClientWithPassword(t, kdc.addr, s4uServiceKey)
+
+	_, _, err := cl.S4U2Self(alice(), s4uRealm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bob")
+}
+
+func TestS4U2SelfRefusesAnUnconfirmedReplyWithoutALongTermKey(t *testing.T) {
+	t.Parallel()
+
+	kdc := newS4UKDC(t, func(_ int, req messages.TGSReq) []byte {
+		return marshalTGSRep(t, tgsRepNaming(t, req, s4uSessionKey(), alice(), req.ReqBody.SName, true))
+	})
+	cl := s4uClient(t, kdc.addr)
+	cl.Credentials = credentials.New(s4uService, s4uRealm)
+
+	_, _, err := cl.S4U2Self(alice(), s4uRealm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "PA-S4U-X509-USER")
+}
+
+func TestS4U2SelfRefusesAnUnconfirmedReplyItCannotDecrypt(t *testing.T) {
+	t.Parallel()
+
+	kdc := newS4UKDC(t, func(_ int, req messages.TGSReq) []byte {
+		return marshalTGSRep(t, tgsRepNaming(t, req, s4uSessionKey(), alice(), req.ReqBody.SName, true))
+	})
+	cl := s4uClient(t, kdc.addr)
+
+	_, _, err := cl.S4U2Self(alice(), s4uRealm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "PA-S4U-X509-USER")
+}
+
+func TestS4U2SelfDoesNotFallBackFromAConfirmationForAnotherUser(t *testing.T) {
+	t.Parallel()
+
+	kdc := newS4UKDC(t, func(_ int, req messages.TGSReq) []byte {
+		rep := tgsRepNaming(t, req, s4uSessionKey(), alice(), req.ReqBody.SName, true)
+		rep.PAData = kdcS4UEcho(t, req, s4uSessionKey(), func(id *messages.S4UUserID) {
+			id.CName = types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "bob")
+		})
+
+		return marshalTGSRep(t, rep)
+	})
+	cl := s4uClientWithPassword(t, kdc.addr, s4uServiceKey)
+
+	_, _, err := cl.S4U2Self(alice(), s4uRealm)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "bob")
+}
+
+const (
+	s4uRealm      = "TEST.GOKRB5"
+	s4uService    = "HTTP/front.test.gokrb5"
+	s4uTarget     = "HTTP/back.test.gokrb5"
+	s4uUser       = "alice"
+	s4uKrbtgt     = "krbtgt"
+	s4uServiceKey = "service key"
+)
+
 func newS4UKDC(t *testing.T, answer func(n int, req messages.TGSReq) []byte) *s4uKDC {
 	t.Helper()
 
@@ -335,6 +411,12 @@ func (k *s4uKDC) seen() []messages.TGSReq {
 func s4uClient(t *testing.T, kdcAddr string) *Client {
 	t.Helper()
 
+	return s4uClientWithPassword(t, kdcAddr, "not used")
+}
+
+func s4uClientWithPassword(t *testing.T, kdcAddr, password string) *Client {
+	t.Helper()
+
 	c := config.New()
 	c.LibDefaults.DefaultRealm = s4uRealm
 	c.LibDefaults.NoAddresses = true
@@ -344,7 +426,7 @@ func s4uClient(t *testing.T, kdcAddr string) *Client {
 	c.DomainRealm[".test.gokrb5"] = s4uRealm
 	c.DomainRealm[".other.example"] = "OTHER.EXAMPLE"
 
-	cl := NewWithPassword(s4uService, s4uRealm, "not used", c)
+	cl := NewWithPassword(s4uService, s4uRealm, password, c)
 
 	now := time.Now().UTC()
 	cl.sessions.update(&session{
@@ -380,8 +462,17 @@ func referral(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey,
 func replyNaming(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, cname, sname types.PrincipalName, forwardable bool) []byte {
 	t.Helper()
 
+	rep := tgsRepNaming(t, req, sessionKey, cname, sname, forwardable)
+	rep.PAData = kdcS4UEcho(t, req, sessionKey, nil)
+
+	return marshalTGSRep(t, rep)
+}
+
+func tgsRepNaming(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, cname, sname types.PrincipalName, forwardable bool) messages.TGSRep {
+	t.Helper()
+
 	kt := keytab.New()
-	require.NoError(t, kt.AddEntry(sname.PrincipalNameString(), req.ReqBody.Realm, "service key", time.Now(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
+	require.NoError(t, kt.AddEntry(sname.PrincipalNameString(), req.ReqBody.Realm, s4uServiceKey, time.Now(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
 
 	tktFlags := types.NewKrbFlags()
 	if forwardable {
@@ -409,13 +500,55 @@ func replyNaming(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionK
 	ed, err := crypto.GetEncryptedData(b, sessionKey, keyusage.TGS_REP_ENCPART_SESSION_KEY, 0)
 	require.NoError(t, err)
 
-	rep := messages.TGSRep{KDCRepFields: messages.KDCRepFields{
+	return messages.TGSRep{KDCRepFields: messages.KDCRepFields{
 		PVNO: iana.PVNO, MsgType: msgtype.KRB_TGS_REP, CRealm: s4uRealm, CName: cname, Ticket: tkt, EncPart: ed,
 	}}
+}
+
+func marshalTGSRep(t *testing.T, rep messages.TGSRep) []byte {
+	t.Helper()
+
 	out, err := rep.Marshal()
 	require.NoError(t, err)
 
 	return out
+}
+
+func kdcS4UEcho(t *testing.T, req messages.TGSReq, sessionKey types.EncryptionKey, edit func(*messages.S4UUserID)) types.PADataSequence {
+	t.Helper()
+
+	for _, pa := range req.PAData {
+		if pa.PADataType != patype.PA_FOR_X509_USER {
+			continue
+		}
+
+		var p messages.PAS4UX509User
+
+		require.NoError(t, p.Unmarshal(pa.PADataValue))
+
+		id := p.UserID
+		if edit != nil {
+			edit(&id)
+		}
+
+		b, err := id.Marshal()
+		require.NoError(t, err)
+
+		et, err := crypto.GetEType(sessionKey.KeyType)
+		require.NoError(t, err)
+
+		cs, err := et.GetChecksumHash(sessionKey.KeyValue, b, keyusage.PA_S4U_X509_USER_REPLY)
+		require.NoError(t, err)
+
+		echo := messages.PAS4UX509User{UserID: id, Cksum: types.Checksum{CksumType: et.GetHashID(), Checksum: cs}}
+
+		out, err := echo.PAData()
+		require.NoError(t, err)
+
+		return types.PADataSequence{out}
+	}
+
+	return nil
 }
 
 func refusal(t *testing.T, code int32, text string) []byte {

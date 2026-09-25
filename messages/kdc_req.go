@@ -246,9 +246,10 @@ func NewUser2UserTGSReq(cname types.PrincipalName, kdcRealm string, c *config.Co
 // transition of MS-SFU Section 3.1.5.1.1.
 //
 // The request names the service as its own server and carries a PA-FOR-USER signed with the session key of the
-// service's TGT. FORWARDABLE is always asked for: MS-SFU Section 3.2.5.1.2 has the KDC set it only for a service
-// trusted to authenticate for delegation, and only a forwardable ticket can be the evidence of a constrained
-// delegation request, so asking costs nothing and not asking would make the ticket useless for that.
+// service's TGT, and a PA-S4U-X509-USER bound to the request's nonce whose echo in the reply
+// TGSRep.VerifyProtocolTransition checks. FORWARDABLE is always asked for: MS-SFU Section 3.2.5.1.2 has the KDC set
+// it only for a service trusted to authenticate for delegation, and only a forwardable ticket can be the evidence of a
+// constrained delegation request, so asking costs nothing and not asking would make the ticket useless for that.
 func NewS4U2SelfTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Config, tgt Ticket, sessionKey types.EncryptionKey, user types.PrincipalName, userRealm string) (TGSReq, error) {
 	// First, because it is what can refuse the user: a KerberosString is IA5, and a name it cannot carry
 	// is not a request worth signing.
@@ -269,8 +270,17 @@ func NewS4U2SelfTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *c
 		return a, err
 	}
 
-	// setPAData replaces PAData wholesale, so PA-FOR-USER is appended after it rather than before.
-	a.PAData = append(a.PAData, pa)
+	x509, err := NewPAS4UX509User(a.ReqBody.Nonce, user, userRealm, sessionKey)
+	if err != nil {
+		return a, krberror.Errorf(err, krberror.EncodingError, "error creating PA-S4U-X509-USER")
+	}
+
+	xpa, err := x509.PAData()
+	if err != nil {
+		return a, krberror.Errorf(err, krberror.EncodingError, "error marshaling PA-S4U-X509-USER")
+	}
+
+	a.PAData = append(a.PAData, pa, xpa)
 
 	return a, nil
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/krberror"
@@ -74,6 +75,12 @@ func (cl *Client) Impersonate(user types.PrincipalName, userRealm, spn string) (
 // S4U2Self obtains a ticket to this client's own principal in the name of user, a principal of userRealm: the
 // protocol transition of MS-SFU Section 3.1.5.1. The ticket is returned with the decrypted part of the reply, whose
 // flags say whether it is forwardable and so usable as evidence for S4U2Proxy.
+//
+// The request carries PA-S4U-X509-USER as well as PA-FOR-USER, and the KDC's confirmation of it in the reply is what
+// shows the ticket is in the user's name (see messages.TGSRep.VerifyProtocolTransition). A KDC that does not support
+// MS-SFU Section 2.2.2 returns no confirmation; the ticket is then decrypted with this client's own long-term key,
+// from its keytab or password, and the name sealed inside it is checked instead. A client with neither, such as one
+// loaded from a credential cache alone, cannot check the ticket and is refused.
 func (cl *Client) S4U2Self(user types.PrincipalName, userRealm string) (messages.Ticket, messages.EncKDCRepPart, error) {
 	var (
 		tkt messages.Ticket
@@ -100,7 +107,41 @@ func (cl *Client) S4U2Self(user types.PrincipalName, userRealm string) (messages
 		return tkt, dep, fmt.Errorf("protocol transition for %s@%s: %w", user.PrincipalNameString(), userRealm, err)
 	}
 
+	if err = rep.VerifyProtocolTransition(req, sessionKey); errors.Is(err, messages.ErrProtocolTransitionUnconfirmed) {
+		err = cl.verifySelfTicket(rep.Ticket, user, userRealm, err)
+	}
+
+	if err != nil {
+		return tkt, dep, fmt.Errorf("protocol transition for %s@%s: %w", user.PrincipalNameString(), userRealm, err)
+	}
+
 	return rep.Ticket, rep.DecryptedEncPart, nil
+}
+
+func (cl *Client) verifySelfTicket(tkt messages.Ticket, user types.PrincipalName, userRealm string, unconfirmed error) error {
+	if !cl.Credentials.HasKeytab() && !cl.Credentials.HasPassword() {
+		return fmt.Errorf("%w, and without a keytab or password the ticket cannot be decrypted to check it", unconfirmed)
+	}
+
+	et, err := crypto.GetEType(tkt.EncPart.EType)
+	if err != nil {
+		return fmt.Errorf("%w, and the ticket cannot be decrypted to check it: %w", unconfirmed, err)
+	}
+
+	key, _, err := cl.Key(et, tkt.EncPart.KVNO, nil)
+	if err != nil {
+		return fmt.Errorf("%w, and the ticket cannot be decrypted to check it: %w", unconfirmed, err)
+	}
+
+	if err = tkt.Decrypt(key); err != nil {
+		return fmt.Errorf("%w, and the ticket cannot be decrypted to check it: %w", unconfirmed, err)
+	}
+
+	if !tkt.DecryptedEncPart.CName.Equal(user) || tkt.DecryptedEncPart.CRealm != userRealm {
+		return fmt.Errorf("the KDC issued the ticket for %s@%s, not %s@%s", tkt.DecryptedEncPart.CName.PrincipalNameString(), tkt.DecryptedEncPart.CRealm, user.PrincipalNameString(), userRealm)
+	}
+
+	return nil
 }
 
 // S4U2Proxy obtains a ticket to the service spn in the name of user, the client of evidence: the constrained

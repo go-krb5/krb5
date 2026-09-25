@@ -27,6 +27,8 @@ const (
 	GSSAPI_ACCEPTOR_SIGN           = 23
 	GSSAPI_INITIATOR_SEAL          = 24
 	GSSAPI_INITIATOR_SIGN          = 25
+	PA_S4U_X509_USER_REQUEST       = 26
+	PA_S4U_X509_USER_REPLY         = 27
 	KEY_USAGE_FAST_REQ_CHKSUM      = 50
 	KEY_USAGE_FAST_ENC             = 51
 	KEY_USAGE_FAST_REP             = 52
@@ -34,7 +36,7 @@ const (
 	KEY_USAGE_ENC_CHALLENGE_CLIENT = 54
 	KEY_USAGE_ENC_CHALLENGE_KDC    = 55
 	KEY_USAGE_AS_REQ               = 56
-	// 26-511.  Reserved for future use in Kerberos and related protocols.
+	// 28-511.  Reserved for future use in Kerberos and related protocols.
 	// 512-1023.  Reserved for uses internal to a Kerberos implementation.
 	// 1024.  Encryption for application use in protocols that do not specify key usage values
 	// 1025.  Checksums for application use in protocols that do not specify key usage values
