@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"time"
+
+	"github.com/go-krb5/krb5/types"
 )
 
 // Settings holds optional client settings.
@@ -13,6 +15,7 @@ type Settings struct {
 	disablePAFXFast         bool
 	assumePreAuthentication bool
 	preAuthEType            int32
+	preAuthPAData           types.PADataSequence
 	logger                  *log.Logger
 	dialer                  Dialer
 }

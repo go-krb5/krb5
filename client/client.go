@@ -133,13 +133,16 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 // Key returns the client's encryption key for the specified encryption type and its kvno (kvno of zero will find latest).
 // The key can be retrieved either from the keytab or generated from the client's password.
 // If the client has both a keytab and a password defined the keytab is favoured as the source for the key
-// A KRBError can be passed in the event the KDC returns one of type KDC_ERR_PREAUTH_REQUIRED and is required to derive
-// the key for pre-authentication from the client's password. If a KRBError is not available, pass nil to this argument.
+// A KRBError can be passed in the event the KDC returns one of type KDC_ERR_PREAUTH_REQUIRED or KDC_ERR_PREAUTH_FAILED
+// and is required to derive the key for pre-authentication from the client's password. If a KRBError is not
+// available, pass nil to this argument. The salt and string-to-key parameters from the last such error are kept and
+// used for later keys derived from the password, since a KDC only sends them when it asks for pre-authentication.
 func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (types.EncryptionKey, int, error) {
 	if cl.Credentials.HasKeytab() && etype != nil {
 		return cl.Credentials.Keytab().GetEncryptionKey(cl.Credentials.CName(), cl.Credentials.Domain(), kvno, etype.GetETypeID())
 	} else if cl.Credentials.HasPassword() {
-		if krberr != nil && krberr.ErrorCode == errorcode.KDC_ERR_PREAUTH_REQUIRED {
+		if krberr != nil && len(krberr.EData) > 0 &&
+			(krberr.ErrorCode == errorcode.KDC_ERR_PREAUTH_REQUIRED || krberr.ErrorCode == errorcode.KDC_ERR_PREAUTH_FAILED) {
 			var pas types.PADataSequence
 
 			err := pas.Unmarshal(krberr.EData)
@@ -147,18 +150,16 @@ func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (t
 				return types.EncryptionKey{}, 0, fmt.Errorf("could not get PAData from KRBError to generate key from password: %w", err)
 			}
 
-			// RFC 4120 Section 3.1: "the contents of the KRB_ERROR message are not integrity-protected", so the
-			// principal and realm the error names are the attacker's choice wherever it can be substituted. Only
-			// the explicit salt in the pre-authentication data is taken from it; the default salt comes from the
-			// identity this client is authenticating as, so an attacker cannot pick the salt the password is
-			// stretched with.
-			key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cl.Credentials.CName(),
-				cl.Credentials.Domain(), etype.GetETypeID(), pas)
-
-			return key, 0, err
+			cl.settings.preAuthPAData = pas
 		}
 
-		key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cl.Credentials.CName(), cl.Credentials.Domain(), etype.GetETypeID(), types.PADataSequence{})
+		// RFC 4120 Section 3.1: "the contents of the KRB_ERROR message are not integrity-protected", so the
+		// principal and realm the error names are the attacker's choice wherever it can be substituted. Only
+		// the explicit salt in the pre-authentication data is taken from it; the default salt comes from the
+		// identity this client is authenticating as, so an attacker cannot pick the salt the password is
+		// stretched with.
+		key, _, err := crypto.GetKeyFromPassword(cl.Credentials.Password(), cl.Credentials.CName(),
+			cl.Credentials.Domain(), etype.GetETypeID(), cl.settings.preAuthPAData)
 
 		return key, 0, err
 	}
