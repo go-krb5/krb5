@@ -12,6 +12,7 @@ import (
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana/chksumtype"
+	"github.com/go-krb5/krb5/iana/flags"
 	"github.com/go-krb5/krb5/iana/msgtype"
 	"github.com/go-krb5/krb5/krberror"
 	"github.com/go-krb5/krb5/messages"
@@ -230,6 +231,7 @@ type KRB5TokenOption func(*krb5TokenOptions)
 type krb5TokenOptions struct {
 	channelBinding *gssapi.ChannelBinding
 	delegation     bool
+	mutual         bool
 	onBehalfOf     *client.Impersonation
 }
 
@@ -259,6 +261,21 @@ func ChannelBinding(cb *gssapi.ChannelBinding) KRB5TokenOption {
 func Delegation() KRB5TokenOption {
 	return func(o *krb5TokenOptions) {
 		o.delegation = true
+	}
+}
+
+// MutualAuthentication asks the service to prove who it is: the AP_REQ carries GSS_C_MUTUAL_FLAG in the authenticator
+// checksum described by RFC 4121 Section 4.1.1 and the MUTUAL-REQUIRED AP option of RFC 4120 Section 5.5.1, and the
+// service answers with an AP_REP, which SPNEGO.VerifyMutual checks.
+//
+// The AP option is the half an MIT krb5 acceptor reads: without it gss_accept_sec_context produces no AP_REP, and an
+// initiator waiting for one has nothing to verify. This library's acceptor answers either way, see
+// SPNEGOToken.ResponseToken, so the omission is invisible between two peers built on it.
+//
+//	s := SPNEGOClient(cl, spn, MutualAuthentication()).
+func MutualAuthentication() KRB5TokenOption {
+	return func(o *krb5TokenOptions) {
+		o.mutual = true
 	}
 }
 
@@ -298,6 +315,11 @@ func newKRB5TokenOptions(opts ...KRB5TokenOption) *krb5TokenOptions {
 // reconciled here, which is the single place every caller passes through. Folding the option into the flags in a
 // caller instead would leave this entry point silently ignoring it and returning a non-delegating token to a caller
 // that believed it had delegated.
+//
+// Mutual authentication is reconciled the same way, and in both directions: requested by the MutualAuthentication
+// option, by gssapi.ContextFlagMutual in flagsGSSAPI or by flags.APOptionMutualRequired in optionsAP, the token
+// carries both the checksum flag and the AP option. RFC 4121 carries the request in both, and acceptors differ in
+// which one they read, so a token carrying one of them asks some acceptors and not others.
 func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.EncryptionKey, flagsGSSAPI []int, optionsAP []int, opts ...KRB5TokenOption) (KRB5Token, error) {
 	// TODO consider providing the SPN rather than the specific tkt and key and get these from the krb client.
 	var m KRB5Token
@@ -311,6 +333,17 @@ func NewKRB5TokenAPREQ(cl *client.Client, tkt messages.Ticket, sessionKey types.
 	if opt.delegation && !delegationFlagged(flagsGSSAPI) {
 		// Copied rather than appended in place: flagsGSSAPI belongs to the caller and may have spare capacity.
 		flagsGSSAPI = append(append([]int(nil), flagsGSSAPI...), gssapi.ContextFlagDeleg)
+	}
+
+	if opt.mutual || mutualFlagged(flagsGSSAPI) || mutualRequired(optionsAP) {
+		// Copied for the same reason as above: both slices belong to the caller.
+		if !mutualFlagged(flagsGSSAPI) {
+			flagsGSSAPI = append(append([]int(nil), flagsGSSAPI...), gssapi.ContextFlagMutual)
+		}
+
+		if !mutualRequired(optionsAP) {
+			optionsAP = append(append([]int(nil), optionsAP...), flags.APOptionMutualRequired)
+		}
 	}
 
 	crealm, cname := cl.Credentials.Domain(), cl.Credentials.CName()
@@ -439,6 +472,30 @@ func delegationFlagged(flags []int) bool {
 	deleg, policy := delegationFlags(flags)
 
 	return deleg || policy
+}
+
+// mutualFlagged reports whether GSS_C_MUTUAL_FLAG appears. The bit is tested rather than the value, because callers
+// may combine flags into a single slice element.
+func mutualFlagged(contextFlags []int) bool {
+	for _, i := range contextFlags {
+		if i&gssapi.ContextFlagMutual != 0 {
+			return true
+		}
+	}
+
+	return false
+}
+
+// mutualRequired reports whether the MUTUAL-REQUIRED AP option appears. AP options are bit positions, not masks, so
+// the values are compared.
+func mutualRequired(optionsAP []int) bool {
+	for _, o := range optionsAP {
+		if o == flags.APOptionMutualRequired {
+			return true
+		}
+	}
+
+	return false
 }
 
 // delegationFlags reports which delegation flags appear. The bits are tested rather than the values, because
