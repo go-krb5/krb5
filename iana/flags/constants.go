@@ -20,7 +20,7 @@ const (
 	RequestAnonymous       = 12
 	TransitedPolicyChecked = 12
 	OKAsDelegate           = 13
-	CNameInAddlTkt         = 14 // MS-SFU Section 2.2.2; MIT's KDC_OPT_CNAME_IN_ADDL_TKT. RFC 4120 leaves the bit unassigned.
+	CNameInAddlTkt         = 14
 	EncPARep               = 15
 	Canonicalize           = 15
 	DisableTransitedCheck  = 26

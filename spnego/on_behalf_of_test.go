@@ -1,6 +1,10 @@
 package spnego
 
 import (
+	"encoding/base64"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,51 +27,11 @@ const (
 	impersonationRealm = "TEST.GOKRB5"
 )
 
-// impersonation is what client.Client.Impersonate returns, minted here the way a KDC would issue it: a ticket to the
-// service in the user's name, sealed with the service's key. The client asking holds no such key and never sees
-// inside the ticket; it only has the session key and the name the reply gave.
-func impersonation(t *testing.T) (client.Impersonation, *SPNEGO) {
-	t.Helper()
-
-	kt := testKeytab(t)
-	// Named apart from getClient's testuser1: fixtureClient can hand out that very name, and a user who is the client
-	// itself would make every assertion below vacuous.
-	user := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "impersonated-"+fixtureClient().NameString[0])
-	now := time.Now().UTC()
-
-	tkt, key, err := messages.NewTicket(user, impersonationRealm,
-		types.NewPrincipalName(nametype.KRB_NT_SRV_INST, impersonationSPN), impersonationRealm,
-		types.NewKrbFlags(), kt, etypeID.AES256_CTS_HMAC_SHA1_96, 1,
-		now, now, now.Add(time.Hour), now.Add(2*time.Hour))
-	require.NoError(t, err)
-
-	return client.Impersonation{Ticket: tkt, SessionKey: key, CName: user, CRealm: impersonationRealm, EndTime: now.Add(time.Hour)},
-		SPNEGOService(kt)
-}
-
-func initToken(t *testing.T, s *SPNEGO) *SPNEGOToken {
-	t.Helper()
-
-	ct, err := s.InitSecContext()
-	require.NoError(t, err)
-
-	b, err := ct.Marshal()
-	require.NoError(t, err)
-
-	var st SPNEGOToken
-	require.NoError(t, st.Unmarshal(b))
-
-	return &st
-}
-
-// TestOnBehalfOfIsAcceptedAsTheUser is the point of the option: the service sees the user, not the client that
-// obtained the ticket, and the context completes with the mutual reply the initiator can check.
 func TestOnBehalfOfIsAcceptedAsTheUser(t *testing.T) {
 	t.Parallel()
 
 	imp, acceptor := impersonation(t)
 
-	// The initiator's own identity is the front end, testuser1; it must not leak into the authenticator.
 	init := SPNEGOClient(getClient(t), impersonationSPN, OnBehalfOf(imp))
 
 	st := initToken(t, init)
@@ -85,9 +49,6 @@ func TestOnBehalfOfIsAcceptedAsTheUser(t *testing.T) {
 	assert.NoError(t, init.VerifyMutual(reply))
 }
 
-// TestAnImpersonatedTicketWithTheClientsOwnAuthenticatorIsRefused shows why the option exists rather than passing the
-// ticket to NewNegTokenInitKRB5 directly: an authenticator in the client's own name does not match the ticket, and
-// RFC 4120 Section 3.2.3 has the service refuse it.
 func TestAnImpersonatedTicketWithTheClientsOwnAuthenticatorIsRefused(t *testing.T) {
 	t.Parallel()
 
@@ -119,8 +80,6 @@ func TestOnBehalfOfRefusesATicketForAnotherService(t *testing.T) {
 	assert.ErrorContains(t, err, "HTTP/other.test.gokrb5")
 }
 
-// TestOnBehalfOfRefusesDelegation: a forwarded TGT is the client's own, so delegating it under the user's name
-// would hand the service the front end's identity while claiming the user's.
 func TestOnBehalfOfRefusesDelegation(t *testing.T) {
 	t.Parallel()
 
@@ -132,22 +91,12 @@ func TestOnBehalfOfRefusesDelegation(t *testing.T) {
 	assert.ErrorContains(t, err, "delegated credential")
 }
 
-// TestOnlyAnInitiatorWithoutOnBehalfOfAsksTheKDC: without the option the initiator obtains its own ticket to the
-// service, and with it the ticket it was given is used as it is. A client that cannot reach any KDC shows the
-// difference: the first fails asking, the second never asks.
 func TestOnlyAnInitiatorWithoutOnBehalfOfAsksTheKDC(t *testing.T) {
 	t.Parallel()
 
-	c, err := config.NewFromString(testdata.KRB5_CONF)
-	require.NoError(t, err)
+	cl := kdclessClient(t)
 
-	for i := range c.Realms {
-		c.Realms[i].KDC = nil
-	}
-
-	cl := client.NewWithPassword("testuser1", impersonationRealm, "passwordvalue", c)
-
-	_, err = SPNEGOClient(cl, impersonationSPN).InitSecContext()
+	_, err := SPNEGOClient(cl, impersonationSPN).InitSecContext()
 	require.Error(t, err, "an initiator with no ticket of its own and no KDC produced a token")
 
 	imp, acceptor := impersonation(t)
@@ -156,4 +105,103 @@ func TestOnlyAnInitiatorWithoutOnBehalfOfAsksTheKDC(t *testing.T) {
 
 	ok, _, status := acceptor.AcceptSecContext(st)
 	assert.True(t, ok, "status was %d: %s", status.Code, status.Message)
+}
+
+func TestOnBehalfOfContinuesANegotiationAsTheUser(t *testing.T) {
+	t.Parallel()
+
+	imp, acceptor := impersonation(t)
+	r := httptest.NewRequest(http.MethodGet, "http://host.test.gokrb5/", nil)
+
+	require.NoError(t, setSPNEGOContinuationHeader(kdclessClient(t), r, impersonationSPN, OnBehalfOf(imp)))
+
+	var st SPNEGOToken
+	require.NoError(t, st.Unmarshal(negotiationHeader(t, r)))
+
+	ok, ctx, status := acceptor.AcceptSecContext(&st)
+	require.True(t, ok, "status was %d: %s", status.Code, status.Message)
+
+	creds, isCreds := ctx.Value(CTXKey).(*credentials.Credentials)
+	require.True(t, isCreds, "the accepted context carries no credentials")
+	assert.Equal(t, imp.CName.PrincipalNameString(), creds.UserName())
+}
+
+func TestOnBehalfOfAnswersAMechListMICWithTheImpersonatedKey(t *testing.T) {
+	t.Parallel()
+
+	imp, _ := impersonation(t)
+
+	payload, err := mechListMICPayload(nil, initiatorMechTypes())
+	require.NoError(t, err)
+
+	targetMIC, err := newMechListMIC(payload, imp.SessionKey, true)
+	require.NoError(t, err)
+
+	r := httptest.NewRequest(http.MethodGet, "http://host.test.gokrb5/", nil)
+
+	require.NoError(t, setSPNEGOMechListMICHeader(kdclessClient(t), r, impersonationSPN, targetMIC, OnBehalfOf(imp)))
+
+	_, nt, err := UnmarshalNegToken(negotiationHeader(t, r))
+	require.NoError(t, err)
+
+	resp, isResp := nt.(NegTokenResp)
+	require.True(t, isResp, "the leg sent a %T, not a NegTokenResp", nt)
+	assert.NoError(t, verifyMechListMIC(resp.MechListMIC, payload, imp.SessionKey, false))
+}
+
+func impersonation(t *testing.T) (client.Impersonation, *SPNEGO) {
+	t.Helper()
+
+	kt := testKeytab(t)
+	user := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "impersonated-"+fixtureClient().NameString[0])
+	now := time.Now().UTC()
+
+	tkt, key, err := messages.NewTicket(user, impersonationRealm,
+		types.NewPrincipalName(nametype.KRB_NT_SRV_INST, impersonationSPN), impersonationRealm,
+		types.NewKrbFlags(), kt, etypeID.AES256_CTS_HMAC_SHA1_96, 1,
+		now, now, now.Add(time.Hour), now.Add(2*time.Hour))
+	require.NoError(t, err)
+
+	return client.Impersonation{Ticket: tkt, SessionKey: key, CName: user, CRealm: impersonationRealm, EndTime: now.Add(time.Hour)},
+		SPNEGOService(kt)
+}
+
+func kdclessClient(t *testing.T) *client.Client {
+	t.Helper()
+
+	c, err := config.NewFromString(testdata.KRB5_CONF)
+	require.NoError(t, err)
+
+	for i := range c.Realms {
+		c.Realms[i].KDC = nil
+	}
+
+	return client.NewWithPassword("testuser1", impersonationRealm, "passwordvalue", c)
+}
+
+func negotiationHeader(t *testing.T, r *http.Request) []byte {
+	t.Helper()
+
+	v, ok := strings.CutPrefix(r.Header.Get(HTTPHeaderAuthRequest), HTTPHeaderAuthResponseValueKey+" ")
+	require.True(t, ok, "the leg set no Negotiate header")
+
+	b, err := base64.StdEncoding.DecodeString(v)
+	require.NoError(t, err)
+
+	return b
+}
+
+func initToken(t *testing.T, s *SPNEGO) *SPNEGOToken {
+	t.Helper()
+
+	ct, err := s.InitSecContext()
+	require.NoError(t, err)
+
+	b, err := ct.Marshal()
+	require.NoError(t, err)
+
+	var st SPNEGOToken
+	require.NoError(t, st.Unmarshal(b))
+
+	return &st
 }

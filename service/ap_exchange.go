@@ -308,7 +308,6 @@ func verifyChannelBindingSupport(APReq *messages.APReq) error {
 		"authenticator carries no channel binding and does not advertise KERB_AP_OPTIONS_CBT, so the client cannot bind to the outer channel")
 }
 
-// adCredentials is what a verified PAC tells about the client.
 func adCredentials(p pac.PACType) credentials.ADCredentials {
 	ad := credentials.ADCredentials{
 		GroupMembershipSIDs: p.KerbValidationInfo.GetGroupMembershipSIDs(),
