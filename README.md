@@ -122,31 +122,6 @@ The following section contains some implementation specific information.
 [RFC8429]: https://datatracker.ietf.org/doc/html/rfc8429
 [RFC6803]: https://datatracker.ietf.org/doc/html/rfc6803
 
-### Mutual Authentication
-
-RFC 4121 lets a client ask the service to prove who it is: the service answers the AP_REQ with an AP_REP that only a
-holder of the service key could have produced. As an initiator, request it with the `spnego.MutualAuthentication()`
-option and check the service's reply with `SPNEGO.VerifyMutual`:
-
-```go
-s := spnego.SPNEGOClient(cl, spn, spnego.MutualAuthentication())
-
-ct, err := s.InitSecContext()
-if err != nil {
-    return err
-}
-
-// Send ct, then verify the token the service answered with.
-if err := s.VerifyMutual(reply); err != nil {
-    return err
-}
-```
-
-The request travels twice in the AP_REQ, as `GSS_C_MUTUAL_FLAG` in the authenticator checksum and as the
-`MUTUAL-REQUIRED` AP option, and acceptors differ in which they read: MIT krb5 answers with an AP_REP only when the
-AP option is set. Whichever way a token is asked for it, the option, `gssapi.ContextFlagMutual` or
-`flags.APOptionMutualRequired`, it carries both. As an acceptor, `SPNEGOToken.ResponseToken` builds the reply.
-
 ### Credential Delegation
 
 RFC 4121 Section 4.1.1 lets a client forward a ticket-granting ticket to the service it authenticates to, so the
