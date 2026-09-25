@@ -776,3 +776,46 @@ func TestNewFromStringShouldReportALineTooLongForTheScanner(t *testing.T) {
 	assert.ErrorIs(t, err, bufio.ErrTooLong)
 	assert.Nil(t, c)
 }
+
+func TestParsePreferredPreauthTypes(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name     string
+		value    string
+		expected []int
+	}{
+		{"MITDocumentedDefault", "17, 16, 15, 14", []int{17, 16, 15, 14}},
+		{"CommasOnly", "17,16,15,14", []int{17, 16, 15, 14}},
+		{"WhitespaceOnly", "17 16\t15", []int{17, 16, 15}},
+		{"MixedSeparators", "17 ,16,  15 , 14", []int{17, 16, 15, 14}},
+		{"Single", "2", []int{2}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			c, err := NewFromString("[libdefaults]\n default_realm = TEST.GOKRB5\n preferred_preauth_types = " + tc.value + "\n")
+			require.NoError(t, err)
+
+			assert.Equal(t, tc.expected, c.LibDefaults.PreferredPreauthTypes)
+		})
+	}
+}
+
+func TestParsePreferredPreauthTypesRejectsANonNumericEntry(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewFromString("[libdefaults]\n default_realm = TEST.GOKRB5\n preferred_preauth_types = 17, pkinit\n")
+	assert.Error(t, err)
+}
+
+func TestParsePreferredPreauthTypesRejectsAnEmptyList(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []string{"", " , "} {
+		_, err := NewFromString("[libdefaults]\n default_realm = TEST.GOKRB5\n preferred_preauth_types = " + value + "\n")
+		assert.Error(t, err, "value %q", value)
+	}
+}
