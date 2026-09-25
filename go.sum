@@ -1,7 +1,7 @@
 github.com/go-crypt/x v0.4.17 h1:SK642R97T/DyDRvm8FGu5Cr2z3rH5/mV+Axc7ve2PL0=
 github.com/go-crypt/x v0.4.17/go.mod h1:RtDB/Rvuknl8d0IvBtbRgi7UPQ+kt9mWLyIUNOBiep4=
-github.com/go-krb5/x v0.3.3 h1:emXl4aKQNbJXwO6i+0YKYGxRUNOO4zAzIJ3PihJsKTY=
-github.com/go-krb5/x v0.3.3/go.mod h1:QdsTySF71CYzhAcC1PLzAFcnlYym1RfxxhxoEwO+zU4=
+github.com/go-krb5/x v0.4.0 h1:ezq5rD8XgtZHssOi0MLNhlq/1j6Y1dizsVVbhE3+bgw=
+github.com/go-krb5/x v0.4.0/go.mod h1:FDWh8jSHbqPtpxRdCZ+o1azQYt/LHS2vlHQLBRBL124=
 github.com/google/gofuzz v1.2.0 h1:xRy4A+RhZaiKjJ1bPfwQ8sedCA+YS2YcCHW6ec7JMi0=
 github.com/google/gofuzz v1.2.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
@@ -16,5 +16,3 @@ go.yaml.in/yaml/v3 v3.0.5 h1:N6y/pJk8buWs9NY5ERU2HSMfm+IuD/OtfdAnq6kESPw=
 go.yaml.in/yaml/v3 v3.0.5/go.mod h1:HVTZu1O7/Vkt2N+BFy8Zza+lnLsABggaTM2ZpNIGuKg=
 golang.org/x/crypto v0.57.0 h1:3ZVCjf8Ggz7zneR/EHRVx68Ctf+2pmIMP2UFhh9cC6M=
 golang.org/x/crypto v0.57.0/go.mod h1:Fdz0i5U6CoizGwLda9DttjSk6qlZo25zYNtR+ycvuZA=
-golang.org/x/net v0.58.0 h1:ynWG7rqYi4ccpTEuPZ2QGWHktVEM9DMCj9yzDE0Q7To=
-golang.org/x/net v0.58.0/go.mod h1:YwCddHnFlT7eLQqVprV19OnhLGtc5xOKgE0RyqgfWAU=

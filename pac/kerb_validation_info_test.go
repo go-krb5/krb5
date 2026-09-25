@@ -24,8 +24,8 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	require.NoError(t, k.Unmarshal(b))
 
 	assert.Equal(t, time.Date(2006, 4, 28, 1, 42, 50, 925640100, time.UTC), k.LogOnTime.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time())
+	assert.Equal(t, time.Date(30828, 9, 14, 2, 48, 5, 477580700, time.UTC), k.LogOffTime.Time())
+	assert.Equal(t, time.Date(30828, 9, 14, 2, 48, 5, 477580700, time.UTC), k.KickOffTime.Time())
 	assert.Equal(t, time.Date(2006, 3, 18, 10, 44, 54, 837147900, time.UTC), k.PasswordLastSet.Time())
 	assert.Equal(t, time.Date(2006, 3, 19, 10, 44, 54, 837147900, time.UTC), k.PasswordCanChange.Time())
 
@@ -83,8 +83,8 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 
 	assert.Equal(t, uint32(16), k.UserAccountControl)
 	assert.Equal(t, uint32(0), k.SubAuthStatus)
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastSuccessfulILogon.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastFailedILogon.Time())
+	assert.Equal(t, time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC), k.LastSuccessfulILogon.Time())
+	assert.Equal(t, time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC), k.LastFailedILogon.Time())
 	assert.Equal(t, uint32(0), k.FailedILogonCount)
 
 	assert.Equal(t, uint32(13), k.SIDCount)
@@ -123,8 +123,8 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 	require.NoError(t, k2.Unmarshal(b))
 
 	assert.Equal(t, time.Date(2017, 5, 6, 15, 53, 11, 825766900, time.UTC), k2.LogOnTime.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k2.LogOffTime.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k2.KickOffTime.Time())
+	assert.Equal(t, time.Date(30828, 9, 14, 2, 48, 5, 477580700, time.UTC), k2.LogOffTime.Time())
+	assert.Equal(t, time.Date(30828, 9, 14, 2, 48, 5, 477580700, time.UTC), k2.KickOffTime.Time())
 	assert.Equal(t, time.Date(2017, 5, 6, 7, 23, 8, 968750000, time.UTC), k2.PasswordLastSet.Time())
 	assert.Equal(t, time.Date(2017, 5, 7, 7, 23, 8, 968750000, time.UTC), k2.PasswordCanChange.Time())
 
@@ -161,8 +161,8 @@ func TestKerbValidationInfo_Unmarshal(t *testing.T) {
 
 	assert.Equal(t, uint32(528), k2.UserAccountControl)
 	assert.Equal(t, uint32(0), k2.SubAuthStatus)
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k2.LastSuccessfulILogon.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k2.LastFailedILogon.Time())
+	assert.Equal(t, time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC), k2.LastSuccessfulILogon.Time())
+	assert.Equal(t, time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC), k2.LastFailedILogon.Time())
 	assert.Equal(t, uint32(0), k2.FailedILogonCount)
 
 	assert.Equal(t, uint32(2), k2.SIDCount)
@@ -193,8 +193,8 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 	require.NoError(t, k.Unmarshal(b))
 
 	assert.Equal(t, time.Date(2017, 10, 14, 12, 03, 41, 52409900, time.UTC), k.LogOnTime.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.LogOffTime.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551516, time.UTC), k.KickOffTime.Time())
+	assert.Equal(t, time.Date(30828, 9, 14, 2, 48, 5, 477580700, time.UTC), k.LogOffTime.Time())
+	assert.Equal(t, time.Date(30828, 9, 14, 2, 48, 5, 477580700, time.UTC), k.KickOffTime.Time())
 	assert.Equal(t, time.Date(2017, 10, 10, 20, 42, 56, 220282300, time.UTC), k.PasswordLastSet.Time())
 	assert.Equal(t, time.Date(2017, 10, 11, 20, 42, 56, 220282300, time.UTC), k.PasswordCanChange.Time())
 
@@ -229,8 +229,8 @@ func TestKerbValidationInfo_Unmarshal_DomainTrust(t *testing.T) {
 
 	assert.Equal(t, uint32(528), k.UserAccountControl)
 	assert.Equal(t, uint32(0), k.SubAuthStatus)
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastSuccessfulILogon.Time())
-	assert.Equal(t, time.Date(2185, 7, 21, 23, 34, 33, 709551616, time.UTC), k.LastFailedILogon.Time())
+	assert.Equal(t, time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC), k.LastSuccessfulILogon.Time())
+	assert.Equal(t, time.Date(1601, 1, 1, 0, 0, 0, 0, time.UTC), k.LastFailedILogon.Time())
 	assert.Equal(t, uint32(0), k.FailedILogonCount)
 
 	assert.Equal(t, uint32(1), k.SIDCount)
