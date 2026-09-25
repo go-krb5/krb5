@@ -12,7 +12,9 @@ import (
 	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/keytab"
+	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/service"
 	"github.com/go-krb5/krb5/types"
 )
@@ -71,7 +73,7 @@ func (s *SPNEGO) AcquireCred() error {
 
 // InitSecContext is the GSS-API method for the client to a generate a context token to the service via Kerberos.
 func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
-	tkt, key, err := s.client.GetServiceTicket(s.spn)
+	tkt, key, err := s.serviceTicket()
 	if err != nil {
 		return &SPNEGOToken{}, err
 	}
@@ -88,6 +90,23 @@ func (s *SPNEGO) InitSecContext() (gssapi.ContextToken, error) {
 		NegTokenInit: negTokenInit,
 		settings:     s.serviceSettings,
 	}, nil
+}
+
+func (s *SPNEGO) serviceTicket() (messages.Ticket, types.EncryptionKey, error) {
+	return serviceTicket(s.client, s.spn, s.tokenOptions...)
+}
+
+func serviceTicket(cl *client.Client, spn string, opts ...KRB5TokenOption) (messages.Ticket, types.EncryptionKey, error) {
+	imp := newKRB5TokenOptions(opts...).onBehalfOf
+	if imp == nil {
+		return cl.GetServiceTicket(spn)
+	}
+
+	if want := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, spn); !imp.Ticket.SName.Equal(want) {
+		return messages.Ticket{}, types.EncryptionKey{}, fmt.Errorf("the ticket obtained on behalf of %s@%s is for %s, not for %s", imp.CName.PrincipalNameString(), imp.CRealm, imp.Ticket.SName.PrincipalNameString(), spn)
+	}
+
+	return imp.Ticket, imp.SessionKey, nil
 }
 
 // AcceptSecContext is the GSS-API method for the service to verify the context token provided by the client and
@@ -283,7 +302,7 @@ func (s *SPNEGOToken) Context() context.Context {
 // assigned these fields by hand would be checking its own assignment rather than this one.
 func (s *SPNEGO) rememberExchange(key types.EncryptionKey, n NegTokenInit) {
 	s.sessionKey = key
-	
+
 	if mt, ok := n.mechToken.(*KRB5Token); ok {
 		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
 	}

@@ -118,7 +118,7 @@ func (c *Client) negotiate(req *http.Request, resp *http.Response, token []byte)
 	case negotiationContinue:
 		return true, setSPNEGOContinuationHeader(c.krb5Client, req, c.spn, c.requestTokenOptions(resp)...)
 	case negotiationAnswerMIC:
-		return true, setSPNEGOMechListMICHeader(c.krb5Client, req, c.spn, nr.MechListMIC)
+		return true, setSPNEGOMechListMICHeader(c.krb5Client, req, c.spn, nr.MechListMIC, c.requestTokenOptions(resp)...)
 	default:
 		return false, nil
 	}
@@ -155,13 +155,13 @@ func setSPNEGOContinuationHeader(cl *client.Client, r *http.Request, spn string,
 
 // setSPNEGOMechListMICHeader answers a target's request-mic, as RFC 4178 Section 5(c)(IV) describes: "The initiator
 // MUST verify the received mechlistMIC token and generate a mechlistMIC token to send back to the target."
-func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, targetMIC []byte) error {
+func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, targetMIC []byte, opts ...KRB5TokenOption) error {
 	spn, err := requestSPN(cl, r, spn)
 	if err != nil {
 		return err
 	}
 
-	_, key, err := cl.GetServiceTicket(spn)
+	_, key, err := serviceTicket(cl, spn, opts...)
 	if err != nil {
 		return fmt.Errorf("could not get the service ticket to verify the mechListMIC: %w", err)
 	}
@@ -188,7 +188,7 @@ func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, 
 
 // negotiationMechToken builds the Kerberos mech token for a leg of a negotiation.
 func negotiationMechToken(cl *client.Client, spn string, opts ...KRB5TokenOption) (KRB5Token, error) {
-	tkt, key, err := cl.GetServiceTicket(spn)
+	tkt, key, err := serviceTicket(cl, spn, opts...)
 	if err != nil {
 		return KRB5Token{}, fmt.Errorf("could not get the service ticket for %s: %w", spn, err)
 	}

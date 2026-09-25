@@ -71,6 +71,7 @@ type ADCredentials struct {
 	LogonDomainName     string
 	LogonDomainID       string
 	LogonServer         string
+	DelegatedThrough    []string
 }
 
 // New creates a new Credentials instance.

@@ -70,7 +70,7 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 
 	keyLen := 32
 
-	a, err := krb5TokenAuthenticator(getClient(t), messages.Ticket{}, types.EncryptionKey{},
+	a, err := krb5TokenAuthenticator(getClient(t), "TEST.GOKRB5", types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "testuser1"), messages.Ticket{}, types.EncryptionKey{},
 		[]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
 	require.NoError(t, err)
 
@@ -102,7 +102,7 @@ func TestKRB5Token_newAuthenticatorWithSubkeyGeneration(t *testing.T) {
 func TestKRB5Token_newAuthenticator(t *testing.T) {
 	t.Parallel()
 
-	a, err := krb5TokenAuthenticator(getClient(t), messages.Ticket{}, types.EncryptionKey{},
+	a, err := krb5TokenAuthenticator(getClient(t), "TEST.GOKRB5", types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "testuser1"), messages.Ticket{}, types.EncryptionKey{},
 		[]int{gssapi.ContextFlagInteg, gssapi.ContextFlagConf}, nil)
 	require.NoError(t, err)
 
@@ -792,14 +792,14 @@ func TestKrb5TokenAuthenticatorShouldAdvertiseCBTWhenBound(t *testing.T) {
 	cl := getClient(t)
 	cb := &gssapi.ChannelBinding{ApplicationData: []byte("tls-server-end-point:test")}
 
-	bound, err := krb5TokenAuthenticator(cl, messages.Ticket{}, types.EncryptionKey{},
+	bound, err := krb5TokenAuthenticator(cl, cl.Credentials.Domain(), cl.Credentials.CName(), messages.Ticket{}, types.EncryptionKey{},
 		[]int{gssapi.ContextFlagInteg}, cb)
 	require.NoError(t, err)
 
 	assert.True(t, types.ADAPOptionsFromAuthorizationData(bound.AuthorizationData).Has(types.ADAPOptionsCBT))
 
 	// Without a binding there is nothing to advertise, and the authenticator must be what it was before.
-	unbound, err := krb5TokenAuthenticator(cl, messages.Ticket{}, types.EncryptionKey{},
+	unbound, err := krb5TokenAuthenticator(cl, cl.Credentials.Domain(), cl.Credentials.CName(), messages.Ticket{}, types.EncryptionKey{},
 		[]int{gssapi.ContextFlagInteg}, nil)
 	require.NoError(t, err)
 

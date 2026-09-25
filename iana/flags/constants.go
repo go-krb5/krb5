@@ -20,6 +20,7 @@ const (
 	RequestAnonymous       = 12
 	TransitedPolicyChecked = 12
 	OKAsDelegate           = 13
+	CNameInAddlTkt         = 14
 	EncPARep               = 15
 	Canonicalize           = 15
 	DisableTransitedCheck  = 26

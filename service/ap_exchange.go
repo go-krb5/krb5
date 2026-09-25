@@ -11,6 +11,7 @@ import (
 	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/messages"
+	"github.com/go-krb5/krb5/pac"
 	"github.com/go-krb5/krb5/types"
 )
 
@@ -66,19 +67,7 @@ func VerifyAPREQ(APReq *messages.APReq, s *Settings) (bool, *credentials.Credent
 
 		if isPAC {
 			// There is a valid PAC. Adding attributes to creds.
-			creds.SetADCredentials(credentials.ADCredentials{
-				GroupMembershipSIDs: pac.KerbValidationInfo.GetGroupMembershipSIDs(),
-				LogOnTime:           pac.KerbValidationInfo.LogOnTime.Time(),
-				LogOffTime:          pac.KerbValidationInfo.LogOffTime.Time(),
-				PasswordLastSet:     pac.KerbValidationInfo.PasswordLastSet.Time(),
-				EffectiveName:       pac.KerbValidationInfo.EffectiveName.Value,
-				FullName:            pac.KerbValidationInfo.FullName.Value,
-				UserID:              int(pac.KerbValidationInfo.UserID),
-				PrimaryGroupID:      int(pac.KerbValidationInfo.PrimaryGroupID),
-				LogonServer:         pac.KerbValidationInfo.LogonServer.Value,
-				LogonDomainName:     pac.KerbValidationInfo.LogonDomainName.Value,
-				LogonDomainID:       pac.KerbValidationInfo.LogonDomainID.String(),
-			})
+			creds.SetADCredentials(adCredentials(pac))
 		}
 	}
 
@@ -317,4 +306,28 @@ func verifyChannelBindingSupport(APReq *messages.APReq) error {
 
 	return newBadChannelBindingError(APReq,
 		"authenticator carries no channel binding and does not advertise KERB_AP_OPTIONS_CBT, so the client cannot bind to the outer channel")
+}
+
+func adCredentials(p pac.PACType) credentials.ADCredentials {
+	ad := credentials.ADCredentials{
+		GroupMembershipSIDs: p.KerbValidationInfo.GetGroupMembershipSIDs(),
+		LogOnTime:           p.KerbValidationInfo.LogOnTime.Time(),
+		LogOffTime:          p.KerbValidationInfo.LogOffTime.Time(),
+		PasswordLastSet:     p.KerbValidationInfo.PasswordLastSet.Time(),
+		EffectiveName:       p.KerbValidationInfo.EffectiveName.Value,
+		FullName:            p.KerbValidationInfo.FullName.Value,
+		UserID:              int(p.KerbValidationInfo.UserID),
+		PrimaryGroupID:      int(p.KerbValidationInfo.PrimaryGroupID),
+		LogonServer:         p.KerbValidationInfo.LogonServer.Value,
+		LogonDomainName:     p.KerbValidationInfo.LogonDomainName.Value,
+		LogonDomainID:       p.KerbValidationInfo.LogonDomainID.String(),
+	}
+
+	if d := p.S4UDelegationInfo; d != nil {
+		for _, s := range d.S4UTransitedServices {
+			ad.DelegatedThrough = append(ad.DelegatedThrough, s.Value)
+		}
+	}
+
+	return ad
 }

@@ -1,0 +1,123 @@
+package types
+
+import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/md5" //nolint:gosec // G501: KERB_CHECKSUM_HMAC_MD5 is what MS-SFU pins PA-FOR-USER to.
+	"encoding/binary"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/go-krb5/krb5/iana/chksumtype"
+	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/iana/nametype"
+	"github.com/go-krb5/krb5/iana/patype"
+)
+
+func TestPAForUserChecksumIsTheOneMSSFUDescribes(t *testing.T) {
+	t.Parallel()
+
+	key := testSessionKey(7)
+	user := PrincipalName{NameType: nametype.KRB_NT_ENTERPRISE, NameString: []string{testPAForUserName, "admin"}}
+
+	p := NewPAForUser(user, "EXAMPLE.COM", key)
+
+	data := make([]byte, 0, 33)
+	data = append(data, byte(nametype.KRB_NT_ENTERPRISE), 0, 0, 0)
+	data = append(data, "aliceadmin"...)
+	data = append(data, "EXAMPLE.COM"...)
+	data = append(data, "Kerberos"...)
+
+	sign := hmac.New(md5.New, key.KeyValue)
+	sign.Write([]byte("signaturekey\x00"))
+	ksign := sign.Sum(nil)
+
+	inner := md5.New() //nolint:gosec // G401: see the import.
+	inner.Write(binary.LittleEndian.AppendUint32(nil, 17))
+	inner.Write(data)
+
+	outer := hmac.New(md5.New, ksign)
+	outer.Write(inner.Sum(nil))
+
+	assert.Equal(t, chksumtype.KERB_CHECKSUM_HMAC_MD5, p.Cksum.CksumType)
+	assert.Equal(t, outer.Sum(nil), p.Cksum.Checksum)
+	assert.Equal(t, "Kerberos", p.AuthPackage)
+}
+
+func TestPAForUserRoundTripsAndVerifies(t *testing.T) {
+	t.Parallel()
+
+	key := testSessionKey(1)
+	user := NewPrincipalName(nametype.KRB_NT_PRINCIPAL, testPAForUserName)
+
+	p := NewPAForUser(user, "EXAMPLE.COM", key)
+
+	pa, err := p.PAData()
+	require.NoError(t, err)
+	assert.Equal(t, patype.PA_FOR_USER, pa.PADataType)
+
+	var got PAForUser
+	require.NoError(t, got.Unmarshal(pa.PADataValue))
+
+	assert.True(t, got.UserName.Equal(user))
+	assert.Equal(t, nametype.KRB_NT_PRINCIPAL, got.UserName.NameType)
+	assert.Equal(t, "EXAMPLE.COM", got.UserRealm)
+	assert.Equal(t, PAForUserAuthPackage, got.AuthPackage)
+	assert.NoError(t, got.Verify(key))
+}
+
+func TestPAForUserVerifyRefusesAnotherKeyOrUser(t *testing.T) {
+	t.Parallel()
+
+	key := testSessionKey(1)
+
+	p := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice"), "EXAMPLE.COM", key)
+
+	assert.Error(t, p.Verify(testSessionKey(2)))
+
+	swapped := p
+	swapped.UserName = NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "mallory")
+	assert.Error(t, swapped.Verify(key))
+
+	other := p
+	other.Cksum.CksumType = chksumtype.HMAC_SHA1_96_AES256
+	assert.Error(t, other.Verify(key))
+}
+
+func TestPAForUserStringsAreGeneralStrings(t *testing.T) {
+	t.Parallel()
+
+	p := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice"), "EXAMPLE.COM", testSessionKey(3))
+
+	b, err := p.Marshal()
+	require.NoError(t, err)
+
+	const generalString = 0x1b
+
+	for _, s := range []string{"alice", "EXAMPLE.COM", "Kerberos"} {
+		want := append([]byte{generalString, byte(len(s))}, s...) //nolint:gosec // G115: the strings are a few bytes long.
+		assert.True(t, bytes.Contains(b, want), "%q is not encoded as a GeneralString in % x", s, b)
+	}
+}
+
+func TestAUserNameAKerberosStringCannotCarryIsRefused(t *testing.T) {
+	t.Parallel()
+
+	p := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffalice"), "EXAMPLE.COM", testSessionKey(4))
+
+	_, err := p.PAData()
+	assert.Error(t, err)
+}
+
+const testPAForUserName = "alice"
+
+func testSessionKey(fill byte) EncryptionKey {
+	k := EncryptionKey{KeyType: etypeID.AES256_CTS_HMAC_SHA1_96, KeyValue: make([]byte, 32)}
+	for i := range k.KeyValue {
+		k.KeyValue[i] = fill + byte(i)
+	}
+
+	return k
+}

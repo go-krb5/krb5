@@ -242,6 +242,58 @@ func NewUser2UserTGSReq(cname types.PrincipalName, kdcRealm string, c *config.Co
 	return a, err
 }
 
+// NewS4U2SelfTGSReq returns a TGS-REQ for a ticket to the service cname itself in the name of user, the protocol
+// transition of MS-SFU Section 3.1.5.1.1.
+//
+// The request names the service as its own server and carries a PA-FOR-USER signed with the session key of the
+// service's TGT. FORWARDABLE is always asked for: MS-SFU Section 3.2.5.1.2 has the KDC set it only for a service
+// trusted to authenticate for delegation, and only a forwardable ticket can be the evidence of a constrained
+// delegation request, so asking costs nothing and not asking would make the ticket useless for that.
+func NewS4U2SelfTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Config, tgt Ticket, sessionKey types.EncryptionKey, user types.PrincipalName, userRealm string) (TGSReq, error) {
+	// First, because it is what can refuse the user: a KerberosString is IA5, and a name it cannot carry
+	// is not a request worth signing.
+	pfu := types.NewPAForUser(user, userRealm, sessionKey)
+
+	pa, err := pfu.PAData()
+	if err != nil {
+		return TGSReq{}, krberror.Errorf(err, krberror.EncodingError, "error marshaling PA-FOR-USER")
+	}
+
+	a, err := tgsReq(cname, cname, kdcRealm, false, c)
+	if err == nil {
+		types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
+		err = a.setPAData(paRealm, tgt, sessionKey)
+	}
+
+	if err != nil {
+		return a, err
+	}
+
+	// setPAData replaces PAData wholesale, so PA-FOR-USER is appended after it rather than before.
+	a.PAData = append(a.PAData, pa)
+
+	return a, nil
+}
+
+// NewS4U2ProxyTGSReq returns a TGS-REQ for a ticket to sname in the name of the client of evidence, the constrained
+// delegation of MS-SFU Section 3.1.5.2.1.
+//
+// evidence is a forwardable ticket to the service cname, obtained by S4U2Self or presented by the user. It travels
+// in additional-tickets under the CNameInAddlTkt option, which tells the KDC that the client of the request is the
+// one named inside it. The TGS-REQ authenticator checksum covers the request body, additional tickets included, so
+// the evidence is placed before setPAData computes it.
+func NewS4U2ProxyTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Config, tgt Ticket, sessionKey types.EncryptionKey, sname types.PrincipalName, evidence Ticket) (TGSReq, error) {
+	a, err := tgsReq(cname, sname, kdcRealm, false, c)
+	if err == nil {
+		types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
+		types.SetFlag(&a.ReqBody.KDCOptions, flags.CNameInAddlTkt)
+		a.ReqBody.AdditionalTickets = []Ticket{evidence}
+		err = a.setPAData(paRealm, tgt, sessionKey)
+	}
+
+	return a, err
+}
+
 // tgsReq populates the fields for a TGS_REQ.
 func tgsReq(cname, sname types.PrincipalName, kdcRealm string, renewal bool, c *config.Config) (TGSReq, error) {
 	nonce, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt32))
