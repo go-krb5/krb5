@@ -565,7 +565,6 @@ func corruptCipher(t *testing.T, apRep []byte) []byte {
 	return b
 }
 
-
 func mutualAPREQ(t *testing.T, option, flagged bool) *KRB5Token {
 	t.Helper()
 
