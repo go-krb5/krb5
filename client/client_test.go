@@ -182,14 +182,8 @@ func TestKeyDoesNotApplyAnotherETypesKeptSalt(t *testing.T) {
 	t.Parallel()
 
 	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
-
-	krberr := preAuthRequired(t, types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: aes256Salt}})
-
-	aes256, err := crypto.GetEType(etypeID.AES256_CTS_HMAC_SHA1_96)
-	require.NoError(t, err)
-
-	_, _, err = cl.Key(aes256, 0, &krberr)
-	require.NoError(t, err)
+	cl.settings.preAuthPAData.store(cl.Credentials.CName(), cl.Credentials.Domain(),
+		etypeInfo2PAData(t, types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: aes256Salt}}))
 
 	aes128, err := crypto.GetEType(etypeID.AES128_CTS_HMAC_SHA1_96)
 	require.NoError(t, err)
@@ -204,7 +198,26 @@ func TestKeyDoesNotApplyAnotherETypesKeptSalt(t *testing.T) {
 	assert.Equal(t, expected, key)
 }
 
-func TestKeyForgetsTheKeptSaltWhenTheCredentialsChange(t *testing.T) {
+func TestKeyUsesTheKeptSalt(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
+	cl.settings.preAuthPAData.store(cl.Credentials.CName(), cl.Credentials.Domain(),
+		etypeInfo2PAData(t, types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: keptSalt}}))
+
+	et, err := crypto.GetEType(etypeID.AES256_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
+
+	key, _, err := cl.Key(et, 0, nil)
+	require.NoError(t, err)
+
+	expected, err := et.StringToKey("passwordvalue", keptSalt, et.GetDefaultStringToKeyParams())
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, key.KeyValue)
+}
+
+func TestKeyDoesNotKeepTheSaltInAKRBError(t *testing.T) {
 	t.Parallel()
 
 	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
@@ -217,7 +230,27 @@ func TestKeyForgetsTheKeptSaltWhenTheCredentialsChange(t *testing.T) {
 	_, _, err = cl.Key(et, 0, &krberr)
 	require.NoError(t, err)
 
+	key, _, err := cl.Key(et, 0, nil)
+	require.NoError(t, err)
+
+	expected, _, err := crypto.GetKeyFromPassword("passwordvalue", cl.Credentials.CName(), cl.Credentials.Domain(),
+		etypeID.AES256_CTS_HMAC_SHA1_96, types.PADataSequence{})
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, key)
+}
+
+func TestKeyForgetsTheKeptSaltWhenTheCredentialsChange(t *testing.T) {
+	t.Parallel()
+
+	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", &config.Config{})
+	cl.settings.preAuthPAData.store(cl.Credentials.CName(), cl.Credentials.Domain(),
+		etypeInfo2PAData(t, types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: keptSalt}}))
+
 	cl.Credentials = credentials.New("otheruser", "TEST.GOKRB5").WithPassword("passwordvalue")
+
+	et, err := crypto.GetEType(etypeID.AES256_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
 
 	key, _, err := cl.Key(et, 0, nil)
 	require.NoError(t, err)
@@ -259,6 +292,9 @@ func TestKeyIsSafeForConcurrentUse(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
+			cl.settings.preAuthPAData.store(cl.Credentials.CName(), cl.Credentials.Domain(), etypeInfo2PAData(t,
+				types.ETypeInfo2{{EType: etypeID.AES256_CTS_HMAC_SHA1_96, Salt: salt}}))
+
 			_, _, err := cl.Key(et, 0, nil)
 			assert.NoError(t, err)
 		}()
@@ -270,14 +306,19 @@ func TestKeyIsSafeForConcurrentUse(t *testing.T) {
 func preAuthRequired(t *testing.T, info types.ETypeInfo2) messages.KRBError {
 	t.Helper()
 
-	v, err := asn1.Marshal(info, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
-	require.NoError(t, err)
-
-	pas, err := asn1.Marshal(types.PADataSequence{{PADataType: patype.PA_ETYPE_INFO2, PADataValue: v}},
-		asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	pas, err := asn1.Marshal(etypeInfo2PAData(t, info), asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
 	require.NoError(t, err)
 
 	return messages.KRBError{ErrorCode: errorcode.KDC_ERR_PREAUTH_REQUIRED, EData: pas}
+}
+
+func etypeInfo2PAData(t *testing.T, info types.ETypeInfo2) types.PADataSequence {
+	t.Helper()
+
+	v, err := asn1.Marshal(info, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	require.NoError(t, err)
+
+	return types.PADataSequence{{PADataType: patype.PA_ETYPE_INFO2, PADataValue: v}}
 }
 
 const (

@@ -138,8 +138,9 @@ func NewFromCCache(c *credentials.CCache, krb5conf *config.Config, settings ...f
 // If the client has both a keytab and a password defined the keytab is favoured as the source for the key
 // A KRBError can be passed in the event the KDC returns one of type KDC_ERR_PREAUTH_REQUIRED or KDC_ERR_PREAUTH_FAILED
 // and is required to derive the key for pre-authentication from the client's password. If a KRBError is not
-// available, pass nil to this argument. The salt and string-to-key parameters from the last such error are kept and
-// used for later keys derived from the password, since a KDC only sends them when it asks for pre-authentication.
+// available, pass nil to this argument. The error's salt and string-to-key parameters are used for that call only.
+// Without an error, the parameters that decrypted the last verified AS_REP are used, since a KDC only sends them when
+// it asks for pre-authentication, and an unauthenticated KRBError must not decide the key of a later request.
 func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (types.EncryptionKey, int, error) {
 	if cl.Credentials.HasKeytab() && etype != nil {
 		return cl.Credentials.Keytab().GetEncryptionKey(cl.Credentials.CName(), cl.Credentials.Domain(), kvno, etype.GetETypeID())
@@ -155,8 +156,6 @@ func (cl *Client) Key(etype etype.EType, kvno int, krberr *messages.KRBError) (t
 			if err != nil {
 				return types.EncryptionKey{}, 0, fmt.Errorf("could not get PAData from KRBError to generate key from password: %w", err)
 			}
-
-			cl.settings.preAuthPAData.store(cname, realm, pas)
 		}
 
 		// RFC 4120 Section 3.1: "the contents of the KRB_ERROR message are not integrity-protected", so the
