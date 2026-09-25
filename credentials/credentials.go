@@ -365,6 +365,9 @@ func (c *Credentials) RemoveAttribute(k string) {
 }
 
 // Marshal the Credentials into a byte slice.
+//
+// Delegated credentials are left out. They hold the client's forwarded TGT and its session key, and the result is
+// what a session manager stores, possibly in a cookie on the client.
 func (c *Credentials) Marshal() ([]byte, error) {
 	gob.Register(map[string]any{})
 	gob.Register(ADCredentials{})
@@ -378,7 +381,7 @@ func (c *Credentials) Marshal() ([]byte, error) {
 		CName:           c.cname,
 		Keytab:          c.HasKeytab(),
 		Password:        c.HasPassword(),
-		Attributes:      c.attributes,
+		Attributes:      marshalAttributes(c.attributes),
 		ValidUntil:      c.validUntil,
 		Authenticated:   c.authenticated,
 		Human:           c.human,
@@ -393,6 +396,22 @@ func (c *Credentials) Marshal() ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+func marshalAttributes(a map[string]any) map[string]any {
+	if _, ok := a[AttributeKeyDelegatedCredentials]; !ok {
+		return a
+	}
+
+	m := make(map[string]any, len(a)-1)
+
+	for k, v := range a {
+		if k != AttributeKeyDelegatedCredentials {
+			m[k] = v
+		}
+	}
+
+	return m
 }
 
 // Unmarshal a byte slice into Credentials.
