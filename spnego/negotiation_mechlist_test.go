@@ -1,6 +1,8 @@
 package spnego
 
 import (
+	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -279,7 +281,7 @@ func krb5MechToken(t *testing.T) ([]byte, types.EncryptionKey, *keytab.Keytab) {
 
 	kt := testKeytab(t)
 	sname := types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/host.test.gokrb5")
-	cname := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "testuser")
+	cname := fixtureClient()
 	now := time.Now().UTC()
 
 	tkt, sessionKey, err := messages.NewTicket(cname, "TEST.GOKRB5", sname, "TEST.GOKRB5",
@@ -299,6 +301,18 @@ func krb5MechToken(t *testing.T) ([]byte, types.EncryptionKey, *keytab.Keytab) {
 	require.NoError(t, err)
 
 	return b, sessionKey, kt
+}
+
+// fixtureClients numbers the clients fixture AP-REQs are built for.
+var fixtureClients atomic.Uint64
+
+// fixtureClient names a client no other fixture AP-REQ in this process is built for. The replay cache is one per
+// process and keyed by the client, the authenticator's ctime and its cusec; two parallel tests building an AP-REQ for
+// the same client within the same microsecond present identical authenticators, and whichever the acceptor sees
+// second is refused as a replay before the check the test is about. A client of its own makes every fixture
+// authenticator unique.
+func fixtureClient() types.PrincipalName {
+	return types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, fmt.Sprintf("testuser%d", fixtureClients.Add(1)))
 }
 
 func testKeytab(t *testing.T) *keytab.Keytab {
