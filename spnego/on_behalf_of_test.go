@@ -113,7 +113,8 @@ func TestOnBehalfOfContinuesANegotiationAsTheUser(t *testing.T) {
 	imp, acceptor := impersonation(t)
 	r := httptest.NewRequest(http.MethodGet, "http://host.test.gokrb5/", nil)
 
-	require.NoError(t, setSPNEGOContinuationHeader(kdclessClient(t), r, impersonationSPN, OnBehalfOf(imp)))
+	_, err := setSPNEGOContinuationHeader(kdclessClient(t), r, impersonationSPN, OnBehalfOf(imp))
+	require.NoError(t, err)
 
 	var st SPNEGOToken
 	require.NoError(t, st.Unmarshal(negotiationHeader(t, r)))

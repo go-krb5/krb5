@@ -40,6 +40,7 @@ type Client struct {
 	tokenOptions       []KRB5TokenOption
 	autoChannelBinding bool
 	legs               int
+	exchange           *SPNEGO
 }
 
 type redirectErr struct {
@@ -163,6 +164,12 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 					return resp, rerr
 				}
 
+				if verr := c.verifyAcceptor(resp); verr != nil {
+					c.endNegotiation()
+
+					return nil, verr
+				}
+
 				c.reqs = append(c.reqs, e.reqTarget)
 				if len(c.reqs) >= c.maxRedirects {
 					c.reqs = c.reqs[:0]
@@ -210,9 +217,52 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 		}
 	}
 
-	c.endNegotiation()
+	return c.completeNegotiation(resp, challenged)
+}
 
-	return resp, err
+func (c *Client) completeNegotiation(resp *http.Response, challenged bool) (*http.Response, error) {
+	defer c.endNegotiation()
+
+	if challenged {
+		return resp, nil
+	}
+
+	if err := c.verifyAcceptor(resp); err != nil {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+func (c *Client) verifyAcceptor(resp *http.Response) error {
+	if c.exchange == nil {
+		return nil
+	}
+
+	var token []byte
+
+	if resp != nil {
+		var err error
+
+		if token, _, err = negotiateHeader(resp); err != nil {
+			return err
+		}
+	}
+
+	if len(token) == 0 {
+		return errors.New("spnego: the acceptor sent no negotiation token, so it has not proved who it is")
+	}
+
+	if err := c.exchange.VerifyMutual(token); err != nil {
+		return err
+	}
+
+	c.exchange = nil
+
+	return nil
 }
 
 // checkRedirectHost refuses a redirect that leaves the host the configured service principal name belongs to.
@@ -254,6 +304,7 @@ func (c *Client) nextNegotiationLeg(req *http.Request, resp *http.Response, toke
 func (c *Client) endNegotiation() {
 	c.reqs = c.reqs[:0]
 	c.legs = 0
+	c.exchange = nil
 }
 
 // requestTokenOptions returns the token options to use for the response that challenged the client, deriving a
@@ -363,32 +414,38 @@ func canonicalizeHostname(cl *client.Client) bool {
 // SetSPNEGOHeader gets the service ticket and sets it as the SPNEGO authorization header on HTTP request object.
 // To auto generate the SPN from the request object pass a null string "".
 func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) error {
+	_, err := setSPNEGOHeader(cl, r, spn, opts...)
+
+	return err
+}
+
+func setSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) (*SPNEGO, error) {
 	spn, err := requestSPN(cl, r, spn)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cl.Log("using SPN %s", spn)
 	s := SPNEGOClient(cl, spn, opts...)
 
 	if err = s.AcquireCred(); err != nil {
-		return fmt.Errorf("could not acquire client credential: %w", err)
+		return nil, fmt.Errorf("could not acquire client credential: %w", err)
 	}
 
 	st, err := s.InitSecContext()
 	if err != nil {
-		return fmt.Errorf("could not initialize context: %w", err)
+		return nil, fmt.Errorf("could not initialize context: %w", err)
 	}
 
 	nb, err := st.Marshal()
 	if err != nil {
-		return krberror.Errorf(err, krberror.EncodingError, "could not marshal SPNEGO")
+		return nil, krberror.Errorf(err, krberror.EncodingError, "could not marshal SPNEGO")
 	}
 
 	hs := "Negotiate " + base64.StdEncoding.EncodeToString(nb)
 	r.Header.Set(HTTPHeaderAuthRequest, hs)
 
-	return nil
+	return s, nil
 }
 
 // Service side functionality //.
@@ -474,7 +531,7 @@ func SPNEGOKRB5Authenticate(inner http.Handler, kt *keytab.Keytab, settings ...f
 				return
 			}
 
-			if err = spnegoResponseAcceptCompleted(spnego, w, "%s %s@%s - SPNEGO authentication succeeded", r.RemoteAddr, id.UserName(), id.Domain()); err != nil {
+			if err = spnegoResponseAcceptCompleted(spnego, st, w, "%s %s@%s - SPNEGO authentication succeeded", r.RemoteAddr, id.UserName(), id.Domain()); err != nil {
 				return
 			}
 			// Add the identity to the context and serve the inner/wrapped handler.
@@ -584,8 +641,8 @@ func spnegoResponseReject(s *SPNEGO, w http.ResponseWriter, format string, v ...
 	http.Error(w, UnauthorizedMsg, http.StatusUnauthorized)
 }
 
-func spnegoResponseAcceptCompleted(s *SPNEGO, w http.ResponseWriter, format string, v ...any) error {
-	h, err := spnegoAcceptCompletedHeader(s)
+func spnegoResponseAcceptCompleted(s *SPNEGO, st *SPNEGOToken, w http.ResponseWriter, format string, v ...any) error {
+	h, err := spnegoAcceptCompletedHeader(s, st)
 	if err != nil {
 		spnegoInternalServerError(s, w, "SPNEGO could not build the accept-completed response: %v", err)
 
@@ -601,22 +658,29 @@ func spnegoResponseAcceptCompleted(s *SPNEGO, w http.ResponseWriter, format stri
 // spnegoAcceptCompletedHeader returns the WWW-Authenticate value ending a successful negotiation.
 //
 // RFC 4178 Section 5(c)(I) has the reply carry a mechListMIC whenever the initiator sent one, and the initiator MUST
-// verify it, so the token has to be built for that exchange. The constant covers every other exchange, which is the
-// common one and the reason it is a constant: the same accept-completed state and Kerberos supportedMech, with
-// nothing variable in it.
+// verify it, so the token has to be built for that exchange. RFC 4120 Section 3.2.4 likewise has an AP-REQ that asks
+// for mutual authentication answered with an AP-REP, which RFC 4178 Section 4.2.2 carries as the responseToken. The
+// constant covers every other exchange, which is the common one and the reason it is a constant: the same
+// accept-completed state and Kerberos supportedMech, with nothing variable in it.
 //
 // A failure to build the token is returned rather than answered with the constant. Replying accept-completed without
-// the MIC that was asked for would leave the initiator terminating a negotiation this acceptor had already
-// completed, having decided a request was authentic and then told the client it was not.
-func spnegoAcceptCompletedHeader(s *SPNEGO) (string, error) {
+// the MIC or the AP-REP that was asked for would leave the initiator terminating a negotiation this acceptor had
+// already completed, having decided a request was authentic and then told the client it was not.
+func spnegoAcceptCompletedHeader(s *SPNEGO, st *SPNEGOToken) (string, error) {
+	rep, err := acceptorAPRep(st.verifiedMechToken())
+	if err != nil {
+		return "", err
+	}
+
 	mic := s.MechListMIC()
-	if len(mic) == 0 {
+	if len(mic) == 0 && len(rep) == 0 {
 		return spnegoNegTokenRespKRBAcceptCompleted, nil
 	}
 
 	nt := NegTokenResp{
 		NegState:      asn1.Enumerated(NegStateAcceptCompleted),
 		SupportedMech: gssapi.OIDKRB5.OID(),
+		ResponseToken: rep,
 		MechListMIC:   mic,
 	}
 
