@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/crypto/etype"
 )
 
@@ -39,7 +40,7 @@ func (a *EncryptedData) Unmarshal(b []byte) error {
 
 // Marshal the EncryptedData.
 func (a *EncryptedData) Marshal() ([]byte, error) {
-	edb, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	edb, err := asn1tools.Marshal(*a)
 	if err != nil {
 		return edb, err
 	}

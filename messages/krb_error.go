@@ -66,7 +66,7 @@ func (k *KRBError) Unmarshal(b []byte) error {
 
 // Marshal a KRBError into bytes.
 func (k *KRBError) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*k, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(*k)
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling KRBError")
 	}

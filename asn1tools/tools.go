@@ -80,6 +80,20 @@ func GetNumberBytesInLengthHeader(b []byte) int {
 	return n
 }
 
+// Marshal returns the DER encoding of v with the options every Kerberos message in this module is marshalled with.
+//
+// Slices keep their element types and may hold strings, and a GeneralString is written as its octets unchanged. The
+// last means a KerberosString carrying UTF-8, as MIT krb5 and Active Directory send and as unmarshalling already
+// accepts, is sent as those octets rather than refused as a non-IA5 string. RFC 4120 Section 5.2.1 permits this and
+// warns that it is an interoperability risk.
+func Marshal(v any) ([]byte, error) {
+	return asn1.Marshal(v,
+		asn1.WithMarshalSlicePreserveTypes(true),
+		asn1.WithMarshalSliceAllowStrings(true),
+		asn1.WithMarshalGeneralStringOctets(true),
+	)
+}
+
 // AddASNAppTag adds an ASN1 encoding application tag value to the raw bytes provided.
 func AddASNAppTag(b []byte, tag int) []byte {
 	r := asn1.RawValue{
@@ -88,7 +102,7 @@ func AddASNAppTag(b []byte, tag int) []byte {
 		Tag:        tag,
 		Bytes:      b,
 	}
-	ab, _ := asn1.Marshal(r, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	ab, _ := Marshal(r)
 
 	return ab
 }

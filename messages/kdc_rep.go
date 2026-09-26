@@ -132,7 +132,7 @@ func (k *ASRep) Marshal() ([]byte, error) {
 		Bytes:      b,
 	}
 
-	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	mk, err := asn1tools.Marshal(m)
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REP")
 	}
@@ -196,7 +196,7 @@ func (k *TGSRep) Marshal() ([]byte, error) {
 		Bytes:      b,
 	}
 
-	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	mk, err := asn1tools.Marshal(m)
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling TGS_REP")
 	}
@@ -224,7 +224,7 @@ func (e *EncKDCRepPart) Unmarshal(b []byte) error {
 
 // Marshal encrypted part of KRB_KDC_REP.
 func (e *EncKDCRepPart) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*e, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(*e)
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "marshaling error of AS_REP encpart")
 	}

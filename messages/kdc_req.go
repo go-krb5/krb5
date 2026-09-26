@@ -251,8 +251,6 @@ func NewUser2UserTGSReq(cname types.PrincipalName, kdcRealm string, c *config.Co
 // it only for a service trusted to authenticate for delegation, and only a forwardable ticket can be the evidence of a
 // constrained delegation request, so asking costs nothing and not asking would make the ticket useless for that.
 func NewS4U2SelfTGSReq(cname types.PrincipalName, paRealm, kdcRealm string, c *config.Config, tgt Ticket, sessionKey types.EncryptionKey, user types.PrincipalName, userRealm string) (TGSReq, error) {
-	// First, because it is what can refuse the user: a KerberosString is IA5, and a name it cannot carry
-	// is not a request worth signing.
 	pfu := types.NewPAForUser(user, userRealm, sessionKey)
 
 	pa, err := pfu.PAData()
@@ -529,7 +527,7 @@ func (k *ASReq) Marshal() ([]byte, error) {
 		Bytes:      b,
 	}
 
-	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	mk, err := asn1tools.Marshal(m)
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
@@ -560,7 +558,7 @@ func (k *TGSReq) Marshal() ([]byte, error) {
 		Bytes:      b,
 	}
 
-	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	mk, err := asn1tools.Marshal(m)
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "error marshaling AS_REQ")
 	}
@@ -598,7 +596,7 @@ func (k *KDCReqBody) Marshal() ([]byte, error) {
 		m.AdditionalTickets = rawtkts
 	}
 
-	b, err = asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err = asn1tools.Marshal(m)
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error in marshaling KDC request body")
 	}

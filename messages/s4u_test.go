@@ -161,16 +161,12 @@ func TestTGSRepVerifyOnBehalfOfRefusesAReferral(t *testing.T) {
 func TestAnS4URequestIsNotBuiltWithAKeyThatCannotSignIt(t *testing.T) {
 	t.Parallel()
 
-	c, service, tgt, key := s4uFixture(t)
+	c, service, tgt, _ := s4uFixture(t)
 	unknown := types.EncryptionKey{KeyType: 0, KeyValue: []byte("no such encryption type")}
 	user := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "alice")
 
 	_, err := NewS4U2SelfTGSReq(service, s4uRealm, s4uRealm, c, tgt, unknown, user, s4uRealm)
 	assert.Error(t, err)
-
-	unnamable := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffalice")
-	_, err = NewS4U2SelfTGSReq(service, s4uRealm, s4uRealm, c, tgt, key, unnamable, s4uRealm)
-	assert.ErrorContains(t, err, "PA-FOR-USER")
 
 	_, err = NewS4U2ProxyTGSReq(service, s4uRealm, s4uRealm, c, tgt, unknown, types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "HTTP/registry.example.com"), Ticket{})
 	assert.Error(t, err)

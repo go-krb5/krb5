@@ -9,8 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-krb5/x/encoding/asn1"
-
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/credentials"
 	"github.com/go-krb5/krb5/crypto"
@@ -213,7 +212,7 @@ func paDataForEType(pas types.PADataSequence, etypeID int32) types.PADataSequenc
 }
 
 func appendETypeInfo(pas types.PADataSequence, paType int32, info any) types.PADataSequence {
-	b, err := asn1.Marshal(info, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(info)
 	if err != nil {
 		return pas
 	}

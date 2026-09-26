@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/iana/patype"
 )
 
@@ -51,7 +52,7 @@ func GetPAEncTSEncAsnMarshalled() ([]byte, error) {
 		PAUSec:      int((t.UnixNano() / int64(time.Microsecond)) - (t.Unix() * 1e6)),
 	}
 
-	b, err := asn1.Marshal(p, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(p)
 	if err != nil {
 		return b, fmt.Errorf("error mashaling PAEncTSEnc: %w", err)
 	}

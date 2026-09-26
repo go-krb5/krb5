@@ -128,7 +128,7 @@ func (k *KRBCred) Marshal() ([]byte, error) {
 	// KDCReqBody.Marshal does for AdditionalTickets.
 	m.Tickets.Tag = 2
 
-	b, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(m)
 	if err != nil {
 		return nil, krberror.Errorf(err, krberror.EncodingError, "error marshalling KRB_CRED")
 	}
@@ -240,7 +240,7 @@ func (k *KRBCred) CCache() (*credentials.CCache, error) {
 // The optional nonce, timestamp, usec, s-address and r-address fields of RFC 4120 Section 5.8.1 are omitted when
 // unset: the asn1 encoder drops an optional field at its zero value.
 func (k *EncKrbCredPart) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*k, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(*k)
 	if err != nil {
 		return nil, krberror.Errorf(err, krberror.EncodingError, "error marshalling EncKrbCredPart")
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/messages"
@@ -85,7 +86,7 @@ func (n *NegTokenInit) Marshal() ([]byte, error) {
 		MechListMIC:    n.MechListMIC,
 	}
 
-	b, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(m)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +98,7 @@ func (n *NegTokenInit) Marshal() ([]byte, error) {
 		Bytes:      b,
 	}
 
-	nb, err := asn1.Marshal(nt, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	nb, err := asn1tools.Marshal(nt)
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +234,7 @@ func (n *NegTokenResp) Marshal() ([]byte, error) {
 		MechListMIC:   n.MechListMIC,
 	}
 
-	b, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(m)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +246,7 @@ func (n *NegTokenResp) Marshal() ([]byte, error) {
 		Bytes:      b,
 	}
 
-	nb, err := asn1.Marshal(nt, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	nb, err := asn1tools.Marshal(nt)
 	if err != nil {
 		return nil, err
 	}

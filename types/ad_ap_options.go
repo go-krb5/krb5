@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/iana/adtype"
 )
 
@@ -63,7 +64,7 @@ func (o ADAPOptions) AuthorizationData() (AuthorizationData, error) {
 		{ADType: adtype.ADAuthDataAPOptions, ADData: o.Marshal()},
 	}
 
-	b, err := asn1.Marshal(inner, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(inner)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling AD-AUTH-DATA-AP-OPTIONS: %w", err)
 	}

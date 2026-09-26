@@ -103,7 +103,7 @@ func NewTicket(cname types.PrincipalName, crealm string, sname types.PrincipalNa
 		RenewTill: renewTill,
 	}
 
-	b, err := asn1.Marshal(etp, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(etp)
 	if err != nil {
 		return Ticket{}, types.EncryptionKey{}, krberror.Errorf(err, krberror.EncodingError, "error marshalling ticket encpart")
 	}
@@ -153,12 +153,12 @@ func (t *Ticket) Unmarshal(b []byte) error {
 
 // Marshal the Ticket.
 func (t *Ticket) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(marshalTicket{
+	b, err := asn1tools.Marshal(marshalTicket{
 		TktVNO:  t.TktVNO,
 		Realm:   t.Realm,
 		SName:   t.SName,
 		EncPart: t.EncPart,
-	}, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	})
 	if err != nil {
 		return nil, err
 	}

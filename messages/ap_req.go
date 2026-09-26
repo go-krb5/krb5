@@ -155,7 +155,7 @@ func (a *APReq) Marshal() ([]byte, error) {
 		Bytes:      b,
 	}
 
-	mk, err := asn1.Marshal(m, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	mk, err := asn1tools.Marshal(m)
 	if err != nil {
 		return mk, krberror.Errorf(err, krberror.EncodingError, "marshaling error of AP_REQ")
 	}

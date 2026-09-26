@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/gssapi"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/types"
@@ -24,7 +25,7 @@ func mechListMICPayload(raw []byte, mechTypes []asn1.ObjectIdentifier) ([]byte, 
 		return nil, errors.New("cannot compute a mechListMIC over an empty mechanism list")
 	}
 
-	b, err := asn1.Marshal(mechTypes, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(mechTypes)
 	if err != nil {
 		return nil, fmt.Errorf("error marshalling the MechTypeList for the mechListMIC: %w", err)
 	}
