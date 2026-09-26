@@ -10,6 +10,7 @@ import (
 	"github.com/go-krb5/x/encoding/asn1"
 
 	"github.com/go-krb5/krb5/iana/etypeID"
+	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/iana/patype"
 	"github.com/go-krb5/krb5/types"
 )
@@ -101,6 +102,23 @@ const (
 	s2kRealm    = "TEST.GOKRB5"
 	s2kUser     = "testuser"
 )
+
+func TestGetKeyFromPasswordSaltsWithAUTF8Principal(t *testing.T) {
+	t.Parallel()
+
+	cname := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "jurišić")
+
+	key, _, err := GetKeyFromPassword("passwordvalue", cname, "ATHENA.MIT.EDU", etypeID.AES256_CTS_HMAC_SHA1_96, nil)
+	require.NoError(t, err)
+
+	et, err := GetEType(etypeID.AES256_CTS_HMAC_SHA1_96)
+	require.NoError(t, err)
+
+	expected, err := et.StringToKey("passwordvalue", "ATHENA.MIT.EDUjurišić", et.GetDefaultStringToKeyParams())
+	require.NoError(t, err)
+
+	assert.Equal(t, expected, key.KeyValue)
+}
 
 func etypeInfo2PAData(t *testing.T, info types.ETypeInfo2) types.PADataSequence {
 	t.Helper()

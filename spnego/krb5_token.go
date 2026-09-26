@@ -65,7 +65,7 @@ func (m *KRB5Token) contextKey() (types.EncryptionKey, error) {
 
 // Marshal a KRB5Token into a slice of bytes.
 func (m *KRB5Token) Marshal() ([]byte, error) {
-	b, _ := asn1.Marshal(m.OID, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, _ := asn1tools.Marshal(m.OID)
 	b = append(b, m.tokID...)
 
 	var (

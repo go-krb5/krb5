@@ -226,7 +226,7 @@ func TestARequestThatCannotBeEncodedIsNotSent(t *testing.T) {
 	cl := s4uClient(t, kdc.addr)
 
 	var req messages.TGSReq
-	req.ReqBody.SName = types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffback")
+	req.ReqBody.Till = time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	_, err := cl.onBehalfOfExchange(req, s4uRealm, s4uSessionKey(), alice(), s4uRealm)
 	require.Error(t, err)
@@ -248,16 +248,29 @@ func TestWithoutASessionNothingIsAsked(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestAUserThatCannotBeNamedIsNotAskedFor(t *testing.T) {
+func TestAUTF8UserIsAskedForByName(t *testing.T) {
 	t.Parallel()
 
 	kdc := newS4UKDC(t, func(int, messages.TGSReq) []byte { return nil })
 	cl := s4uClient(t, kdc.addr)
 
-	_, _, err := cl.S4U2Self(types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffalice"), s4uRealm)
+	user := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "jurišić")
+
+	_, _, err := cl.S4U2Self(user, s4uRealm)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "S4U2Self TGS_REQ")
-	assert.Empty(t, kdc.seen())
+
+	reqs := kdc.seen()
+	require.Len(t, reqs, 1)
+
+	var pfu types.PAForUser
+
+	for _, pa := range reqs[0].PAData {
+		if pa.PADataType == patype.PA_FOR_USER {
+			require.NoError(t, pfu.Unmarshal(pa.PADataValue))
+		}
+	}
+
+	assert.True(t, pfu.UserName.Equal(user))
 }
 
 type s4uKDC struct {

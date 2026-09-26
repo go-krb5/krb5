@@ -3,6 +3,7 @@ package kadmin
 import (
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/types"
 )
 
@@ -15,7 +16,7 @@ type ChangePasswdData struct {
 
 // Marshal ChangePasswdData into a byte slice.
 func (c *ChangePasswdData) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*c, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(*c)
 	if err != nil {
 		return []byte{}, err
 	}

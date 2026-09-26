@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/patype"
@@ -37,7 +38,7 @@ type S4UUserID struct {
 
 // Marshal the S4UUserID. This encoding is what the PA-S4U-X509-USER checksum covers.
 func (u *S4UUserID) Marshal() ([]byte, error) {
-	return asn1.Marshal(*u, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	return asn1tools.Marshal(*u)
 }
 
 // PAS4UX509User implements the PA-S4U-X509-USER pre-authentication data of MS-SFU Section 2.2.2.
@@ -83,7 +84,7 @@ func NewPAS4UX509User(nonce int, user types.PrincipalName, userRealm string, ses
 
 // Marshal the PA-S4U-X509-USER.
 func (p *PAS4UX509User) Marshal() ([]byte, error) {
-	return asn1.Marshal(*p, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	return asn1tools.Marshal(*p)
 }
 
 // Unmarshal bytes into the PA-S4U-X509-USER.

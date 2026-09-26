@@ -82,7 +82,7 @@ func (a *Authenticator) Unmarshal(b []byte) error {
 
 // Marshal the Authenticator.
 func (a *Authenticator) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(*a)
 	if err != nil {
 		return nil, err
 	}

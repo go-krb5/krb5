@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/asn1tools"
 	"github.com/go-krb5/krb5/crypto/rfc4757"
 	"github.com/go-krb5/krb5/iana/chksumtype"
 	"github.com/go-krb5/krb5/iana/keyusage"
@@ -90,7 +91,7 @@ func (p *PAForUser) Verify(sessionKey EncryptionKey) error {
 
 // Marshal the PA-FOR-USER.
 func (p *PAForUser) Marshal() ([]byte, error) {
-	return asn1.Marshal(*p, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	return asn1tools.Marshal(*p)
 }
 
 // Unmarshal bytes into the PA-FOR-USER.

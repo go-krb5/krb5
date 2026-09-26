@@ -45,7 +45,7 @@ func (a *APRep) Unmarshal(b []byte) error {
 
 // Marshal the APRep struct.
 func (a *APRep) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(*a)
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling AP_REP")
 	}
@@ -67,7 +67,7 @@ func (a *EncAPRepPart) Unmarshal(b []byte) error {
 
 // Marshal the APRep encrypted part struct.
 func (a *EncAPRepPart) Marshal() ([]byte, error) {
-	b, err := asn1.Marshal(*a, asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+	b, err := asn1tools.Marshal(*a)
 	if err != nil {
 		return b, krberror.Errorf(err, krberror.EncodingError, "error marshaling EncAPRepPart")
 	}

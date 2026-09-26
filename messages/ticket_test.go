@@ -271,6 +271,26 @@ func TestGetPACType_NilLogger(t *testing.T) {
 
 // appendToSequence returns b, an [APPLICATION n] wrapping a SEQUENCE, with extra appended inside that SEQUENCE. It
 // is how a peer smuggles an element the type does not define past a decoder that tolerates trailing data.
+func TestTicketWithUTF8NamesRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	tkt := testWireTicket()
+	tkt.Realm = utf8Realm
+	tkt.SName = types.NewPrincipalName(nametype.KRB_NT_SRV_INST, "HTTP/čeština.example")
+
+	b, err := tkt.Marshal()
+	require.NoError(t, err)
+
+	var back Ticket
+
+	require.NoError(t, back.Unmarshal(b))
+	assert.Equal(t, tkt.Realm, back.Realm)
+	assert.Equal(t, tkt.SName, back.SName)
+	assert.Equal(t, tkt.EncPart, back.EncPart)
+}
+
+const utf8Realm = "PŘÍKLAD.CZ"
+
 func appendToSequence(t *testing.T, b, extra []byte) []byte {
 	t.Helper()
 

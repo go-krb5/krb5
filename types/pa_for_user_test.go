@@ -102,13 +102,20 @@ func TestPAForUserStringsAreGeneralStrings(t *testing.T) {
 	}
 }
 
-func TestAUserNameAKerberosStringCannotCarryIsRefused(t *testing.T) {
+func TestAUTF8UserNameIsCarriedAsItsOctets(t *testing.T) {
 	t.Parallel()
 
-	p := NewPAForUser(NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "\xffalice"), "EXAMPLE.COM", testSessionKey(4))
+	user := NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "jurišić")
+	p := NewPAForUser(user, "EXAMPLE.COM", testSessionKey(4))
 
-	_, err := p.PAData()
-	assert.Error(t, err)
+	pa, err := p.PAData()
+	require.NoError(t, err)
+
+	var back PAForUser
+
+	require.NoError(t, back.Unmarshal(pa.PADataValue))
+	assert.True(t, back.UserName.Equal(user))
+	assert.NoError(t, back.Verify(testSessionKey(4)))
 }
 
 const testPAForUserName = "alice"

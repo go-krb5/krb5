@@ -183,7 +183,7 @@ func (s *SPNEGOToken) Marshal() ([]byte, error) {
 	var b []byte
 
 	if s.Init {
-		hb, _ := asn1.Marshal(gssapi.OIDSPNEGO.OID(), asn1.WithMarshalSlicePreserveTypes(true), asn1.WithMarshalSliceAllowStrings(true))
+		hb, _ := asn1tools.Marshal(gssapi.OIDSPNEGO.OID())
 
 		tb, err := s.NegTokenInit.Marshal()
 		if err != nil {
