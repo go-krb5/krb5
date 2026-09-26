@@ -276,7 +276,7 @@ func (kt *Keytab) Unmarshal(b []byte) error {
 				return fmt.Errorf("%d can't be less than zero", n)
 			}
 
-			if n+int(l) > len(b) {
+			if int(l) > len(b)-n {
 				return fmt.Errorf("keytab is %d bytes, cannot read an entry of %d at offset %d", len(b), l, n)
 			}
 
