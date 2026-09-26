@@ -360,3 +360,21 @@ func TestUnmarshalStopsAtAHolePastTheEndOfTheKeytab(t *testing.T) {
 		})
 	}
 }
+
+func TestUnmarshalKeepsATimestampAfter2038(t *testing.T) {
+	t.Parallel()
+
+	ts := time.Date(2040, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	kt := New()
+	require.NoError(t, kt.AddEntry("HTTP/host.test.gokrb5", "TEST.GOKRB5", "passwordvalue", ts, 1, etypeID.AES256_CTS_HMAC_SHA1_96))
+
+	b, err := kt.Marshal()
+	require.NoError(t, err)
+
+	var back Keytab
+
+	require.NoError(t, back.Unmarshal(b))
+	require.Len(t, back.Entries, 1)
+	assert.True(t, ts.Equal(back.Entries[0].Timestamp), "timestamp %v", back.Entries[0].Timestamp)
+}
