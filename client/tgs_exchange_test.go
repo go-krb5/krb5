@@ -2,17 +2,21 @@ package client
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/go-krb5/krb5/config"
+	"github.com/go-krb5/krb5/crypto"
 	"github.com/go-krb5/krb5/iana"
 	"github.com/go-krb5/krb5/iana/errorcode"
 	"github.com/go-krb5/krb5/iana/etypeID"
 	"github.com/go-krb5/krb5/iana/flags"
+	"github.com/go-krb5/krb5/iana/keyusage"
 	"github.com/go-krb5/krb5/iana/nametype"
 	"github.com/go-krb5/krb5/iana/patype"
+	"github.com/go-krb5/krb5/keytab"
 	"github.com/go-krb5/krb5/messages"
 	"github.com/go-krb5/krb5/types"
 )
@@ -58,6 +62,23 @@ func TestUser2UserRequestFollowsAReferralAsUser2User(t *testing.T) {
 
 	require.NoError(t, ap.Unmarshal(followed.PAData[0].PADataValue))
 	assert.Equal(t, []string{s4uKrbtgt, u2uReferralRealm}, ap.Ticket.SName.NameString, "the followed request is not made with the referral TGT")
+
+	kt := keytab.New()
+	require.NoError(t, kt.AddEntry(ap.Ticket.SName.PrincipalNameString(), s4uRealm, s4uServiceKey, time.Now(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
+	require.NoError(t, ap.Ticket.DecryptEncPart(kt, nil))
+
+	referralKey := ap.Ticket.DecryptedEncPart.Key
+	require.NotEqual(t, s4uSessionKey().KeyValue, referralKey.KeyValue)
+
+	// RFC 4120 Section 7.5.1: key usage 7 is the PA-TGS-REQ authenticator, under the TGT's session key.
+	plain, err := crypto.DecryptEncPart(ap.EncryptedAuthenticator, referralKey, keyusage.TGS_REQ_PA_TGS_REQ_AP_REQ_AUTHENTICATOR)
+	require.NoError(t, err, "the followed request is not authenticated with the referral TGT's session key")
+
+	var auth types.Authenticator
+
+	require.NoError(t, auth.Unmarshal(plain))
+	assert.True(t, auth.CName.Equal(cl.Credentials.CName()))
+	assert.Equal(t, s4uRealm, auth.CRealm)
 }
 
 const u2uReferralRealm = "OTHER.EXAMPLE"
