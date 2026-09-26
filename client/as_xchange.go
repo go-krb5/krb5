@@ -37,7 +37,7 @@ func (cl *Client) ASExchange(realm string, ASReq messages.ASReq, referral int) (
 			switch e.ErrorCode {
 			case errorcode.KDC_ERR_PREAUTH_REQUIRED, errorcode.KDC_ERR_PREAUTH_FAILED:
 				// From now on assume this client will need to do this pre-auth and set the PAData.
-				cl.settings.assumePreAuthentication = true
+				cl.settings.assumePreAuthentication.Store(true)
 
 				err = setPAData(cl, &e, &ASReq)
 				if err != nil {
@@ -131,7 +131,7 @@ func setPAData(cl *Client, krberr *messages.KRBError, req *messages.ASReq) error
 		)
 
 		if krberr == nil {
-			etn := cl.settings.preAuthEType
+			etn := cl.settings.preAuthEType.Load()
 			if etn == 0 {
 				etn = int32(cl.Config.LibDefaults.PreferredPreauthTypes[0])
 			}
@@ -151,7 +151,7 @@ func setPAData(cl *Client, krberr *messages.KRBError, req *messages.ASReq) error
 				return krberror.Errorf(err, krberror.EncryptingError, "error getting etype for pre-auth encryption")
 			}
 
-			cl.settings.preAuthEType = et.GetETypeID()
+			cl.settings.preAuthEType.Store(et.GetETypeID())
 
 			key, kvno, err = cl.Key(et, 0, krberr)
 			if err != nil {

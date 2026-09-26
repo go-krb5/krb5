@@ -84,7 +84,7 @@ func TestSetPADataReplacesAnExistingEncTimestamp(t *testing.T) {
 	t.Parallel()
 
 	cl := NewWithPassword("testuser", "TEST.GOKRB5", "password", config.New())
-	cl.settings.assumePreAuthentication = true
+	cl.settings.assumePreAuthentication.Store(true)
 
 	req, err := messages.NewASReqForTGT("TEST.GOKRB5", cl.Config, cl.Credentials.CName())
 	require.NoError(t, err)
@@ -170,7 +170,7 @@ func TestSetPADataUsesTheSaltInAPreAuthFailedError(t *testing.T) {
 	t.Parallel()
 
 	cl := NewWithPassword("testuser", "TEST.GOKRB5", "passwordvalue", config.New())
-	cl.settings.assumePreAuthentication = true
+	cl.settings.assumePreAuthentication.Store(true)
 
 	krberr := saltedPreAuthError(t, errorcode.KDC_ERR_PREAUTH_FAILED)
 
@@ -178,6 +178,29 @@ func TestSetPADataUsesTheSaltInAPreAuthFailedError(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, setPAData(cl, &krberr, &req))
 	assert.NoError(t, decryptEncTimestamp(t, req, saltedKey(t)))
+}
+
+func TestConcurrentLoginsShareTheSettingsSafely(t *testing.T) {
+	t.Parallel()
+
+	kdc := newASKDC(t, func(_ int, req messages.ASReq) []byte {
+		if countPAData(req.PAData, patype.PA_ENC_TIMESTAMP) == 0 {
+			return preAuthRequiredReply(t, kdcSalt)
+		}
+
+		return asRepReply(t, req, kdcSalt)
+	})
+	cl := asClient(t, kdc.addr)
+
+	var wg sync.WaitGroup
+
+	for range 4 {
+		wg.Go(func() {
+			assert.NoError(t, cl.Login())
+		})
+	}
+
+	wg.Wait()
 }
 
 const (

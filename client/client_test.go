@@ -27,7 +27,7 @@ func TestAssumePreauthentication(t *testing.T) {
 
 	cl := NewWithKeytab("username", "REALM", &keytab.Keytab{}, &config.Config{}, AssumePreAuthentication(true))
 
-	require.True(t, cl.settings.assumePreAuthentication)
+	require.True(t, cl.settings.assumePreAuthentication.Load())
 	require.True(t, cl.settings.AssumePreAuthentication())
 }
 
