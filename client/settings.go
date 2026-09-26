@@ -7,6 +7,7 @@ import (
 	"net"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-krb5/krb5/types"
@@ -15,8 +16,8 @@ import (
 // Settings holds optional client settings.
 type Settings struct {
 	disablePAFXFast         bool
-	assumePreAuthentication bool
-	preAuthEType            int32
+	assumePreAuthentication atomic.Bool
+	preAuthEType            atomic.Int32
 	preAuthPAData           keptPAData
 	logger                  *log.Logger
 	dialer                  Dialer
@@ -105,13 +106,13 @@ func (s *Settings) DisablePAFXFAST() bool {
 // s := NewSettings(AssumePreAuthentication(true)).
 func AssumePreAuthentication(b bool) func(*Settings) {
 	return func(s *Settings) {
-		s.assumePreAuthentication = b
+		s.assumePreAuthentication.Store(b)
 	}
 }
 
 // AssumePreAuthentication indicates if the client should proactively assume using pre-authentication.
 func (s *Settings) AssumePreAuthentication() bool {
-	return s.assumePreAuthentication
+	return s.assumePreAuthentication.Load()
 }
 
 // Logger used to configure client with a logger.
@@ -139,7 +140,7 @@ func (cl *Client) Log(format string, v ...any) {
 func (s *Settings) JSON() (string, error) {
 	js := jsonSettings{
 		DisablePAFXFast:         s.disablePAFXFast,
-		AssumePreAuthentication: s.assumePreAuthentication,
+		AssumePreAuthentication: s.assumePreAuthentication.Load(),
 	}
 
 	b, err := json.MarshalIndent(js, "", "  ")
