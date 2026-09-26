@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"io"
 	"net"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,6 +65,29 @@ func TestBasicAuthenticatorRefusesAnExpiredTicket(t *testing.T) {
 	assert.Error(t, err)
 	assert.False(t, ok)
 	assert.Nil(t, i)
+}
+
+func TestBasicAuthenticatorLeavesNoRenewalGoroutineBehind(t *testing.T) {
+	kt := basicServiceKeytab(t)
+	now := time.Now().UTC()
+
+	before := renewalGoroutines()
+
+	for range 5 {
+		i, ok, err := basicAuthenticate(t, kt, basicUser, basicTicket{cname: basicUser, start: now, end: now.Add(time.Hour), service: kt})
+		require.NoError(t, err)
+		require.True(t, ok)
+		assert.Equal(t, basicUser, i.UserName())
+	}
+
+	assert.Eventually(t, func() bool { return renewalGoroutines() <= before }, 2*time.Second, 10*time.Millisecond,
+		"%d TGT renewal goroutines are still running after the logins, %d before", renewalGoroutines(), before)
+}
+
+func renewalGoroutines() int {
+	b := make([]byte, 1<<20)
+
+	return strings.Count(string(b[:runtime.Stack(b, true)]), "(*Client).enableAutoSessionRenewal.func")
 }
 
 const (

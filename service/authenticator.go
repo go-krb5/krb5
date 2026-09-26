@@ -45,6 +45,7 @@ func (a KRB5BasicAuthenticator) Authenticate() (i identity.Identity, ok bool, er
 	}
 
 	cl := client.NewWithPassword(a.username, a.realm, a.password, a.clientConfig)
+	defer cl.Destroy()
 
 	err = cl.Login()
 	if err != nil {
