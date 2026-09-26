@@ -517,12 +517,12 @@ func marshalString(s string, v int) ([]byte, error) {
 
 // Read bytes representing a timestamp.
 func readTimestamp(b []byte, p *int, e *binary.ByteOrder) (time.Time, error) {
-	i32, err := readInt32(b, p, e)
+	t, err := readBytes(b, p, 4, e)
 	if err != nil {
 		return time.Time{}, err
 	}
 
-	return time.Unix(int64(i32), 0), nil
+	return time.Unix(int64((*e).Uint32(t)), 0), nil
 }
 
 // Read bytes representing an eight bit integer.
