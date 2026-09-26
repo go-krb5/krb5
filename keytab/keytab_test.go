@@ -323,3 +323,40 @@ func TestReaderErrorsShouldNotContainTheBuffer(t *testing.T) {
 		})
 	}
 }
+
+func TestUnmarshalRefusesAnEntryLongerThanTheKeytab(t *testing.T) {
+	t.Parallel()
+
+	var kt Keytab
+
+	require.NotPanics(t, func() {
+		assert.Error(t, kt.Unmarshal([]byte{0x05, 0x02, 0x7f, 0xff, 0xff, 0xff, 0, 0, 0, 0}))
+	})
+}
+
+func TestUnmarshalStopsAtAHolePastTheEndOfTheKeytab(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name string
+		b    []byte
+	}{
+		{"MaxInt32", []byte{0x05, 0x02, 0x80, 0x00, 0x00, 0x01, 0, 0, 0, 0}},
+		{"EndingJustBelowMaxInt32", []byte{0x05, 0x02, 0x80, 0x00, 0x00, 0x06, 0, 0, 0, 0}},
+		{"MinInt32", []byte{0x05, 0x02, 0x80, 0x00, 0x00, 0x00, 0, 0, 0, 0}},
+		{"PastTheEnd", []byte{0x05, 0x02, 0xff, 0xff, 0xff, 0xf0, 0, 0, 0, 0}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var kt Keytab
+
+			require.NotPanics(t, func() {
+				_ = kt.Unmarshal(tc.b)
+			})
+			assert.Empty(t, kt.Entries)
+		})
+	}
+}
