@@ -555,42 +555,44 @@ func parseRealms(lines []string) (realms []Realm, err error) {
 			continue
 		}
 
-		if strings.Contains(l, "{") {
-			c++
+		opens, closes := strings.Count(l, "{"), strings.Count(l, "}")
 
+		if opens > 0 {
 			if !strings.Contains(l, "=") {
 				return nil, fmt.Errorf("realm configuration line invalid: %s", l)
 			}
 
-			if c == 1 {
+			if c == 0 {
 				start = i
 				p := strings.SplitN(l, "=", 2)
 				name = strings.TrimSpace(p[0])
 			}
 		}
 
-		if strings.Contains(l, "}") {
-			if c < 1 {
-				// but not started a block!!!
-				return nil, errors.New("invalid Realms section in configuration")
+		if closes > c+opens {
+			return nil, errors.New("invalid Realms section in configuration")
+		}
+
+		c += opens - closes
+
+		if closes > 0 && c == 0 {
+			if start == i {
+				return nil, fmt.Errorf("realm %s must open and close its block on separate lines", name)
 			}
 
-			c--
-			if c == 0 {
-				var r Realm
+			var r Realm
 
-				e := r.parseLines(name, lines[start+1:i])
-				if e != nil {
-					if _, ok := e.(UnsupportedDirective); !ok {
-						err = e
-						return
-					}
-
+			e := r.parseLines(name, lines[start+1:i])
+			if e != nil {
+				if _, ok := e.(UnsupportedDirective); !ok {
 					err = e
+					return
 				}
 
-				realms = append(realms, r)
+				err = e
 			}
+
+			realms = append(realms, r)
 		}
 	}
 

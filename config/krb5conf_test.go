@@ -874,4 +874,50 @@ func TestParseRealmsIgnoresASubsectionNestedInAnother(t *testing.T) {
 	assert.Equal(t, []string{nestedRealmKDC}, c.Realms[0].KDC)
 }
 
+func TestParseRealmsCountsEveryBraceOnALine(t *testing.T) {
+	t.Parallel()
+
+	conf := `[realms]
+ TEST.GOKRB5 = {
+  kdc = kdc1.test.gokrb5
+  unknown = {
+   setting = 1
+  }}
+ OTHER.GOKRB5 = {
+  empty = { }
+  kdc = kdc.other.gokrb5
+ }
+`
+
+	var (
+		c   *Config
+		err error
+	)
+
+	require.NotPanics(t, func() { c, err = NewFromString(conf) })
+	require.NoError(t, err)
+	require.Len(t, c.Realms, 2)
+
+	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm)
+	assert.Equal(t, []string{nestedRealmKDC}, c.Realms[0].KDC)
+	assert.Equal(t, "OTHER.GOKRB5", c.Realms[1].Realm)
+	assert.Equal(t, []string{"kdc.other.gokrb5:88"}, c.Realms[1].KDC)
+}
+
+func TestParseRealmsRefusesMoreClosingBracesThanOpen(t *testing.T) {
+	t.Parallel()
+
+	_, err := NewFromString("[realms]\n TEST.GOKRB5 = {\n  kdc = kdc1.test.gokrb5\n }}\n")
+	assert.Error(t, err)
+}
+
+func TestParseRealmsRefusesARealmOnOneLine(t *testing.T) {
+	t.Parallel()
+
+	var err error
+
+	require.NotPanics(t, func() { _, err = NewFromString("[realms]\n TEST.GOKRB5 = { kdc = kdc1.test.gokrb5 }\n") })
+	assert.Error(t, err)
+}
+
 const nestedRealmKDC = "kdc1.test.gokrb5:88"
