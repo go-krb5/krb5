@@ -53,7 +53,7 @@ type KrbCredInfo struct {
 	StartTime time.Time           `asn1:"generalized,optional,explicit,tag:5"`
 	EndTime   time.Time           `asn1:"generalized,optional,explicit,tag:6"`
 	RenewTill time.Time           `asn1:"generalized,optional,explicit,tag:7"`
-	SRealm    string              `asn1:"optional,explicit,ia5,tag:8"`
+	SRealm    string              `asn1:"general,optional,explicit,tag:8"`
 	SName     types.PrincipalName `asn1:"optional,explicit,tag:9"`
 	CAddr     types.HostAddresses `asn1:"optional,explicit,tag:10"`
 }

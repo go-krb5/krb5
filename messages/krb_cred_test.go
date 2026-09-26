@@ -138,7 +138,46 @@ func TestUnmarshalEncCredPart_optionalsNULL(t *testing.T) {
 	}
 }
 
-// testCredKey returns a deterministic aes256-cts-hmac-sha1-96 key for KRB_CRED round trips.
+func TestEncKrbCredPartMarshalsSRealmAsAGeneralString(t *testing.T) {
+	t.Parallel()
+
+	info := testKrbCredInfo()
+	info.SRealm = utf8Realm
+
+	b, err := (&EncKrbCredPart{TicketInfo: []KrbCredInfo{info}}).Marshal()
+	require.NoError(t, err)
+
+	want := append([]byte{0xa8, byte(len(utf8Realm) + 2), 0x1b, byte(len(utf8Realm))}, utf8Realm...)
+	assert.True(t, bytes.Contains(b, want), "srealm is not an explicitly tagged GeneralString of its octets")
+
+	var back EncKrbCredPart
+
+	require.NoError(t, back.Unmarshal(b))
+	require.Len(t, back.TicketInfo, 1)
+	assert.Equal(t, utf8Realm, back.TicketInfo[0].SRealm)
+}
+
+func TestEncKrbCredPartAcceptsAnIA5SRealm(t *testing.T) {
+	t.Parallel()
+
+	info := testKrbCredInfo()
+
+	b, err := (&EncKrbCredPart{TicketInfo: []KrbCredInfo{info}}).Marshal()
+	require.NoError(t, err)
+
+	general := append([]byte{0xa8, byte(len(info.SRealm) + 2), 0x1b, byte(len(info.SRealm))}, info.SRealm...) //nolint:gosec
+	ia5 := append([]byte{0xa8, byte(len(info.SRealm) + 2), 0x16, byte(len(info.SRealm))}, info.SRealm...)     //nolint:gosec
+
+	legacy := bytes.Replace(b, general, ia5, 1)
+	require.NotEqual(t, b, legacy, "the encoding has no GeneralString srealm to replace")
+
+	var back EncKrbCredPart
+
+	require.NoError(t, back.Unmarshal(legacy))
+	require.Len(t, back.TicketInfo, 1)
+	assert.Equal(t, info.SRealm, back.TicketInfo[0].SRealm)
+}
+
 func testCredKey() types.EncryptionKey {
 	return types.EncryptionKey{KeyType: 18, KeyValue: bytes.Repeat([]byte{0x0B}, 32)}
 }
