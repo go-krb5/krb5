@@ -3,6 +3,7 @@ package pac
 import (
 	"bytes"
 	"fmt"
+	"unicode/utf16"
 
 	"github.com/go-krb5/x/rpc/mstypes"
 )
@@ -71,7 +72,7 @@ func utf16StringAt(b []byte, offset, length uint16, name string) (string, error)
 	}
 
 	r := mstypes.NewReader(bytes.NewReader(b[offset : int(offset)+int(length)]))
-	s := make([]rune, length/2)
+	s := make([]uint16, length/2)
 
 	for i := range s {
 		u, err := r.Uint16()
@@ -79,8 +80,8 @@ func utf16StringAt(b []byte, offset, length uint16, name string) (string, error)
 			return "", err
 		}
 
-		s[i] = rune(u)
+		s[i] = u
 	}
 
-	return string(s), nil
+	return string(utf16.Decode(s)), nil
 }
