@@ -626,3 +626,22 @@ func TestNewTGSReqRenewingAServiceTicketShouldUseTheTGSREQAuthenticatorKeyUsage(
 
 	decryptForwardedAuthenticator(t, req, key)
 }
+
+func TestASReqWithUTF8NamesRoundTrips(t *testing.T) {
+	t.Parallel()
+
+	cname := types.NewPrincipalName(nametype.KRB_NT_PRINCIPAL, "jurišić")
+
+	req, err := NewASReqForTGT(utf8Realm, config.New(), cname)
+	require.NoError(t, err)
+
+	b, err := req.Marshal()
+	require.NoError(t, err)
+
+	var back ASReq
+
+	require.NoError(t, back.Unmarshal(b))
+	assert.Equal(t, cname, back.ReqBody.CName)
+	assert.Equal(t, utf8Realm, back.ReqBody.Realm)
+	assert.Equal(t, req.ReqBody.SName, back.ReqBody.SName)
+}
