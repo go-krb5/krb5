@@ -295,9 +295,10 @@ func (s *SecurityLayerSession) fillerLen(messageLen int) int {
 
 // Unwrap verifies an RFC 4121 Wrap token received from the peer and returns the message it protects.
 //
-// For SecurityLayerNone the token is returned unchanged. Otherwise the token must match the security layer and the
-// direction of the session, its checksum must verify or its payload must decrypt, and its sequence number must be
-// the one that follows the sequence number of the previous token.
+// For SecurityLayerNone the token is returned unchanged. Otherwise the token must protect the message at least as the
+// security layer does — sealed for confidentiality, sealed or signed for integrity — and come from the other end of
+// the context, its checksum must verify or its payload must decrypt, and its sequence number must be the one that
+// follows the sequence number of the previous token.
 func (s *SecurityLayerSession) Unwrap(token []byte) ([]byte, error) {
 	if s.layer == SecurityLayerNone {
 		return token, nil
@@ -334,9 +335,12 @@ func (s *SecurityLayerSession) Unwrap(token []byte) ([]byte, error) {
 		return nil, errors.New("unexpected acceptor flag is set: not expecting a token from the acceptor")
 	}
 
-	// A peer must not downgrade to a weaker protection than the layer that was negotiated, nor use a stronger one
-	// that the negotiated layer gives no way to interpret.
-	if sealed := flags&FlagSealed != 0; sealed != (s.layer == SecurityLayerConfidentiality) {
+	// A peer must not downgrade to a weaker protection than the layer that was negotiated. A sealed token where
+	// integrity was negotiated is a stronger one, and one the session's key opens: it is taken. RFC 4752 section
+	// 3.1 asks for conf_flag FALSE on the SASL GSSAPI selection, yet clients seal it — ldap3, the Rust LDAP client,
+	// always does — and Cyrus SASL, behind OpenLDAP, takes it.
+	sealed := flags&FlagSealed != 0
+	if !sealed && s.layer == SecurityLayerConfidentiality {
 		return nil, fmt.Errorf("wrap token does not match the negotiated %s security layer: sealed flag is %t", s.layer, sealed)
 	}
 
@@ -355,7 +359,7 @@ func (s *SecurityLayerSession) Unwrap(token []byte) ([]byte, error) {
 		err     error
 	)
 
-	if s.layer == SecurityLayerConfidentiality {
+	if sealed {
 		message, err = s.unwrapSealed(flags, ec, seq, data)
 	} else {
 		message, err = s.unwrapSigned(flags, ec, seq, data)
