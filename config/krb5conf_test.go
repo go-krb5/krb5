@@ -729,6 +729,13 @@ func TestParseETypesShouldFollowCryptoRegistry(t *testing.T) {
 
 		assert.Empty(t, parseETypes([]string{"des-cbc-md5"}, false))
 		assert.Equal(t, []int32{etypeID.DES_CBC_MD5}, parseETypes([]string{"des-cbc-md5"}, true))
+		assert.Empty(t, parseETypes([]string{"DES-CBC-MD5"}, false))
+		assert.Equal(t, []int32{etypeID.DES_CBC_MD5}, parseETypes([]string{"DES-CBC-MD5"}, true))
+	})
+
+	t.Run("ShouldMatchNameCaseInsensitively", func(t *testing.T) {
+		have := parseETypes([]string{"AES256-CTS-HMAC-SHA1-96", "Aes128-Cts"}, false)
+		assert.Equal(t, []int32{etypeID.AES256_CTS_HMAC_SHA1_96, etypeID.AES128_CTS_HMAC_SHA1_96}, have)
 	})
 
 	t.Run("ShouldExcludeUnknownName", func(t *testing.T) {
