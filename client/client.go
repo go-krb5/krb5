@@ -35,7 +35,7 @@ type Client struct {
 // NewWithPassword creates a new client from a password credential.
 // Set the realm to empty string to use the default realm from config.
 func NewWithPassword(username, realm, password string, krb5conf *config.Config, settings ...func(*Settings)) *Client {
-	creds := credentials.New(username, realm)
+	creds := credentials.New(username, realmOrDefault(realm, krb5conf))
 
 	return &Client{
 		Credentials: creds.WithPassword(password),
@@ -49,8 +49,9 @@ func NewWithPassword(username, realm, password string, krb5conf *config.Config, 
 }
 
 // NewWithKeytab creates a new client from a keytab credential.
+// Set the realm to empty string to use the default realm from config.
 func NewWithKeytab(username, realm string, kt *keytab.Keytab, krb5conf *config.Config, settings ...func(*Settings)) *Client {
-	creds := credentials.New(username, realm)
+	creds := credentials.New(username, realmOrDefault(realm, krb5conf))
 
 	return &Client{
 		Credentials: creds.WithKeytab(kt),
@@ -61,6 +62,14 @@ func NewWithKeytab(username, realm string, kt *keytab.Keytab, krb5conf *config.C
 		},
 		cache: NewCache(),
 	}
+}
+
+func realmOrDefault(realm string, krb5conf *config.Config) string {
+	if realm == "" && krb5conf != nil {
+		return krb5conf.LibDefaults.DefaultRealm
+	}
+
+	return realm
 }
 
 // NewFromCCache create a client from a populated client cache.
