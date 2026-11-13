@@ -204,11 +204,11 @@ func exchangeMechListMIC(mic, raw []byte, mechTypes []asn1.ObjectIdentifier, mt 
 		return nil, err
 	}
 
-	if err = verifyMechListMIC(mic, payload, key, false); err != nil {
+	if err = verifyMechListMIC(mic, payload, key, false, false); err != nil {
 		return nil, err
 	}
 
-	return newMechListMIC(payload, key, true)
+	return newMechListMIC(payload, key, true, false)
 }
 
 // Context returns the SPNEGO context which will contain any verify user identity information.

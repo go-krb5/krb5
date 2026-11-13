@@ -35,6 +35,15 @@ type SPNEGO struct {
 	sessionKey types.EncryptionKey
 	sentCTime  time.Time
 	sentCusec  int
+
+	// What RFC 4121 per-message tokens are protected with once the context is established: the sequence number
+	// and subkey the initiator sent in its authenticator, and those the acceptor sent back in its AP-REP. Set by
+	// rememberExchange and by VerifyMutual.
+	sentSeqNum      int64
+	initiatorSubkey types.EncryptionKey
+	acceptorSubkey  types.EncryptionKey
+	acceptorSeqNum  int64
+	acceptorReplied bool
 }
 
 // SPNEGOClient configures the SPNEGO mechanism suitable for client side use.
@@ -302,8 +311,11 @@ func (s *SPNEGOToken) Context() context.Context {
 // assigned these fields by hand would be checking its own assignment rather than this one.
 func (s *SPNEGO) rememberExchange(key types.EncryptionKey, n NegTokenInit) {
 	s.sessionKey = key
+	s.acceptorSubkey, s.acceptorSeqNum, s.acceptorReplied = types.EncryptionKey{}, 0, false
 
 	if mt, ok := n.mechToken.(*KRB5Token); ok {
-		s.sentCTime, s.sentCusec = mt.APReq.Authenticator.CTime, mt.APReq.Authenticator.Cusec
+		a := mt.APReq.Authenticator
+		s.sentCTime, s.sentCusec = a.CTime, a.Cusec
+		s.sentSeqNum, s.initiatorSubkey = a.SeqNumber, a.SubKey
 	}
 }
