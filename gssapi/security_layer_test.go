@@ -433,7 +433,9 @@ func TestSecurityLayerSessionUnwrapRejections(t *testing.T) {
 		assert.EqualError(t, err, "wrap token does not match the negotiated confidentiality security layer: sealed flag is false")
 	})
 
-	t.Run("ShouldRejectASealedTokenWhenIntegrityWasNegotiated", func(t *testing.T) {
+	t.Run("ShouldAcceptASealedTokenWhenIntegrityWasNegotiated", func(t *testing.T) {
+		// A stronger protection than the one negotiated, which the session's key opens: as a SASL GSSAPI client
+		// that seals its selection sends it (ldap3), and Cyrus SASL takes it.
 		key := testSecurityLayerKey(t, etypeID.AES256_CTS_HMAC_SHA1_96)
 
 		initiator, err := NewSecurityLayerSession(key, SecurityLayerConfidentiality, true, 0)
@@ -445,8 +447,35 @@ func TestSecurityLayerSessionUnwrapRejections(t *testing.T) {
 		token, err := initiator.Wrap(message)
 		require.NoError(t, err)
 
+		got, err := acceptor.Unwrap(token)
+		require.NoError(t, err)
+		assert.Equal(t, message, got)
+
+		// The next one, signed, follows it in sequence.
+		signer, err := NewSecurityLayerSession(key, SecurityLayerIntegrity, true, 0, InitialSendSequenceNumber(1))
+		require.NoError(t, err)
+		next, err := signer.Wrap(message)
+		require.NoError(t, err)
+		got, err = acceptor.Unwrap(next)
+		require.NoError(t, err)
+		assert.Equal(t, message, got)
+	})
+
+	t.Run("ShouldRejectATamperedSealedTokenWhenIntegrityWasNegotiated", func(t *testing.T) {
+		key := testSecurityLayerKey(t, etypeID.AES256_CTS_HMAC_SHA1_96)
+
+		initiator, err := NewSecurityLayerSession(key, SecurityLayerConfidentiality, true, 0)
+		require.NoError(t, err)
+
+		acceptor, err := NewSecurityLayerSession(key, SecurityLayerIntegrity, false, 0)
+		require.NoError(t, err)
+
+		token, err := initiator.Wrap(message)
+		require.NoError(t, err)
+		token[len(token)-1] ^= 0xFF
+
 		_, err = acceptor.Unwrap(token)
-		assert.EqualError(t, err, "wrap token does not match the negotiated integrity security layer: sealed flag is true")
+		assert.Error(t, err)
 	})
 
 	t.Run("ShouldRejectATamperedIntegrityPayload", func(t *testing.T) {
