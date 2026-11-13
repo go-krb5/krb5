@@ -1,9 +1,16 @@
-// Package config implements KRB5 client and service configuration as described at https://web.mit.edu/kerberos/krb5-latest/doc/admin/conf_files/krb5_conf.html
+// Package config implements KRB5 client and service configuration as described at
+// https://web.mit.edu/kerberos/krb5-latest/doc/admin/conf_files/krb5_conf.html.
+//
+// The file is read as MIT krb5's profile library reads it. Lines whose first non-blank character is '#' or ';' are
+// comments, and nothing else is: a '#' or ';' later in a line is part of the value. Sections and subsections that
+// appear more than once are merged, and where a relation that takes a single value appears more than once the first
+// value is used. The include and includedir directives are honoured, and a '*' after a section header, a tag or a
+// closing brace marks it final.
 package config
 
 import (
 	"bufio"
-	"encoding/hex"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,15 +18,15 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"path/filepath"
+	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
 	"github.com/go-krb5/x/encoding/asn1"
-
-	"github.com/go-krb5/krb5/crypto"
-	"github.com/go-krb5/krb5/iana/etypeID"
 )
 
 // Config represents the KRB5 configuration.
@@ -30,6 +37,8 @@ type Config struct {
 	// CaPaths.
 	// AppDefaults.
 	// Plugins.
+
+	realmLibDefaults map[string]LibDefaults
 }
 
 // WeakETypeList is a list of encryption types that have been deemed weak.
@@ -45,7 +54,7 @@ func New() *Config {
 	}
 }
 
-// LibDefaults represents the [libdefaults] section of the configuration.
+// LibDefaults represents the [libdefaults] section of the configuration. The defaults are those of MIT krb5.
 // The following values are not implemented: ap_req_checksum_type int, kdc_req_checksum_type int, plugin_base_dir string.
 type LibDefaults struct {
 	// AllowWeakCrypto has a default value of false.
@@ -57,35 +66,34 @@ type LibDefaults struct {
 	// CCacheType has a default value of 4.
 	CCacheType int
 
-	// Clockskew is the max allowed skew in seconds and has a default value of 300.
+	// Clockskew is the max allowed skew and has a default value of 300 seconds. It is read from the clockskew
+	// relation.
 	Clockskew time.Duration
 
-	// DefaultClientKeytabName has a default value of /usr/local/var/krb5/user/%{euid}/client.keytab.
+	// DefaultCCacheName is the name of the default credential cache, with its parameters expanded. It has a default
+	// value of FILE:/tmp/krb5cc_%{uid}. Config.CCacheName also consults the KRB5CCNAME environment variable.
+	DefaultCCacheName string
+
+	// DefaultClientKeytabName has a default value of /usr/local/var/krb5/user/%{euid}/client.keytab, with its
+	// parameters expanded. Config.ClientKeytabName also consults the KRB5_CLIENT_KTNAME environment variable.
 	DefaultClientKeytabName string
 
-	// DefaultKeytabName has a default value of /etc/krb5.keytab.
+	// DefaultKeytabName has a default value of /etc/krb5.keytab. Config.KeytabName also consults the KRB5_KTNAME
+	// environment variable.
 	DefaultKeytabName string
 
 	DefaultRealm string
 
-	// DefaultTGSEnctypes has a default value of
-	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
-	// des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTGSEnctypes defaults to the value of permitted_enctypes.
 	DefaultTGSEnctypes []string
 
-	// DefaultTktEnctypes has a default value of
-	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1
-	// arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTktEnctypes defaults to the value of permitted_enctypes.
 	DefaultTktEnctypes []string
 
-	// DefaultTGSEnctypeIDs has a default value of
-	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 des3-cbc-sha1
-	// arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTGSEnctypeIDs are the encryption types DefaultTGSEnctypes resolves to.
 	DefaultTGSEnctypeIDs []int32
 
-	// DefaultTktEnctypeIDs has a default value of
-	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
-	// des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// DefaultTktEnctypeIDs are the encryption types DefaultTktEnctypes resolves to.
 	DefaultTktEnctypeIDs []int32
 
 	// DNSCanonicalizeHostname governs whether DNS is consulted to canonicalize a hostname when deriving a
@@ -95,9 +103,16 @@ type LibDefaults struct {
 	// principal. Set it to false where the resolver is not trusted to.
 	DNSCanonicalizeHostname bool
 
-	// DNSLookupKDC has a default value of false.
+	// DNSCanonicalizeHostnameFallback is set when dns_canonicalize_hostname is fallback. A service principal name
+	// is then first derived from the hostname as given, which leaves DNSCanonicalizeHostname false, and is only
+	// canonicalized with DNS if the KDC does not know the principal.
+	DNSCanonicalizeHostnameFallback bool
+
+	// DNSLookupKDC governs whether DNS SRV records are used to locate the KDCs and kpasswd servers of a realm the
+	// configuration lists none for. It has a default value of true, and falls back to the value of dns_fallback.
 	DNSLookupKDC bool
 
+	// DNSLookupRealm has a default value of false, and falls back to the value of dns_fallback.
 	DNSLookupRealm bool
 
 	ExtraAddresses []net.IP
@@ -108,13 +123,14 @@ type LibDefaults struct {
 	// IgnoreAcceptorHostname has a default value of false.
 	IgnoreAcceptorHostname bool
 
-	// K5LoginAuthoritative has a default value of false.
+	// K5LoginAuthoritative has a default value of true.
 	K5LoginAuthoritative bool
 
 	// K5LoginDirectory has a default value based on the user's home directory. Must be owned by the user or root.
 	K5LoginDirectory string
 
-	// KDCDefaultOptions has a default value of 0x00000010 (KDC_OPT_RENEWABLE_OK).
+	// KDCDefaultOptions has a default value of 0x00000010 (KDC_OPT_RENEWABLE_OK). It may be given in decimal, or in
+	// hexadecimal with a 0x prefix.
 	KDCDefaultOptions asn1.BitString
 
 	// KDCTimeSync has a default value of 1.
@@ -123,14 +139,14 @@ type LibDefaults struct {
 	// NoAddresses has a default value of true.
 	NoAddresses bool
 
-	// PermittedEnctypes has a default value of
-	// aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
-	// des3-cbc-sha1 arcfour-hmac-md5 camellia256-cts-cmac camellia128-cts-cmac des-cbc-crc des-cbc-md5 des-cbc-md4.
+	// PermittedEnctypes has a default value of DEFAULT, which stands for aes256-cts-hmac-sha1-96
+	// aes128-cts-hmac-sha1-96 aes256-cts-hmac-sha384-192 aes128-cts-hmac-sha256-128 des3-cbc-sha1 arcfour-hmac
+	// camellia128-cts-cmac camellia256-cts-cmac.
 	PermittedEnctypes []string
 
 	PermittedEnctypeIDs []int32
 
-	// PreferredPreauthTypes has a defaultb value of 17, 16, 15, 14; which forces an attempt to use PKINIT if it is
+	// PreferredPreauthTypes has a default value of 17, 16, 15, 14; which forces an attempt to use PKINIT if it is
 	// supported.
 	PreferredPreauthTypes []int
 
@@ -156,273 +172,310 @@ type LibDefaults struct {
 	// TicketLifetime has a default value of 1 day.
 	TicketLifetime time.Duration
 
-	// UDPPreferenceLimit determines if UDP is used, 1 means to always use tcp. Must be less than 32700, and has a
-	// default value of 1465.
+	// UDPPreferenceLimit determines if UDP is used, 1 means to always use tcp. A value above 32700 is treated as
+	// 32700 and a negative value as the default, which is 1465.
 	UDPPreferenceLimit int
 
 	// VerifyAPReqNofail has a default value of false.
 	VerifyAPReqNofail bool
 }
 
-// Create a new LibDefaults struct.
-func newLibDefaults() LibDefaults {
-	uid := "0"
+const (
+	defaultCCacheName       = "FILE:/tmp/krb5cc_%{uid}"
+	defaultConfigPath       = "/etc/krb5.conf"
+	defaultClientKeytabName = "/usr/local/var/krb5/user/%{euid}/client.keytab"
+	defaultKDCOptions       = 0x00000010
+	defaultUDPPreference    = 1465
+	maxUDPPreference        = 32700
+)
 
+func newLibDefaults() LibDefaults {
 	var hdir string
 
-	usr, _ := user.Current()
-	if usr != nil {
-		uid = usr.Uid
+	if usr, _ := user.Current(); usr != nil {
 		hdir = usr.HomeDir
 	}
 
-	opts := asn1.BitString{}
-	opts.Bytes, _ = hex.DecodeString("00000010")
-	opts.BitLength = len(opts.Bytes) * 8
 	l := LibDefaults{
 		CCacheType:              4,
 		Clockskew:               time.Duration(300) * time.Second,
-		DefaultClientKeytabName: fmt.Sprintf("/usr/local/var/krb5/user/%s/client.keytab", uid),
+		DefaultCCacheName:       mustExpandPath(defaultCCacheName),
+		DefaultClientKeytabName: mustExpandPath(defaultClientKeytabName),
 		DefaultKeytabName:       "/etc/krb5.keytab",
-		DefaultTGSEnctypes:      []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96", "aes256-cts-hmac-sha384-192", "aes128-cts-hmac-sha256-128", "des3-cbc-sha1", "arcfour-hmac-md5", "camellia256-cts-cmac", "camellia128-cts-cmac", "des-cbc-crc", "des-cbc-md5", "des-cbc-md4"},
-		DefaultTktEnctypes:      []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96", "aes256-cts-hmac-sha384-192", "aes128-cts-hmac-sha256-128", "des3-cbc-sha1", "arcfour-hmac-md5", "camellia256-cts-cmac", "camellia128-cts-cmac", "des-cbc-crc", "des-cbc-md5", "des-cbc-md4"},
+		DefaultTGSEnctypes:      slices.Clone(defaultETypeNames),
+		DefaultTktEnctypes:      slices.Clone(defaultETypeNames),
 		DNSCanonicalizeHostname: true,
+		DNSLookupKDC:            true,
+		K5LoginAuthoritative:    true,
 		K5LoginDirectory:        hdir,
-		KDCDefaultOptions:       opts,
+		KDCDefaultOptions:       kdcOptions(defaultKDCOptions),
 		KDCTimeSync:             1,
 		NoAddresses:             true,
-		PermittedEnctypes:       []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96", "aes256-cts-hmac-sha384-192", "aes128-cts-hmac-sha256-128", "des3-cbc-sha1", "arcfour-hmac-md5", "camellia256-cts-cmac", "camellia128-cts-cmac", "des-cbc-crc", "des-cbc-md5", "des-cbc-md4"},
+		PermittedEnctypes:       slices.Clone(defaultETypeNames),
 		RDNS:                    true,
 		RealmTryDomains:         -1,
 		SafeChecksumType:        8,
 		TicketLifetime:          time.Duration(24) * time.Hour,
-		UDPPreferenceLimit:      1465,
+		UDPPreferenceLimit:      defaultUDPPreference,
 		PreferredPreauthTypes:   []int{17, 16, 15, 14},
 	}
-	l.DefaultTGSEnctypeIDs = parseETypes(l.DefaultTGSEnctypes, l.AllowWeakCrypto)
-	l.DefaultTktEnctypeIDs = parseETypes(l.DefaultTktEnctypes, l.AllowWeakCrypto)
-	l.PermittedEnctypeIDs = parseETypes(l.PermittedEnctypes, l.AllowWeakCrypto)
+	l.resolveETypes()
 
 	return l
 }
 
-// Parse the lines of the libdefaults section of the configuration into the LibDefaults struct.
-func (l *LibDefaults) parseLines(lines []string) error {
-	for _, line := range lines {
-		if idx := strings.IndexAny(line, "#;"); idx != -1 {
-			line = line[:idx]
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-
-		if !strings.Contains(line, "=") {
-			return InvalidErrorf("libdefaults section line (%s)", line)
-		}
-
-		p := strings.SplitN(line, "=", 2)
-
-		key := strings.TrimSpace(strings.ToLower(p[0]))
-		switch key {
-		case ConfigKeyAllowWeakCrypto:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.AllowWeakCrypto = v
-		case ConfigKeyCanonicalize:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.Canonicalize = v
-		case ConfigKeyCredentialCacheType:
-			p[1] = strings.TrimSpace(p[1])
-
-			v, err := strconv.ParseUint(p[1], 10, 32)
-			if err != nil || v <= 0 || v > 4 {
-				return InvalidErrorf("libdefaults section line (%s)", line)
-			}
-
-			l.CCacheType = int(v)
-		case ConfigKeyClockSkew:
-			d, err := parseDuration(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.Clockskew = d
-		case ConfigKeyDefaultClientKeytabName:
-			l.DefaultClientKeytabName = strings.TrimSpace(p[1])
-		case ConfigKeyDefaultKeytabName:
-			l.DefaultKeytabName = strings.TrimSpace(p[1])
-		case ConfigKeyDefaultRealm:
-			l.DefaultRealm = strings.TrimSpace(p[1])
-		case ConfigKeyDefaultTGSENCtypes:
-			l.DefaultTGSEnctypes = strings.Fields(p[1])
-		case ConfigKeyDefaultTKTENCtypes:
-			l.DefaultTktEnctypes = strings.Fields(p[1])
-		case ConfigKeyDNSCanonicalizeHostname:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.DNSCanonicalizeHostname = v
-		case ConfigKeyDNSLookupKDC:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.DNSLookupKDC = v
-		case ConfigKeyDNSLookupRealm:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.DNSLookupRealm = v
-		case ConfigKeyExtraAddresses:
-			ipStr := strings.TrimSpace(p[1])
-			for _, ip := range strings.Split(ipStr, ",") {
-				if eip := net.ParseIP(ip); eip != nil {
-					l.ExtraAddresses = append(l.ExtraAddresses, eip)
-				}
-			}
-		case ConfigKeyForwardable:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.Forwardable = v
-		case ConfigKeyIgnoreAcceptorHostname:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.IgnoreAcceptorHostname = v
-		case ConfigKeyK5LoginAuthorative:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.K5LoginAuthoritative = v
-		case ConfigKeyK5LoginDirectory:
-			l.K5LoginDirectory = strings.TrimSpace(p[1])
-		case ConfigKeyKDCDefaultOptions:
-			v := strings.TrimSpace(p[1])
-			v = strings.ReplaceAll(v, "0x", "")
-
-			b, err := hex.DecodeString(v)
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.KDCDefaultOptions.Bytes = b
-			l.KDCDefaultOptions.BitLength = len(b) * 8
-		case ConfigKeyKDCTimeSync:
-			p[1] = strings.TrimSpace(p[1])
-
-			v, err := strconv.ParseInt(p[1], 10, 32)
-			if err != nil || v < 0 {
-				return InvalidErrorf("libdefaults section line (%s)", line)
-			}
-
-			l.KDCTimeSync = int(v)
-		case ConfigKeyNoAddresses:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.NoAddresses = v
-		case ConfigKeyPermittedEncTypes:
-			l.PermittedEnctypes = strings.Fields(p[1])
-		case ConfigKeyPreferredPreAuthTypes:
-			v, err := parsePreauthTypes(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.PreferredPreauthTypes = v
-		case ConfigKeyProxiable:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.Proxiable = v
-		case ConfigKeyRDNS:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.RDNS = v
-		case ConfigKeyRealmTryDomains:
-			p[1] = strings.TrimSpace(p[1])
-
-			v, err := strconv.ParseInt(p[1], 10, 32)
-			if err != nil || v < -1 {
-				return InvalidErrorf("libdefaults section line (%s)", line)
-			}
-
-			l.RealmTryDomains = int(v)
-		case ConfigKeyRenewLifetime:
-			d, err := parseDuration(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.RenewLifetime = d
-		case ConfigKeySafeChecksumType:
-			p[1] = strings.TrimSpace(p[1])
-
-			v, err := strconv.ParseInt(p[1], 10, 32)
-			if err != nil || v < 0 {
-				return InvalidErrorf("libdefaults section line (%s)", line)
-			}
-
-			l.SafeChecksumType = int(v)
-		case ConfigKeyTicketLifetime:
-			d, err := parseDuration(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.TicketLifetime = d
-		case ConfigKeyUDPPreferenceLimit:
-			p[1] = strings.TrimSpace(p[1])
-
-			v, err := strconv.ParseUint(p[1], 10, 32)
-			if err != nil || v > 32700 {
-				return InvalidErrorf("libdefaults section line (%s)", line)
-			}
-
-			l.UDPPreferenceLimit = int(v)
-		case ConfigKeyVerifyAPReqNoFail:
-			v, err := parseBoolean(p[1])
-			if err != nil {
-				return InvalidErrorf("libdefaults section line (%s): %v", line, err)
-			}
-
-			l.VerifyAPReqNofail = v
-		}
+func mustExpandPath(path string) string {
+	if v, err := ExpandPath(path); err == nil {
+		return v
 	}
 
+	return path
+}
+
+func kdcOptions(v uint32) asn1.BitString {
+	b := binary.BigEndian.AppendUint32(nil, v)
+
+	return asn1.BitString{Bytes: b, BitLength: len(b) * 8}
+}
+
+func (l *LibDefaults) resolveETypes() {
 	l.DefaultTGSEnctypeIDs = parseETypes(l.DefaultTGSEnctypes, l.AllowWeakCrypto)
 	l.DefaultTktEnctypeIDs = parseETypes(l.DefaultTktEnctypes, l.AllowWeakCrypto)
 	l.PermittedEnctypeIDs = parseETypes(l.PermittedEnctypes, l.AllowWeakCrypto)
+}
+
+type libDefaultSetter func(l *LibDefaults, v string) error
+
+func booleanSetter(set func(l *LibDefaults, v bool)) libDefaultSetter {
+	return func(l *LibDefaults, s string) error {
+		v, err := parseBoolean(s)
+		if err != nil {
+			return err
+		}
+
+		set(l, v)
+
+		return nil
+	}
+}
+
+func integerSetter(set func(l *LibDefaults, v int)) libDefaultSetter {
+	return func(l *LibDefaults, s string) error {
+		v, err := parseInteger(s)
+		if err != nil {
+			return err
+		}
+
+		set(l, v)
+
+		return nil
+	}
+}
+
+func durationSetter(set func(l *LibDefaults, v time.Duration)) libDefaultSetter {
+	return func(l *LibDefaults, s string) error {
+		v, err := parseDuration(s)
+		if err != nil {
+			return err
+		}
+
+		set(l, v)
+
+		return nil
+	}
+}
+
+func pathSetter(set func(l *LibDefaults, v string)) libDefaultSetter {
+	return func(l *LibDefaults, s string) error {
+		v, err := ExpandPath(s)
+
+		switch {
+		case errors.Is(err, errUnresolvableToken):
+			v = s
+		case err != nil:
+			return err
+		}
+
+		set(l, v)
+
+		return nil
+	}
+}
+
+var libDefaultSetters = map[string]libDefaultSetter{
+	ConfigKeyAllowWeakCrypto: booleanSetter(func(l *LibDefaults, v bool) { l.AllowWeakCrypto = v }),
+	ConfigKeyCanonicalize:    booleanSetter(func(l *LibDefaults, v bool) { l.Canonicalize = v }),
+	ConfigKeyCredentialCacheType: integerSetter(func(l *LibDefaults, v int) {
+		l.CCacheType = v
+	}),
+	ConfigKeyClockSkew:               durationSetter(func(l *LibDefaults, v time.Duration) { l.Clockskew = v }),
+	ConfigKeyDefaultCCacheName:       pathSetter(func(l *LibDefaults, v string) { l.DefaultCCacheName = v }),
+	ConfigKeyDefaultClientKeytabName: pathSetter(func(l *LibDefaults, v string) { l.DefaultClientKeytabName = v }),
+	ConfigKeyDefaultKeytabName:       pathSetter(func(l *LibDefaults, v string) { l.DefaultKeytabName = v }),
+	ConfigKeyDefaultRealm: func(l *LibDefaults, v string) error {
+		l.DefaultRealm = v
+
+		return nil
+	},
+	ConfigKeyDNSCanonicalizeHostname: func(l *LibDefaults, s string) error {
+		if strings.EqualFold(s, "fallback") {
+			l.DNSCanonicalizeHostname, l.DNSCanonicalizeHostnameFallback = false, true
+
+			return nil
+		}
+
+		v, err := parseBoolean(s)
+		if err != nil {
+			return err
+		}
+
+		l.DNSCanonicalizeHostname, l.DNSCanonicalizeHostnameFallback = v, false
+
+		return nil
+	},
+	ConfigKeyForwardable:            booleanSetter(func(l *LibDefaults, v bool) { l.Forwardable = v }),
+	ConfigKeyIgnoreAcceptorHostname: booleanSetter(func(l *LibDefaults, v bool) { l.IgnoreAcceptorHostname = v }),
+	ConfigKeyK5LoginAuthorative:     booleanSetter(func(l *LibDefaults, v bool) { l.K5LoginAuthoritative = v }),
+	ConfigKeyK5LoginDirectory: func(l *LibDefaults, v string) error {
+		l.K5LoginDirectory = v
+
+		return nil
+	},
+	ConfigKeyKDCDefaultOptions: func(l *LibDefaults, s string) error {
+		v, err := parseKDCOptions(s)
+		if err != nil {
+			return err
+		}
+
+		l.KDCDefaultOptions = kdcOptions(v)
+
+		return nil
+	},
+	ConfigKeyKDCTimeSync: integerSetter(func(l *LibDefaults, v int) { l.KDCTimeSync = v }),
+	ConfigKeyNoAddresses: booleanSetter(func(l *LibDefaults, v bool) { l.NoAddresses = v }),
+	ConfigKeyProxiable:   booleanSetter(func(l *LibDefaults, v bool) { l.Proxiable = v }),
+	ConfigKeyRDNS:        booleanSetter(func(l *LibDefaults, v bool) { l.RDNS = v }),
+	ConfigKeyRenewLifetime: durationSetter(func(l *LibDefaults, v time.Duration) {
+		l.RenewLifetime = v
+	}),
+	ConfigKeyPreferredPreAuthTypes: func(l *LibDefaults, s string) error {
+		v, err := parsePreauthTypes(s)
+		if err != nil {
+			return err
+		}
+
+		l.PreferredPreauthTypes = v
+
+		return nil
+	},
+	ConfigKeyRealmTryDomains: integerSetter(func(l *LibDefaults, v int) { l.RealmTryDomains = v }),
+	ConfigKeySafeChecksumType: integerSetter(func(l *LibDefaults, v int) {
+		l.SafeChecksumType = v
+	}),
+	ConfigKeyTicketLifetime: durationSetter(func(l *LibDefaults, v time.Duration) {
+		l.TicketLifetime = v
+	}),
+	ConfigKeyUDPPreferenceLimit: integerSetter(func(l *LibDefaults, v int) {
+		switch {
+		case v < 0:
+			v = defaultUDPPreference
+		case v > maxUDPPreference:
+			v = maxUDPPreference
+		}
+
+		l.UDPPreferenceLimit = v
+	}),
+	ConfigKeyVerifyAPReqNoFail: booleanSetter(func(l *LibDefaults, v bool) { l.VerifyAPReqNofail = v }),
+}
+
+var realmLibDefaultKeys = []string{
+	ConfigKeyCanonicalize,
+	ConfigKeyForwardable,
+	ConfigKeyNoAddresses,
+	ConfigKeyPreferredPreAuthTypes,
+	ConfigKeyProxiable,
+	ConfigKeyRenewLifetime,
+	ConfigKeyTicketLifetime,
+	ConfigKeyVerifyAPReqNoFail,
+}
+
+func (l *LibDefaults) set(key, value string) error {
+	if err := libDefaultSetters[key](l, value); err != nil {
+		return InvalidErrorf("libdefaults relation %s (%s): %v", key, value, err)
+	}
 
 	return nil
+}
+
+func (l *LibDefaults) load(p *profile) error {
+	keys := make([]string, 0, len(libDefaultSetters))
+	for key := range libDefaultSetters {
+		keys = append(keys, key)
+	}
+
+	slices.Sort(keys)
+
+	for _, key := range keys {
+		if v, ok := p.value(ConfigSectionLibDefaults, key); ok {
+			if err := l.set(key, v); err != nil {
+				return err
+			}
+		}
+	}
+
+	l.DNSLookupKDC = dnsLookup(p, ConfigKeyDNSLookupKDC, l.DNSLookupKDC)
+	l.DNSLookupRealm = dnsLookup(p, ConfigKeyDNSLookupRealm, l.DNSLookupRealm)
+
+	for _, v := range p.values(ConfigSectionLibDefaults, ConfigKeyExtraAddresses) {
+		for _, a := range splitETypeList(v) {
+			if ip := net.ParseIP(a); ip != nil {
+				l.ExtraAddresses = append(l.ExtraAddresses, ip)
+			}
+		}
+	}
+
+	permitted, ok := p.value(ConfigSectionLibDefaults, ConfigKeyPermittedEncTypes)
+	if ok {
+		l.PermittedEnctypes = splitETypeList(permitted)
+		l.DefaultTktEnctypes = slices.Clone(l.PermittedEnctypes)
+		l.DefaultTGSEnctypes = slices.Clone(l.PermittedEnctypes)
+	}
+
+	if v, ok := p.value(ConfigSectionLibDefaults, ConfigKeyDefaultTKTENCtypes); ok {
+		l.DefaultTktEnctypes = splitETypeList(v)
+	}
+
+	if v, ok := p.value(ConfigSectionLibDefaults, ConfigKeyDefaultTGSENCtypes); ok {
+		l.DefaultTGSEnctypes = splitETypeList(v)
+	}
+
+	l.resolveETypes()
+
+	return nil
+}
+
+func dnsLookup(p *profile, key string, def bool) bool {
+	v, ok := p.value(ConfigSectionLibDefaults, key)
+	if !ok {
+		if v, ok = p.value(ConfigSectionLibDefaults, ConfigKeyDNSFallback); !ok {
+			return def
+		}
+	}
+
+	b, err := parseBoolean(v)
+
+	return err == nil && b
+}
+
+// LibDefaultsForRealm returns the [libdefaults] settings that apply to a client principal of the realm. MIT krb5
+// reads canonicalize, forwardable, noaddresses, preferred_preauth_types, proxiable, renew_lifetime, ticket_lifetime
+// and verify_ap_req_nofail from a subsection of [libdefaults] named after the realm before the section itself.
+func (c *Config) LibDefaultsForRealm(realm string) LibDefaults {
+	if l, ok := c.realmLibDefaults[realm]; ok {
+		return l
+	}
+
+	return c.LibDefaults
 }
 
 // Realm represents an entry in the [realms] section of the configuration. Currently the specific known options not
@@ -434,241 +487,288 @@ type Realm struct {
 
 	DefaultDomain string
 
+	// KDC lists the KDCs as host:port, with the port defaulting to 88. An IPv6 address is enclosed in brackets.
 	KDC []string
 
-	// KPasswdServer has a default of 'admin_server:464'.
+	// KPasswdServer lists the kpasswd servers as host:port, with the port defaulting to 464. Where the realm lists
+	// none it holds port 464 of each admin_server.
 	KPasswdServer []string
 
+	// MasterKDC lists the primary KDCs, read from primary_kdc or, where that is not set, master_kdc.
 	MasterKDC []string
+
+	kpasswdFromAdmin bool
 }
 
-// Parse the lines of a realms entry into the Realm struct.
-func (r *Realm) parseLines(name string, lines []string) (err error) {
-	r.Realm = name
+const (
+	portKDC     = 88
+	portKpasswd = 464
+)
 
-	var (
-		finals realmFinals
-		c      int
-	)
+func loadRealm(p *profile, name string) (Realm, error) {
+	r := Realm{Realm: name}
 
-	for _, line := range lines {
-		if idx := strings.IndexAny(line, "#;"); idx != -1 {
-			line = line[:idx]
-		}
-
-		line = strings.TrimSpace(line)
-
-		if line == "" {
-			continue
-		}
-
-		if !strings.Contains(line, "=") && !strings.Contains(line, "}") {
-			return InvalidErrorf("realms section line (%s)", line)
-		}
-
-		if e := unsupportedRealmDirective(line); c == 0 && e != nil {
-			err = e
-		}
-
-		if opens, closes := strings.Count(line, "{"), strings.Count(line, "}"); opens+closes > 0 {
-			if c += opens - closes; c < 0 {
-				return InvalidErrorf("unpaired curly brackets")
-			}
-
-			continue
-		}
-
-		if c > 0 {
-			continue
-		}
-
-		p := strings.SplitN(line, "=", 2)
-		r.parseRelation(strings.TrimSpace(strings.ToLower(p[0])), strings.TrimSpace(p[1]), &finals)
+	values := func(key string) []string {
+		return p.values(ConfigSectionRealms, name, key)
 	}
 
-	if len(r.KPasswdServer) < 1 {
-		for _, a := range r.AdminServer {
-			s := strings.Split(a, ":")
-			r.KPasswdServer = append(r.KPasswdServer, s[0]+":464")
-		}
+	r.AdminServer = values(ConfigKeyAdminServer)
+
+	if v := values(ConfigKeyDefaultDomain); len(v) > 0 {
+		r.DefaultDomain = v[0]
 	}
 
-	return
-}
-
-type realmFinals struct {
-	adminServer   bool
-	kdc           bool
-	kpasswdServer bool
-	masterKDC     bool
-}
-
-func (r *Realm) parseRelation(key, v string, f *realmFinals) {
-	switch key {
-	case ConfigKeyAdminServer:
-		appendUntilFinal(&r.AdminServer, v, &f.adminServer)
-	case ConfigKeyDefaultDomain:
-		r.DefaultDomain = v
-	case ConfigKeyKDC:
-		if !strings.Contains(v, ":") {
-			if strings.HasSuffix(v, `*`) {
-				v = strings.TrimSpace(strings.TrimSuffix(v, `*`)) + ":88*"
-			} else {
-				v = strings.TrimSpace(v) + ":88"
-			}
+	for _, v := range values(ConfigKeyKDC) {
+		hp, err := hostPort(v, portKDC)
+		if err != nil {
+			return r, InvalidErrorf("realm %s kdc (%s): %v", name, v, err)
 		}
 
-		appendUntilFinal(&r.KDC, v, &f.kdc)
-	case ConfigKeyKPasswdServer:
-		appendUntilFinal(&r.KPasswdServer, v, &f.kpasswdServer)
-	case ConfigKeyMasterKDC:
-		appendUntilFinal(&r.MasterKDC, v, &f.masterKDC)
+		r.KDC = append(r.KDC, hp)
 	}
-}
 
-func unsupportedRealmDirective(line string) error {
-	switch {
-	case strings.Contains(line, "v4_"):
-		return UnsupportedDirective{"v4 configurations are not supported"}
-	case strings.Contains(line, "auth_to_local_names"):
-		return UnsupportedDirective{"auth_to_local_names are not supported"}
-	default:
-		return nil
+	for _, v := range values(ConfigKeyKPasswdServer) {
+		hp, err := hostPort(v, portKpasswd)
+		if err != nil {
+			return r, InvalidErrorf("realm %s kpasswd_server (%s): %v", name, v, err)
+		}
+
+		r.KPasswdServer = append(r.KPasswdServer, hp)
 	}
-}
 
-// Parse the lines of the [realms] section of the configuration into an slice of Realm structs.
-func parseRealms(lines []string) (realms []Realm, err error) {
-	var (
-		name  string
-		start int
-		c     int
-	)
-
-	for i, l := range lines {
-		if idx := strings.IndexAny(l, "#;"); idx != -1 {
-			l = l[:idx]
-		}
-
-		l = strings.TrimSpace(l)
-		if l == "" {
-			continue
-		}
-
-		opens, closes := strings.Count(l, "{"), strings.Count(l, "}")
-
-		if opens > 0 {
-			if !strings.Contains(l, "=") {
-				return nil, fmt.Errorf("realm configuration line invalid: %s", l)
+	if len(r.KPasswdServer) == 0 {
+		for _, v := range r.AdminServer {
+			host, _, err := splitHostPort(v)
+			if err != nil || host == "" {
+				continue
 			}
 
-			if c == 0 {
-				start = i
-				p := strings.SplitN(l, "=", 2)
-				name = strings.TrimSpace(p[0])
-			}
-		}
-
-		if closes > c+opens {
-			return nil, errors.New("invalid Realms section in configuration")
-		}
-
-		c += opens - closes
-
-		if closes > 0 && c == 0 {
-			if start == i {
-				return nil, fmt.Errorf("realm %s must open and close its block on separate lines", name)
-			}
-
-			var r Realm
-
-			e := r.parseLines(name, lines[start+1:i])
-			if e != nil {
-				if _, ok := e.(UnsupportedDirective); !ok {
-					err = e
-					return
-				}
-
-				err = e
-			}
-
-			realms = append(realms, r)
+			r.KPasswdServer = append(r.KPasswdServer, net.JoinHostPort(host, strconv.Itoa(portKpasswd)))
+			r.kpasswdFromAdmin = true
 		}
 	}
 
-	return
+	if r.MasterKDC = values(ConfigKeyPrimaryKDC); len(r.MasterKDC) == 0 {
+		r.MasterKDC = values(ConfigKeyMasterKDC)
+	}
+
+	return r, nil
 }
 
-// DomainRealm maps the domains to realms representing the [domain_realm] section of the configuration.
-type DomainRealm map[string]string
-
-// Parse the lines of the [domain_realm] section of the configuration and add to the mapping.
-func (d *DomainRealm) parseLines(lines []string) error {
-	for _, line := range lines {
-		if idx := strings.IndexAny(line, "#;"); idx != -1 {
-			line = line[:idx]
+func unsupportedRealmDirective(p *profile, name string) error {
+	for _, tag := range append(p.relations(ConfigSectionRealms, name), p.subsections(ConfigSectionRealms, name)...) {
+		switch {
+		case strings.HasPrefix(tag, "v4_"):
+			return UnsupportedDirective{"v4 configurations are not supported"}
+		case tag == "auth_to_local_names":
+			return UnsupportedDirective{"auth_to_local_names are not supported"}
 		}
-
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-
-		if !strings.Contains(line, "=") {
-			return InvalidErrorf("realm line (%s)", line)
-		}
-
-		p := strings.SplitN(line, "=", 2)
-		domain := strings.TrimSpace(strings.ToLower(p[0]))
-		realm := strings.TrimSpace(p[1])
-		d.addMapping(domain, realm)
 	}
 
 	return nil
 }
 
-// Add a domain to realm mapping.
-func (d *DomainRealm) addMapping(domain, realm string) {
-	(*d)[domain] = realm
-}
-
-// Delete a domain to realm mapping.
-func (d *DomainRealm) deleteMapping(domain, realm string) {
-	delete(*d, domain)
-}
-
-// ResolveRealm resolves the kerberos realm for the specified domain name from the domain to realm mapping.
-// The most specific mapping is returned.
-func (c *Config) ResolveRealm(domainName string) string {
-	domainName = strings.TrimSuffix(domainName, ".")
-
-	// Try to match the entire hostname first.
-	if r, ok := c.DomainRealm[domainName]; ok {
-		return r
+func hostPort(v string, port int) (string, error) {
+	if strings.Contains(v, "://") || strings.HasPrefix(v, "/") {
+		return v, nil
 	}
 
-	// Try to match all DNS domain parts.
-	periods := strings.Count(domainName, ".") + 1
-	for i := 2; i <= periods; i++ {
-		z := strings.SplitN(domainName, ".", i)
-		if r, ok := c.DomainRealm["."+z[len(z)-1]]; ok {
+	host, p, err := splitHostPort(v)
+	if err != nil {
+		return "", err
+	}
+
+	if host == "" {
+		return "", errors.New("no host")
+	}
+
+	if p < 0 {
+		p = port
+	}
+
+	return net.JoinHostPort(host, strconv.Itoa(p)), nil
+}
+
+func splitHostPort(v string) (string, int, error) {
+	if v == "" || v[0] == ':' {
+		return "", 0, errors.New("no host")
+	}
+
+	var host, port string
+
+	hasPort := false
+
+	switch {
+	case strings.Trim(v, "0123456789") == "":
+		port, hasPort = v, true
+	case v[0] == '[' && strings.IndexByte(v, ']') > 0:
+		end := strings.IndexByte(v, ']')
+		host = v[1:end]
+
+		if rest := v[end+1:]; strings.HasPrefix(rest, ":") {
+			port, hasPort = rest[1:], true
+		}
+	default:
+		end := strings.IndexAny(v, " \t:")
+		if end < 0 {
+			end = len(v)
+		}
+
+		host = v[:end]
+
+		if end < len(v) && v[end] == ':' {
+			port, hasPort = v[end+1:], true
+		}
+	}
+
+	if !hasPort {
+		return host, -1, nil
+	}
+
+	p, err := strconv.ParseUint(port, 10, 16)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid port %q", port)
+	}
+
+	return host, int(p), nil
+}
+
+// DomainRealm maps the domains to realms representing the [domain_realm] section of the configuration.
+type DomainRealm map[string]string
+
+// ResolveRealm resolves the kerberos realm for the specified domain name from the domain to realm mapping, as MIT
+// krb5 does: the host itself is tried first, then each parent domain, first as a subdomain mapping with a leading
+// period and then as a mapping of the domain and everything below it. A host given as an IP address is not mapped.
+func (c *Config) ResolveRealm(domainName string) string {
+	host := strings.ToLower(strings.TrimSuffix(domainName, "."))
+
+	if net.ParseIP(host) != nil {
+		return ""
+	}
+
+	for p := host; p != ""; {
+		if r, ok := c.DomainRealm[p]; ok {
 			return r
 		}
+
+		if p[0] == '.' {
+			p = p[1:]
+
+			continue
+		}
+
+		i := strings.IndexByte(p, '.')
+		if i < 0 {
+			break
+		}
+
+		p = p[i:]
 	}
 
 	return ""
 }
 
-// Load the KRB5 configuration from the specified file path.
-func Load(cfgPath string) (*Config, error) {
-	fh, err := os.Open(cfgPath)
-	if err != nil {
-		return nil, errors.New("configuration file could not be opened: " + cfgPath + " " + err.Error())
+// CCacheName returns the name of the default credential cache as MIT krb5 resolves it: the KRB5CCNAME environment
+// variable, then default_ccache_name, then FILE:/tmp/krb5cc_%{uid}.
+func (c *Config) CCacheName() string {
+	if v, ok := os.LookupEnv("KRB5CCNAME"); ok {
+		return v
 	}
-	defer fh.Close()
 
-	scanner := bufio.NewScanner(fh)
+	return c.LibDefaults.DefaultCCacheName
+}
 
-	return NewFromScanner(scanner)
+// KeytabName returns the name of the default keytab as MIT krb5 resolves it: the KRB5_KTNAME environment variable,
+// then default_keytab_name.
+func (c *Config) KeytabName() string {
+	if v, ok := os.LookupEnv("KRB5_KTNAME"); ok {
+		return v
+	}
+
+	return c.LibDefaults.DefaultKeytabName
+}
+
+// ClientKeytabName returns the name of the default client keytab as MIT krb5 resolves it: the KRB5_CLIENT_KTNAME
+// environment variable, then default_client_keytab_name.
+func (c *Config) ClientKeytabName() string {
+	if v, ok := os.LookupEnv("KRB5_CLIENT_KTNAME"); ok {
+		return v
+	}
+
+	return c.LibDefaults.DefaultClientKeytabName
+}
+
+// Load the KRB5 configuration from the specified file path. A directory is read as an includedir directive reads
+// it.
+func Load(cfgPath string) (*Config, error) {
+	root, err := readProfilePath(cfgPath)
+	if err != nil {
+		return nil, fmt.Errorf("configuration file could not be opened: %s %w", cfgPath, err)
+	}
+
+	return newFromProfile(&profile{files: []*profileNode{root}})
+}
+
+// DefaultPaths returns the files MIT krb5 reads its configuration from: those listed in the KRB5_CONFIG environment
+// variable, or where it is not set /etc/krb5.conf, preceded on macOS by the edu.mit.Kerberos preference files.
+func DefaultPaths() []string {
+	if v, ok := os.LookupEnv("KRB5_CONFIG"); ok {
+		return filepath.SplitList(v)
+	}
+
+	if runtime.GOOS == "darwin" {
+		return []string{"~/Library/Preferences/edu.mit.Kerberos", "/Library/Preferences/edu.mit.Kerberos", defaultConfigPath}
+	}
+
+	return []string{defaultConfigPath}
+}
+
+// LoadDefault loads the configuration from the files DefaultPaths returns, as MIT krb5 does: each file or directory
+// that exists is read, those that are missing are skipped, and the files are consulted in order, so the first one to
+// set a relation that takes a single value decides it. It is an error for none of them to exist.
+func LoadDefault() (*Config, error) {
+	return LoadFiles(DefaultPaths()...)
+}
+
+// LoadFiles loads the configuration from several files as LoadDefault does.
+func LoadFiles(paths ...string) (*Config, error) {
+	p := &profile{}
+
+	var denied error
+
+	for _, name := range paths {
+		if rest, ok := strings.CutPrefix(name, "~/"); ok {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				continue
+			}
+
+			name = filepath.Join(home, rest)
+		}
+
+		root, err := readProfilePath(name)
+
+		switch {
+		case err == nil:
+			p.files = append(p.files, root)
+		case errors.Is(err, os.ErrNotExist):
+			continue
+		case errors.Is(err, os.ErrPermission):
+			denied = fmt.Errorf("configuration file could not be opened: %s %w", name, err)
+		default:
+			return nil, fmt.Errorf("configuration file could not be opened: %s %w", name, err)
+		}
+	}
+
+	if len(p.files) == 0 {
+		if denied != nil {
+			return nil, denied
+		}
+
+		return nil, fmt.Errorf("no configuration file was found in %s", strings.Join(paths, string(filepath.ListSeparator)))
+	}
+
+	return newFromProfile(p)
 }
 
 // NewFromString creates a new Config struct from a string.
@@ -683,250 +783,69 @@ func NewFromReader(r io.Reader) (*Config, error) {
 	return NewFromScanner(scanner)
 }
 
-// NewFromScanner creates a new Config struct from a bufio.Scanner.
+// NewFromScanner creates a new Config struct from a bufio.Scanner. Files named by include and includedir directives
+// are read relative to the working directory.
 func NewFromScanner(scanner *bufio.Scanner) (*Config, error) {
+	root, err := readProfileScanner(scanner)
+	if err != nil {
+		return nil, err
+	}
+
+	return newFromProfile(&profile{files: []*profileNode{root}})
+}
+
+func newFromProfile(p *profile) (*Config, error) {
 	c := New()
 
-	var e error
-
-	sections := make(map[int]string)
-
-	var (
-		sectionLineNum []int
-		lines          []string
-	)
-
-	for scanner.Scan() {
-		if reCommentsAndBlankLines.MatchString(scanner.Text()) {
-			continue
-		}
-
-		if reLibDefaults.MatchString(scanner.Text()) {
-			sections[len(lines)] = ConfigSectionLibDefaults
-			sectionLineNum = append(sectionLineNum, len(lines))
-
-			continue
-		}
-
-		if reRealms.MatchString(scanner.Text()) {
-			sections[len(lines)] = ConfigSectionRealms
-			sectionLineNum = append(sectionLineNum, len(lines))
-
-			continue
-		}
-
-		if reDomainRealm.MatchString(scanner.Text()) {
-			sections[len(lines)] = ConfigSectionDomainRealm
-			sectionLineNum = append(sectionLineNum, len(lines))
-
-			continue
-		}
-
-		if reUnknownSection.MatchString(scanner.Text()) {
-			sections[len(lines)] = ConfigSectionUnknown
-			sectionLineNum = append(sectionLineNum, len(lines))
-
-			continue
-		}
-
-		lines = append(lines, scanner.Text())
+	if err := c.LibDefaults.load(p); err != nil {
+		return nil, fmt.Errorf("error processing %s section: %w", ConfigSectionLibDefaults, err)
 	}
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("error reading the configuration: %w", err)
+	for _, realm := range p.subsections(ConfigSectionLibDefaults) {
+		l := c.LibDefaults
+
+		for _, key := range realmLibDefaultKeys {
+			if v, ok := p.value(ConfigSectionLibDefaults, realm, key); ok {
+				if err := l.set(key, v); err != nil {
+					return nil, fmt.Errorf("error processing %s section: realm %s: %w", ConfigSectionLibDefaults, realm, err)
+				}
+			}
+		}
+
+		if c.realmLibDefaults == nil {
+			c.realmLibDefaults = make(map[string]LibDefaults)
+		}
+
+		c.realmLibDefaults[realm] = l
 	}
 
-	for i, start := range sectionLineNum {
-		var end int
-		if i+1 >= len(sectionLineNum) {
-			end = len(lines)
-		} else {
-			end = sectionLineNum[i+1]
-		}
+	var unsupported error
 
-		switch section := sections[start]; section {
-		case ConfigSectionLibDefaults:
-			err := c.LibDefaults.parseLines(lines[start:end])
-			if err != nil {
-				if _, ok := err.(UnsupportedDirective); !ok {
-					return nil, fmt.Errorf("error processing %s section: %w", section, err)
-				}
-
-				e = err
-			}
-		case ConfigSectionRealms:
-			realms, err := parseRealms(lines[start:end])
-			if err != nil {
-				if _, ok := err.(UnsupportedDirective); !ok {
-					return nil, fmt.Errorf("error processing %s section: %w", section, err)
-				}
-
-				e = err
-			}
-
-			c.Realms = realms
-		case ConfigSectionDomainRealm:
-			err := c.DomainRealm.parseLines(lines[start:end])
-			if err != nil {
-				if _, ok := err.(UnsupportedDirective); !ok {
-					return nil, fmt.Errorf("error processing %s section: %w", section, err)
-				}
-
-				e = err
-			}
-		}
-	}
-
-	return c, e
-}
-
-// Parse a space delimited list of ETypes into a list of EType numbers optionally filtering out weak ETypes.
-func parseETypes(s []string, w bool) []int32 {
-	var eti []int32
-
-	for _, et := range s {
-		if !w {
-			var weak bool
-
-			for _, wet := range strings.Fields(WeakETypeList) {
-				if strings.EqualFold(et, wet) {
-					weak = true
-					break
-				}
-			}
-
-			if weak {
-				continue
-			}
-		}
-
-		// MIT krb5 matches encryption type names case-insensitively.
-		i, ok := etypeID.ETypesByName[et]
-		if !ok {
-			for name, id := range etypeID.ETypesByName {
-				if strings.EqualFold(name, et) {
-					i, ok = id, true
-					break
-				}
-			}
-		}
-
-		if !ok {
-			continue
-		}
-
-		// The crypto registry, not this package, decides what is supported: an application that unregisters an
-		// encryption type must not have it advertised to the KDC, and one that registers an additional
-		// implementation must be able to name it here.
-		if _, err := crypto.GetEType(i); err != nil {
-			continue
-		}
-
-		eti = append(eti, i)
-	}
-
-	return eti
-}
-
-// Parse a time duration string in the configuration to a golang time.Duration.
-func parseDuration(s string) (time.Duration, error) {
-	s = strings.ReplaceAll(strings.TrimSpace(s), " ", "")
-
-	if strings.Contains(s, timeUnitDays) {
-		ds := strings.SplitN(s, timeUnitDays, 2)
-
-		dn, err := strconv.ParseUint(ds[0], 10, 32)
+	for _, name := range p.subsections(ConfigSectionRealms) {
+		r, err := loadRealm(p, name)
 		if err != nil {
-			return time.Duration(0), errors.New("invalid time duration")
+			return nil, fmt.Errorf("error processing %s section: %w", ConfigSectionRealms, err)
 		}
 
-		d := time.Hour * 24 * time.Duration(dn)
-
-		if ds[1] != "" {
-			dp, err := time.ParseDuration(ds[1])
-			if err != nil {
-				return time.Duration(0), errors.New("invalid time duration")
-			}
-
-			d += dp
+		if e := unsupportedRealmDirective(p, name); e != nil {
+			unsupported = e
 		}
 
-		return d, nil
+		c.Realms = append(c.Realms, r)
 	}
 
-	d, err := time.ParseDuration(s)
-	if err == nil {
-		return d, nil
-	}
-
-	v, err := strconv.ParseUint(s, 10, 32)
-	if err == nil && v > 0 {
-		return time.Duration(v) * time.Second, nil
-	}
-
-	if strings.Contains(s, timeDelimiterColon) {
-		t := strings.Split(s, timeDelimiterColon)
-		if 2 > len(t) || len(t) > 3 {
-			return time.Duration(0), errors.New("invalid time duration value")
+	for _, domain := range p.relations(ConfigSectionDomainRealm) {
+		key := strings.ToLower(domain)
+		if _, ok := c.DomainRealm[key]; ok {
+			continue
 		}
 
-		var i []int
-
-		for _, n := range t {
-			j, err := strconv.ParseInt(n, 10, 16)
-			if err != nil {
-				return time.Duration(0), errors.New("invalid time duration value")
-			}
-
-			i = append(i, int(j))
+		if v, ok := p.value(ConfigSectionDomainRealm, domain); ok {
+			c.DomainRealm[key] = v
 		}
-
-		d := time.Duration(i[0])*time.Hour + time.Duration(i[1])*time.Minute
-		if len(i) == 3 {
-			d += time.Duration(i[2]) * time.Second
-		}
-
-		return d, nil
 	}
 
-	return time.Duration(0), errors.New("invalid time duration value")
-}
-
-// Parse possible boolean values to golang bool.
-func parseBoolean(s string) (bool, error) {
-	s = strings.TrimSpace(s)
-
-	v, err := strconv.ParseBool(s)
-	if err == nil {
-		return v, nil
-	}
-
-	switch strings.ToLower(s) {
-	case "yes":
-		return true, nil
-	case "y":
-		return true, nil
-	case "no":
-		return false, nil
-	case "n":
-		return false, nil
-	}
-
-	return false, errors.New("invalid boolean value")
-}
-
-// Parse array of strings but stop if an asterisk is placed at the end of a line.
-func appendUntilFinal(s *[]string, value string, final *bool) {
-	if *final {
-		return
-	}
-
-	if last := len(value) - 1; last >= 0 && value[last] == '*' {
-		*final = true
-		value = value[:len(value)-1]
-	}
-
-	*s = append(*s, value)
+	return c, unsupported
 }
 
 // JSON marshalls the config using the encoding/json package.
@@ -937,6 +856,44 @@ func (c *Config) JSON() (string, error) {
 	}
 
 	return string(b), nil
+}
+
+func parseBoolean(s string) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "y", "yes", "true", "t", "1", "on":
+		return true, nil
+	case "n", "no", "false", "nil", "0", "off":
+		return false, nil
+	default:
+		return false, errors.New("invalid boolean value")
+	}
+}
+
+func parseInteger(s string) (int, error) {
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		return 0, errors.New("invalid integer value")
+	}
+
+	return int(v), nil
+}
+
+func parseKDCOptions(s string) (uint32, error) {
+	if h, ok := strings.CutPrefix(strings.ToLower(s), "0x"); ok {
+		v, err := strconv.ParseUint(h, 16, 32)
+		if err != nil {
+			return 0, errors.New("invalid integer value")
+		}
+
+		return uint32(v), nil
+	}
+
+	v, err := parseInteger(s)
+	if err != nil {
+		return 0, err
+	}
+
+	return uint32(v), nil //nolint:gosec // G115: the options are a 32 bit field, which a negative value sets the high bit of.
 }
 
 func parsePreauthTypes(s string) ([]int, error) {
