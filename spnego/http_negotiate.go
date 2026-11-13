@@ -42,27 +42,39 @@ func negotiateChallenge(resp *http.Response) ([]byte, bool, error) {
 	return negotiateHeader(resp)
 }
 
+// negotiateHeader returns the SPNEGO token of the Negotiate challenge in a response, and reports whether it carries
+// one at all.
+//
+// RFC 9110 Section 11.6.1 lets a response carry several challenges, either in several WWW-Authenticate fields or as
+// a comma separated list in one. A challenge carrying a token is preferred over a bare Negotiate, since the token is
+// the target's answer to the leg the client sent and the bare challenge only offers the scheme. Splitting on commas
+// is safe for the token itself, a token68 of RFC 9110 Section 11.2, which cannot contain one.
 func negotiateHeader(resp *http.Response) ([]byte, bool, error) {
+	var found bool
+
 	for _, h := range resp.Header.Values(HTTPHeaderAuthResponse) {
-		scheme, token, _ := strings.Cut(h, " ")
-		if !strings.EqualFold(scheme, HTTPHeaderAuthResponseValueKey) {
-			continue
-		}
+		for _, challenge := range strings.Split(h, ",") {
+			scheme, token, _ := strings.Cut(strings.TrimSpace(challenge), " ")
+			if !strings.EqualFold(scheme, HTTPHeaderAuthResponseValueKey) {
+				continue
+			}
 
-		token = strings.TrimSpace(token)
-		if token == "" {
-			return nil, true, nil
-		}
+			found = true
 
-		b, err := base64.StdEncoding.DecodeString(token)
-		if err != nil {
-			return nil, true, fmt.Errorf("error in base64 decoding the negotiation challenge: %w", err)
-		}
+			if token = strings.TrimSpace(token); token == "" {
+				continue
+			}
 
-		return b, true, nil
+			b, err := base64.StdEncoding.DecodeString(token)
+			if err != nil {
+				return nil, true, fmt.Errorf("error in base64 decoding the negotiation challenge: %w", err)
+			}
+
+			return b, true, nil
+		}
 	}
 
-	return nil, false, nil
+	return nil, found, nil
 }
 
 // negotiationNext decides what the client does with the token a target challenged it with.
