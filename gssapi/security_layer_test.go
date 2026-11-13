@@ -519,7 +519,7 @@ func TestSecurityLayerSessionUnwrapRejections(t *testing.T) {
 		token, err := initiator.Wrap(message)
 		require.NoError(t, err)
 
-		token[2] |= FlagAcceptorSubkey
+		token[15] ^= 0x01
 
 		_, err = acceptor.Unwrap(token)
 		assert.EqualError(t, err, "wrap token header does not match the copy of it encrypted with the payload")
@@ -606,7 +606,7 @@ func TestSecurityLayerSessionUnrotate(t *testing.T) {
 
 	assert.Equal(t, data, unrotate(rotated, 6))
 	assert.Equal(t, data, unrotate(data, 0))
-	assert.Equal(t, data, unrotate(rotated, 6+uint16(len(data))*2), "a rotation count longer than the data")
+	assert.Equal(t, data, unrotate(rotated, 6+len(data)*2), "a rotation count longer than the data")
 	assert.Empty(t, unrotate([]byte{}, 9))
 }
 
