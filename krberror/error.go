@@ -23,11 +23,19 @@ const (
 type Krberror struct {
 	RootCause string
 	EText     []string
+
+	cause error
 }
 
 // Error function to implement the error interface.
 func (e Krberror) Error() string {
 	return fmt.Sprintf("[Root cause: %s] ", e.RootCause) + strings.Join(e.EText, separator)
+}
+
+// Unwrap returns the error this one was created from, so that errors.Is and errors.As reach it, for example to read
+// the error code of a messages.KRBError returned by the KDC.
+func (e Krberror) Unwrap() error {
+	return e.cause
 }
 
 // Add another error statement to the error.
@@ -50,7 +58,10 @@ func Errorf(err error, et, format string, a ...any) Krberror {
 		return e
 	}
 
-	return NewErrorf(et, format+": %s", append(a, err)...)
+	e := NewErrorf(et, format+": %s", append(a, err)...)
+	e.cause = err
+
+	return e
 }
 
 // NewErrorf creates a new Krberror from a formatted string.
