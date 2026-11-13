@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -326,3 +327,30 @@ const (
 	aes256Salt    = "TEST.GOKRB5aes256salt"
 	keptSalt      = "TEST.GOKRB5keptsalt"
 )
+
+func TestNewClientShouldUseTheDefaultRealmWhenTheRealmIsEmpty(t *testing.T) {
+	cfg, err := config.NewFromString("[libdefaults]\n default_realm = TEST.GOKRB5\n[realms]\n TEST.GOKRB5 = {\n  kdc = 127.0.0.1:88\n }\n OTHER.GOKRB5 = {\n  kdc = 127.0.0.1:88\n }\n")
+	require.NoError(t, err)
+
+	kt := keytab.New()
+	require.NoError(t, kt.AddEntry("username", "TEST.GOKRB5", "password", time.Now(), 1, etypeID.AES256_CTS_HMAC_SHA1_96))
+
+	clients := map[string]*Client{
+		"Password": NewWithPassword("username", "", "password", cfg),
+		"Keytab":   NewWithKeytab("username", "", kt, cfg),
+	}
+
+	for name, cl := range clients {
+		t.Run(name, func(t *testing.T) {
+			ok, err := cl.IsConfigured()
+			require.NoError(t, err)
+			assert.True(t, ok)
+			assert.Equal(t, "TEST.GOKRB5", cl.Credentials.Realm())
+		})
+	}
+
+	t.Run("ShouldKeepAnExplicitRealm", func(t *testing.T) {
+		cl := NewWithPassword("username", "OTHER.GOKRB5", "password", cfg)
+		assert.Equal(t, "OTHER.GOKRB5", cl.Credentials.Realm())
+	})
+}
