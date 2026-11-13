@@ -70,6 +70,10 @@ type SecurityLayerSession struct {
 	isInitiator   bool
 	maxBufferSize int
 
+	acceptorSubkey bool
+	rotateTrailer  bool
+	dceStyle       bool
+
 	mu         sync.Mutex
 	sendSeqNum uint64
 	recvSeqNum uint64
@@ -95,6 +99,45 @@ func InitialReceiveSequenceNumber(n uint64) SecurityLayerOption {
 	return func(s *SecurityLayerSession) {
 		s.recvSeqNum = n
 		s.recvSeqSet = true
+	}
+}
+
+// AcceptorSubkey declares that the key the session is given is the subkey the acceptor asserted in its AP_REP. RFC
+// 4121 section 4.2.2 has every token protected with that key carry the AcceptorSubkey flag, whichever end emitted
+// it, so the session sets the flag on the tokens it sends and requires it on the tokens it receives. Without this
+// option the session refuses a token carrying the flag, since the key it names is not the one the session holds.
+func AcceptorSubkey() SecurityLayerOption {
+	return func(s *SecurityLayerSession) {
+		s.acceptorSubkey = true
+	}
+}
+
+// RotateTrailer has the session rotate the trailer of every token it emits to directly after the token header, as
+// RFC 4121 section 4.2.5 permits. It is the layout Windows SSPI and the gss_wrap_iov of MIT krb5 produce, and what
+// MS-KILE section 3.4.5.4.1 describes: the RRC field is the length of the checksum for an integrity protected token
+// and the length of the filler, the encrypted copy of the header and the checksum for a confidentiality protected
+// one, which is 28 for the AES encryption types of RFC 3962. Protocols that carry the token header apart from the
+// protected message, such as the MS-WSMV message encryption WinRM uses, depend on it.
+//
+// Received tokens are accepted whatever their rotation count, with or without this option.
+func RotateTrailer() SecurityLayerOption {
+	return func(s *SecurityLayerSession) {
+		s.rotateTrailer = true
+	}
+}
+
+// DCEStyle has the session produce and read confidentiality protected tokens the way a context established with
+// GSS_C_DCE_STYLE does in Windows and MIT krb5. It implies RotateTrailer.
+//
+// Such a token always carries filler: when the plaintext needs no padding, which is always so for the encryption
+// types that use ciphertext stealing, EC is the cipher block size of the encryption type. Windows also rotates such
+// a token by EC plus RRC rather than by RRC alone, so the RRC field excludes the filler while the rotation includes
+// it. MIT krb5 matches this in both directions and so does the session; tokens from a peer that is not using the
+// DCE style are misread by a session that is, and the other way round.
+func DCEStyle() SecurityLayerOption {
+	return func(s *SecurityLayerSession) {
+		s.rotateTrailer = true
+		s.dceStyle = true
 	}
 }
 
@@ -178,9 +221,16 @@ func (s *SecurityLayerSession) tokenOverhead() int {
 		// filler that may be needed to align the plaintext to the message block size.
 		o += s.encType.GetConfounderByteSize() + HdrLen
 
+		filler := 0
 		if m := s.encType.GetMessageBlockByteSize(); m > 1 {
-			o += m - 1
+			filler = m - 1
 		}
+
+		if b := s.encType.GetCypherBlockBitLength() / 8; s.dceStyle && b > filler {
+			filler = b
+		}
+
+		o += filler
 	}
 
 	return o
@@ -207,6 +257,10 @@ func (s *SecurityLayerSession) Wrap(message []byte) ([]byte, error) {
 	flags := byte(0)
 	if !s.isInitiator {
 		flags |= FlagSentByAcceptor
+	}
+
+	if s.acceptorSubkey {
+		flags |= FlagAcceptorSubkey
 	}
 
 	var (
@@ -245,6 +299,10 @@ func (s *SecurityLayerSession) wrapSigned(flags byte, message []byte) ([]byte, e
 		Payload:   message,
 	}
 
+	if s.rotateTrailer {
+		token.RRC = token.EC
+	}
+
 	if err := token.SetCheckSum(s.key, s.keyUsage(true)); err != nil {
 		return nil, fmt.Errorf("could not compute the wrap token checksum: %w", err)
 	}
@@ -257,7 +315,13 @@ func (s *SecurityLayerSession) wrapSigned(flags byte, message []byte) ([]byte, e
 // the RRC field of the encrypted copy of the header is zeroed.
 func (s *SecurityLayerSession) wrapSealed(flags byte, message []byte) ([]byte, error) {
 	ec := s.fillerLen(len(message))
-	header := wrapTokenHeader(flags, uint16(ec), 0, s.sendSeqNum)
+	if s.dceStyle && ec == 0 {
+		// Windows rejects a DCE style token whose EC is zero, so MIT krb5 fills one cipher block instead.
+		ec = s.encType.GetCypherBlockBitLength() / 8
+	}
+
+	ec16, cksumLen := uint16(ec), uint16(s.encType.GetHMACBitLength()/8) //nolint:gosec // G115: both are a few octets.
+	header := wrapTokenHeader(flags, ec16, 0, s.sendSeqNum)
 
 	// The filler octets are left as the zero value of the slice.
 	plaintext := make([]byte, len(message)+ec+HdrLen)
@@ -269,9 +333,21 @@ func (s *SecurityLayerSession) wrapSealed(flags byte, message []byte) ([]byte, e
 		return nil, fmt.Errorf("could not encrypt the wrap token payload: %w", err)
 	}
 
+	var rrc, rotation uint16
+
+	if s.rotateTrailer {
+		// The trailer is the filler, the encrypted copy of the header and the checksum of the encryption type.
+		rotation = ec16 + HdrLen + cksumLen
+		rrc = rotation
+
+		if s.dceStyle {
+			rrc -= ec16
+		}
+	}
+
 	token := make([]byte, HdrLen+len(ciphertext))
-	copy(token, header)
-	copy(token[HdrLen:], ciphertext)
+	copy(token, wrapTokenHeader(flags, ec16, rrc, s.sendSeqNum))
+	copy(token[HdrLen:], rotate(ciphertext, int(rotation)))
 
 	return token, nil
 }
@@ -334,6 +410,14 @@ func (s *SecurityLayerSession) Unwrap(token []byte) ([]byte, error) {
 		return nil, errors.New("unexpected acceptor flag is set: not expecting a token from the acceptor")
 	}
 
+	if hasSubkey := flags&FlagAcceptorSubkey != 0; hasSubkey != s.acceptorSubkey {
+		if s.acceptorSubkey {
+			return nil, errors.New("acceptor subkey flag is not set: the token is not protected with the acceptor's subkey this session holds")
+		}
+
+		return nil, errors.New("unexpected acceptor subkey flag is set: the token is protected with an acceptor subkey this session does not hold")
+	}
+
 	// A peer must not downgrade to a weaker protection than the layer that was negotiated, nor use a stronger one
 	// that the negotiated layer gives no way to interpret.
 	if sealed := flags&FlagSealed != 0; sealed != (s.layer == SecurityLayerConfidentiality) {
@@ -348,7 +432,14 @@ func (s *SecurityLayerSession) Unwrap(token []byte) ([]byte, error) {
 		return nil, fmt.Errorf("wrap token sequence number %d is out of sequence, expected %d", seq, s.recvSeqNum)
 	}
 
-	data := unrotate(token[HdrLen:], rrc)
+	data := token[HdrLen:]
+
+	rotation := int(rrc)
+	if s.dceStyle && s.layer == SecurityLayerConfidentiality {
+		rotation += int(ec)
+	}
+
+	data = unrotate(data, rotation)
 
 	var (
 		message []byte
@@ -433,12 +524,12 @@ func (s *SecurityLayerSession) keyUsage(sending bool) uint32 {
 
 // rotate performs the right rotation the RRC field of a Wrap token records, as described in RFC 4121
 // Section 4.2.5. A sender may choose any count, including one longer than the data itself.
-func rotate(data []byte, rrc uint16) []byte {
+func rotate(data []byte, rrc int) []byte {
 	if len(data) == 0 {
 		return data
 	}
 
-	n := int(rrc) % len(data)
+	n := rrc % len(data)
 	if n == 0 {
 		return data
 	}
@@ -452,12 +543,12 @@ func rotate(data []byte, rrc uint16) []byte {
 
 // unrotate reverses the right rotation the RRC field of a Wrap token records, as described in RFC 4121
 // section 4.2.5. A receiver has to cope with any rotation count, including one longer than the data itself.
-func unrotate(data []byte, rrc uint16) []byte {
+func unrotate(data []byte, rrc int) []byte {
 	if len(data) == 0 {
 		return data
 	}
 
-	n := int(rrc) % len(data)
+	n := rrc % len(data)
 	if n == 0 {
 		return data
 	}
