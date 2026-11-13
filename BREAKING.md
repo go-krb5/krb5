@@ -144,3 +144,52 @@ change will be elaborated on in time):
   back indistinguishable from a complete one, so directives as consequential as `permitted_enctypes` could be
   missing with nothing to say so. A caller that was unknowingly relying on a truncated read now sees the error
   instead of the defaults.
+- The `config` package now reads `krb5.conf` as MIT krb5's profile library does, from the MIT krb5 sources, and takes
+  its defaults from those sources rather than from the documentation. A configuration that MIT krb5 accepts now
+  loads with the same meaning, which changes how some configurations that were written for this library are read:
+
+  - Only a line whose first non-blank character is `#` or `;` is a comment. A `#` or `;` later in a line is part of
+    the value, as it is for MIT krb5, where `auth_to_local` rules commonly contain `;`. Configurations that relied on
+    trailing comments must move them onto lines of their own.
+  - Where a relation that takes a single value appears more than once, the first value is used, where previously the
+    last one was. Sections and realms that appear more than once are merged rather than read as separate entries.
+  - A `*` marks a section, subsection or relation final when it follows the section header, the tag or a closing
+    brace, as `kdc* = host`. A `*` at the end of a value, as `kdc = host*`, was read as a final marker and is now part
+    of the value.
+  - Lines before the first section header are ignored, and so is everything up to the first line that begins with
+    `[` in its first column. A closing brace closes one subsection whatever follows it on the line, a section header
+    inside a subsection is an error, and `REALM = { kdc = host }` written on one line is a relation, not a realm.
+  - `include` and `includedir` are now honoured where they were silently ignored, and a file or directory they name
+    that does not exist is an error. A `module` directive is an error, since this library cannot load one.
+  - The clock skew is read from `clockskew`, the name MIT krb5 uses, where the fork had renamed it to `clock_skew`,
+    so a `clockskew` setting was silently ignored. `config.ConfigKeyClockSkew` changes accordingly.
+  - `dns_lookup_kdc` defaults to `true` and `k5login_authoritative` to `true`, as they do in MIT krb5.
+    `dns_lookup_kdc` and `dns_lookup_realm` fall back to `dns_fallback`. A realm without `kdc` entries is now
+    located with DNS SRV records unless `dns_lookup_kdc = false` is set. `GetKpasswdServers` consults the
+    configured `kpasswd_server` before DNS, and uses port 464 when it falls back to the admin servers found in DNS.
+  - Booleans accept `y`, `yes`, `true`, `t`, `1` and `on`, and `n`, `no`, `false`, `nil`, `0` and `off`, in any
+    case. `dns_canonicalize_hostname` also accepts `fallback`, which previously failed the whole load, and sets the
+    new `LibDefaults.DNSCanonicalizeHostnameFallback`: the HTTP client then derives the service principal name from
+    the hostname as given, and canonicalizes it with DNS only if the KDC reports the principal unknown.
+  - Durations follow MIT krb5's `krb5_string_to_deltat` grammar. Go duration syntax that MIT krb5 does not accept,
+    such as `1.5h` or `300ms`, is now an error.
+  - Encryption type lists may be separated by commas, and accept `DEFAULT`, the families `aes`, `camellia`, `des3`
+    and `rc4`, and a leading `+` or `-` to add or remove a type. `des3-cbc-sha1` names `des3-cbc-sha1-kd`, as it does
+    for MIT krb5. `default_tkt_enctypes` and `default_tgs_enctypes` default to `permitted_enctypes`, and the default
+    lists are MIT krb5's, which no longer name the single DES types.
+  - `kdc_default_options` is read as a decimal number, or as hexadecimal with a `0x` prefix, where it was read as
+    hexadecimal digits with or without the prefix. `udp_preference_limit` is capped at 32700 and a negative value
+    means the default, where both were errors.
+  - `kdc` and `kpasswd_server` entries are parsed as MIT krb5 parses them, so an IPv6 address in brackets is given
+    the default port, and an entry with no host or an invalid port is an error.
+  - `[domain_realm]` is matched as MIT krb5 matches it: an entry such as `example.com = REALM` maps the domain and
+    every host below it, and a host given as an IP address is not mapped.
+  - `default_ccache_name`, `default_keytab_name` and `default_client_keytab_name` have their `%{...}` parameters
+    expanded, and an unknown parameter is an error.
+
+  New in the package are `config.LoadDefault` and `config.LoadFiles`, which read `KRB5_CONFIG` or the platform's
+  default files as MIT krb5 does, `config.DefaultPaths`, `config.ExpandPath`, `Config.LibDefaultsForRealm`, which
+  applies a realm's subsection of `[libdefaults]` and is now used for the initial ticket request, and
+  `Config.CCacheName`, `Config.KeytabName` and `Config.ClientKeytabName`, which give `KRB5CCNAME`, `KRB5_KTNAME` and
+  `KRB5_CLIENT_KTNAME` precedence over the configuration as MIT krb5 does. `krberror.Krberror` now keeps the error it
+  was created from, so `errors.As` reaches a `messages.KRBError` returned by the KDC.

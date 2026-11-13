@@ -111,11 +111,15 @@ func NewASReq(realm string, c *config.Config, cname, sname types.PrincipalName) 
 		return ASReq{}, err
 	}
 
+	// MIT krb5 lets a realm's subsection of [libdefaults] override the options of an initial ticket request for a
+	// client of that realm.
+	l := c.LibDefaultsForRealm(realm)
+
 	t := time.Now().UTC()
 	// Copy the default options to make this thread safe.
 	kopts := types.NewKrbFlags()
-	copy(kopts.Bytes, c.LibDefaults.KDCDefaultOptions.Bytes)
-	kopts.BitLength = c.LibDefaults.KDCDefaultOptions.BitLength
+	copy(kopts.Bytes, l.KDCDefaultOptions.Bytes)
+	kopts.BitLength = l.KDCDefaultOptions.BitLength
 
 	a := ASReq{
 		KDCReqFields{
@@ -127,36 +131,36 @@ func NewASReq(realm string, c *config.Config, cname, sname types.PrincipalName) 
 				Realm:      realm,
 				CName:      cname,
 				SName:      sname,
-				Till:       t.Add(c.LibDefaults.TicketLifetime),
+				Till:       t.Add(l.TicketLifetime),
 				Nonce:      int(nonce.Int64()),
-				EType:      c.LibDefaults.DefaultTktEnctypeIDs,
+				EType:      l.DefaultTktEnctypeIDs,
 			},
 		},
 	}
-	if c.LibDefaults.Forwardable {
+	if l.Forwardable {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Forwardable)
 	}
 
-	if c.LibDefaults.Canonicalize {
+	if l.Canonicalize {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Canonicalize)
 	}
 
-	if c.LibDefaults.Proxiable {
+	if l.Proxiable {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Proxiable)
 	}
 
-	if c.LibDefaults.RenewLifetime != 0 {
+	if l.RenewLifetime != 0 {
 		types.SetFlag(&a.ReqBody.KDCOptions, flags.Renewable)
-		a.ReqBody.RTime = t.Add(c.LibDefaults.RenewLifetime)
+		a.ReqBody.RTime = t.Add(l.RenewLifetime)
 	}
 
-	if !c.LibDefaults.NoAddresses {
+	if !l.NoAddresses {
 		ha, err := types.LocalHostAddresses()
 		if err != nil {
 			return a, fmt.Errorf("could not get local addresses: %w", err)
 		}
 
-		ha = append(ha, types.HostAddressesFromNetIPs(c.LibDefaults.ExtraAddresses)...)
+		ha = append(ha, types.HostAddressesFromNetIPs(l.ExtraAddresses)...)
 		a.ReqBody.Addresses = ha
 	}
 
