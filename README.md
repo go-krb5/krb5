@@ -8,7 +8,7 @@
 ![License](https://img.shields.io/github/license/go-krb5/krb5?logo=apache&color=blue)
 
 <p align="center">
-  <img src="./.github/logo.png" alt="Logo" height="300"/>
+  <img src="./.github/logo.png" alt="krb5 gopher mascot wearing a black cap" height="300"/>
 </p>
 
 Kerberos 5 implementation in pure go.
