@@ -60,7 +60,7 @@ func TestSPNEGOKRB5AuthenticateAnswersMutualAuthenticationAlongsideAMechListMIC(
 	payload, err := mechListMICPayload(nil, n.MechTypes)
 	require.NoError(t, err)
 
-	n.MechListMIC, err = newMechListMIC(payload, imp.SessionKey, false)
+	n.MechListMIC, err = newMechListMIC(payload, imp.SessionKey, false, false)
 	require.NoError(t, err)
 
 	resp := negotiateOverHTTP(t, testKeytab(t), n)
@@ -68,7 +68,7 @@ func TestSPNEGOKRB5AuthenticateAnswersMutualAuthenticationAlongsideAMechListMIC(
 
 	nt := negTokenRespFromHeader(t, resp.Header().Get(HTTPHeaderAuthResponse))
 	require.NotEmpty(t, nt.MechListMIC)
-	assert.NoError(t, verifyMechListMIC(nt.MechListMIC, payload, imp.SessionKey, true))
+	assert.NoError(t, verifyMechListMIC(nt.MechListMIC, payload, imp.SessionKey, true, false))
 
 	b, err := nt.Marshal()
 	require.NoError(t, err)
@@ -282,7 +282,7 @@ func requestMICAcceptor(t *testing.T, apRep func([]byte) []byte) http.Handler {
 			return
 		}
 
-		mic, err := newMechListMIC(payload, mt.APReq.Ticket.DecryptedEncPart.Key, true)
+		mic, err := newMechListMIC(payload, mt.APReq.Ticket.DecryptedEncPart.Key, true, false)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
