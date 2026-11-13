@@ -789,7 +789,7 @@ func parseETypes(s []string, w bool) []int32 {
 			var weak bool
 
 			for _, wet := range strings.Fields(WeakETypeList) {
-				if et == wet {
+				if strings.EqualFold(et, wet) {
 					weak = true
 					break
 				}
@@ -800,7 +800,17 @@ func parseETypes(s []string, w bool) []int32 {
 			}
 		}
 
+		// MIT krb5 matches encryption type names case-insensitively.
 		i, ok := etypeID.ETypesByName[et]
+		if !ok {
+			for name, id := range etypeID.ETypesByName {
+				if strings.EqualFold(name, et) {
+					i, ok = id, true
+					break
+				}
+			}
+		}
+
 		if !ok {
 			continue
 		}
