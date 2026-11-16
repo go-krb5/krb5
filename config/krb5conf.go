@@ -114,6 +114,10 @@ type LibDefaults struct {
 	// K5LoginDirectory has a default value based on the user's home directory. Must be owned by the user or root.
 	K5LoginDirectory string
 
+	// KCMSocket is the socket of the KCM daemon, such as sssd-kcm. It
+	// defaults to /var/run/.heim_org.h5l.kcm-socket, and "-" disables KCM.
+	KCMSocket string
+
 	// KDCDefaultOptions has a default value of 0x00000010 (KDC_OPT_RENEWABLE_OK).
 	KDCDefaultOptions asn1.BitString
 
@@ -188,6 +192,7 @@ func newLibDefaults() LibDefaults {
 		DefaultTktEnctypes:      []string{"aes256-cts-hmac-sha1-96", "aes128-cts-hmac-sha1-96", "aes256-cts-hmac-sha384-192", "aes128-cts-hmac-sha256-128", "des3-cbc-sha1", "arcfour-hmac-md5", "camellia256-cts-cmac", "camellia128-cts-cmac", "des-cbc-crc", "des-cbc-md5", "des-cbc-md4"},
 		DNSCanonicalizeHostname: true,
 		K5LoginDirectory:        hdir,
+		KCMSocket:               "/var/run/.heim_org.h5l.kcm-socket",
 		KDCDefaultOptions:       opts,
 		KDCTimeSync:             1,
 		NoAddresses:             true,
@@ -317,6 +322,8 @@ func (l *LibDefaults) parseLines(lines []string) error {
 			l.K5LoginAuthoritative = v
 		case ConfigKeyK5LoginDirectory:
 			l.K5LoginDirectory = strings.TrimSpace(p[1])
+		case ConfigKeyKCMSocket:
+			l.KCMSocket = strings.TrimSpace(p[1])
 		case ConfigKeyKDCDefaultOptions:
 			v := strings.TrimSpace(p[1])
 			v = strings.ReplaceAll(v, "0x", "")
