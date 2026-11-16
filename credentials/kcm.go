@@ -8,6 +8,7 @@ import (
 	"net"
 	"slices"
 	"strings"
+	"time"
 )
 
 // Operations of the KCM protocol, as numbered in kcm.h of MIT krb5.
@@ -21,6 +22,7 @@ const (
 const (
 	kcmUUIDLen  = 16
 	kcmMaxReply = 10 << 20 // As MIT krb5 bounds replies.
+	kcmTimeout  = 10 * time.Second
 	// KRB5_FCC_NOFILE, the status of an operation on a missing cache.
 	kcmErrNoCache uint32 = 0x96c73ac3
 )
@@ -79,11 +81,15 @@ func loadKCMCCache(socket, name string) (*CCache, error) {
 	if socket == "-" {
 		return nil, errors.New("kcm is disabled by kcm_socket")
 	}
-	conn, err := net.Dial("unix", socket)
+	conn, err := net.DialTimeout("unix", socket, kcmTimeout)
 	if err != nil {
 		return nil, err
 	}
 	defer conn.Close()
+	// Bounds the whole load, as a daemon may never answer.
+	if err := conn.SetDeadline(time.Now().Add(kcmTimeout)); err != nil {
+		return nil, err
+	}
 	k := kcmConn{conn}
 	if name == "" {
 		b, err := k.call(kcmOpGetDefaultCache)
