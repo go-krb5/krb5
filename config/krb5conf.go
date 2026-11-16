@@ -38,7 +38,7 @@ type Config struct {
 	// AppDefaults.
 	// Plugins.
 
-	realmLibDefaults map[string]LibDefaults
+	realmLibDefaults map[string]map[string]string
 }
 
 // WeakETypeList is a list of encryption types that have been deemed weak.
@@ -469,13 +469,20 @@ func dnsLookup(p *profile, key string, def bool) bool {
 
 // LibDefaultsForRealm returns the [libdefaults] settings that apply to a client principal of the realm. MIT krb5
 // reads canonicalize, forwardable, noaddresses, preferred_preauth_types, proxiable, renew_lifetime, ticket_lifetime
-// and verify_ap_req_nofail from a subsection of [libdefaults] named after the realm before the section itself.
+// and verify_ap_req_nofail from a subsection of [libdefaults] named after the realm before the section itself. The
+// realm's settings are applied to the current value of LibDefaults, so changes made to it after loading are kept for
+// the settings the realm does not override.
 func (c *Config) LibDefaultsForRealm(realm string) LibDefaults {
-	if l, ok := c.realmLibDefaults[realm]; ok {
-		return l
+	l := c.LibDefaults
+
+	for _, key := range realmLibDefaultKeys {
+		if v, ok := c.realmLibDefaults[realm][key]; ok {
+			// The value was validated when the configuration was loaded.
+			_ = l.set(key, v)
+		}
 	}
 
-	return c.LibDefaults
+	return l
 }
 
 // Realm represents an entry in the [realms] section of the configuration. Currently the specific known options not
@@ -802,21 +809,26 @@ func newFromProfile(p *profile) (*Config, error) {
 	}
 
 	for _, realm := range p.subsections(ConfigSectionLibDefaults) {
-		l := c.LibDefaults
+		var (
+			l         LibDefaults
+			overrides = make(map[string]string)
+		)
 
 		for _, key := range realmLibDefaultKeys {
 			if v, ok := p.value(ConfigSectionLibDefaults, realm, key); ok {
 				if err := l.set(key, v); err != nil {
 					return nil, fmt.Errorf("error processing %s section: realm %s: %w", ConfigSectionLibDefaults, realm, err)
 				}
+
+				overrides[key] = v
 			}
 		}
 
 		if c.realmLibDefaults == nil {
-			c.realmLibDefaults = make(map[string]LibDefaults)
+			c.realmLibDefaults = make(map[string]map[string]string)
 		}
 
-		c.realmLibDefaults[realm] = l
+		c.realmLibDefaults[realm] = overrides
 	}
 
 	var unsupported error

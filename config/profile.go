@@ -311,8 +311,12 @@ func parseIncludeFile(name string, root *profileNode, depth int) error {
 	}
 	defer fh.Close()
 
-	if err = parseProfile(bufio.NewScanner(fh), root, depth); err != nil {
-		return fmt.Errorf("%s: %w", name, err)
+	return parseProfileFile(fh, root, depth)
+}
+
+func parseProfileFile(fh *os.File, root *profileNode, depth int) error {
+	if err := parseProfile(bufio.NewScanner(fh), root, depth); err != nil {
+		return fmt.Errorf("%s: %w", fh.Name(), err)
 	}
 
 	return nil
@@ -323,9 +327,18 @@ func parseIncludeDir(name string, root *profileNode, depth int) error {
 		return InvalidErrorf("includedir (%s): includes are nested more than %d deep", name, maxIncludeDepth)
 	}
 
-	entries, err := os.ReadDir(name)
+	names, err := includableNames(name)
 	if err != nil {
 		return InvalidErrorf("includedir (%s): %v", name, err)
+	}
+
+	return parseIncludeNames(name, names, root, depth)
+}
+
+func includableNames(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
 	}
 
 	names := make([]string, 0, len(entries))
@@ -338,8 +351,12 @@ func parseIncludeDir(name string, root *profileNode, depth int) error {
 
 	slices.Sort(names)
 
+	return names, nil
+}
+
+func parseIncludeNames(dir string, names []string, root *profileNode, depth int) error {
 	for _, n := range names {
-		if err = parseIncludeFile(filepath.Join(name, n), root, depth); err != nil {
+		if err := parseIncludeFile(filepath.Join(dir, n), root, depth); err != nil {
 			return err
 		}
 	}
@@ -469,10 +486,21 @@ func readProfilePath(name string) (*profileNode, error) {
 
 	root := newProfileRoot()
 
+	// The file or directory itself is not named by a directive, so an error reading it keeps its cause and callers
+	// may match it with errors.Is. Files read from the directory are read as an includedir directive reads them.
 	if info.IsDir() {
-		err = parseIncludeDir(name, root, 0)
+		var names []string
+
+		if names, err = includableNames(name); err == nil {
+			err = parseIncludeNames(name, names, root, 0)
+		}
 	} else {
-		err = parseIncludeFile(name, root, 0)
+		var fh *os.File
+
+		if fh, err = os.Open(name); err == nil {
+			err = parseProfileFile(fh, root, 0)
+			fh.Close()
+		}
 	}
 
 	if err != nil {

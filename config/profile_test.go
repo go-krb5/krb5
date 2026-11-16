@@ -1,9 +1,11 @@
 package config
 
 import (
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -275,6 +277,39 @@ func TestLoadFilesRefusesWhenNoFileExists(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestLoadFilesKeepsTheCauseOfAPermissionError(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("file permissions are not enforced")
+	}
+
+	dir := t.TempDir()
+	denied := filepath.Join(dir, "denied.conf")
+	unreadable := filepath.Join(dir, "unreadable")
+
+	require.NoError(t, os.WriteFile(denied, []byte("[libdefaults]\n"), 0o000))
+	require.NoError(t, os.Mkdir(unreadable, 0o000))
+
+	t.Cleanup(func() { _ = os.Chmod(unreadable, 0o700) })
+
+	for _, name := range []string{denied, unreadable} {
+		_, err := LoadFiles(name)
+		require.Error(t, err, name)
+		assert.True(t, errors.Is(err, os.ErrPermission), name)
+	}
+
+	included := filepath.Join(dir, "included.conf")
+	require.NoError(t, os.WriteFile(included, []byte("include "+denied+"\n"), 0o600))
+
+	_, err := LoadFiles(included)
+	require.Error(t, err)
+	assert.False(t, errors.Is(err, os.ErrPermission))
+
+	var invalid Invalid
+	assert.True(t, errors.As(err, &invalid))
+}
+
 func TestLoadDefaultReadsKRB5CONFIG(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "first.conf")
@@ -532,6 +567,15 @@ func TestLibDefaultsForRealm(t *testing.T) {
 	assert.Equal(t, time.Hour, l.TicketLifetime)
 	assert.Empty(t, l.DefaultRealm)
 
+	assert.Equal(t, c.LibDefaults, c.LibDefaultsForRealm("OTHER.GOKRB5"))
+
+	c.LibDefaults.Proxiable = true
+	c.LibDefaults.TicketLifetime = 2 * time.Hour
+
+	l = c.LibDefaultsForRealm("TEST.GOKRB5")
+	assert.True(t, l.Proxiable)
+	assert.True(t, l.Forwardable)
+	assert.Equal(t, time.Hour, l.TicketLifetime)
 	assert.Equal(t, c.LibDefaults, c.LibDefaultsForRealm("OTHER.GOKRB5"))
 }
 
