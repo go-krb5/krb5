@@ -65,6 +65,23 @@ the context, and that the sequence numbers of the tokens follow on from one anot
 reordered or dropped is rejected. Where no receive sequence number was configured the session adopts the one carried
 by the first token it receives.
 
+## Contexts established over HTTP
+
+A context established with SPNEGO over HTTP, such as the one WinRM authenticates with before encrypting its messages
+as [MS-WSMV](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-wsmv/) describes, is protected the same
+way. `spnego.Client.NewSecurityLayerSession` returns a session for the context the client last established, using the
+acceptor's subkey and the sequence numbers of the AP_REQ and AP_REP as RFC 4121 section 2 and section 4.2.6 require.
+
+Two options shape the tokens for Windows peers. `RotateTrailer` puts the trailer of each token directly after its
+header, the layout Windows SSPI and MIT krb5's `gss_wrap_iov` produce, so that a protocol can carry the header apart from
+the encrypted message. `DCEStyle` produces and reads the tokens of a context established with `GSS_C_DCE_STYLE`, which
+always carry filler and are rotated by the filler length plus the RRC field. The `AcceptorSubkey` option marks a
+session whose key is the acceptor's subkey, and is set by `spnego` where the acceptor asserted one.
+
+```go
+session, err := spnegoClient.NewSecurityLayerSession(gssapi.SecurityLayerConfidentiality, 0, gssapi.RotateTrailer())
+```
+
 Note that [MS-ADTS](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-adts/) section 5.1.1.1 forbids a
 SASL security layer on a connection that is already protected by TLS, and an Active Directory domain controller
 rejects such a connection, even though [RFC 4513](https://tools.ietf.org/html/rfc4513) section 3.1 permits the
