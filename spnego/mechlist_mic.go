@@ -34,12 +34,17 @@ func mechListMICPayload(raw []byte, mechTypes []asn1.ObjectIdentifier) ([]byte, 
 }
 
 // newMechListMIC returns the MIC token RFC 4178 Section 5(a) obtains by "invoking GSS_GetMIC()" over the mechanism
-// list, which for the Kerberos mechanism is the token described by RFC 4121 Section 4.2.6.1.
-func newMechListMIC(payload []byte, key types.EncryptionKey, fromAcceptor bool) ([]byte, error) {
+// list, which for the Kerberos mechanism is the token described by RFC 4121 Section 4.2.6.1. acceptorSubkey reports
+// that key is the subkey the acceptor asserted, which Section 4.2.2 has the token flag.
+func newMechListMIC(payload []byte, key types.EncryptionKey, fromAcceptor, acceptorSubkey bool) ([]byte, error) {
 	mt := gssapi.MICToken{Payload: payload}
 
 	if fromAcceptor {
-		mt.Flags = gssapi.MICTokenFlagSentByAcceptor
+		mt.Flags |= gssapi.MICTokenFlagSentByAcceptor
+	}
+
+	if acceptorSubkey {
+		mt.Flags |= gssapi.MICTokenFlagAcceptorSubkey
 	}
 
 	if err := mt.SetChecksum(key, micKeyUsage(fromAcceptor)); err != nil {
@@ -51,12 +56,21 @@ func newMechListMIC(payload []byte, key types.EncryptionKey, fromAcceptor bool) 
 
 // verifyMechListMIC checks a MIC token against the mechanism list it should protect. Every failure is an error: RFC
 // 4178 Section 5 terminates the negotiation for a MIC that does not verify, so there is no partial success to
-// report and nothing for a caller to weigh up.
-func verifyMechListMIC(mic, payload []byte, key types.EncryptionKey, fromAcceptor bool) error {
+// report and nothing for a caller to weigh up. acceptorSubkey reports that key is the subkey the acceptor asserted,
+// and a MIC whose AcceptorSubkey flag disagrees names a key other than the one it is checked with.
+func verifyMechListMIC(mic, payload []byte, key types.EncryptionKey, fromAcceptor, acceptorSubkey bool) error {
 	var mt gssapi.MICToken
 
 	if err := mt.Unmarshal(mic, fromAcceptor); err != nil {
 		return fmt.Errorf("error reading the mechListMIC: %w", err)
+	}
+
+	if flagged := mt.Flags&gssapi.MICTokenFlagAcceptorSubkey != 0; flagged != acceptorSubkey {
+		if acceptorSubkey {
+			return errors.New("the mechListMIC is not flagged as protected with the subkey the acceptor asserted")
+		}
+
+		return errors.New("the mechListMIC is flagged as protected with an acceptor subkey the acceptor never asserted")
 	}
 
 	if len(mt.Checksum) == 0 {

@@ -163,7 +163,7 @@ func TestAcceptorReturnsAMechListMIC(t *testing.T) {
 	payload, err := mechListMICPayload(nil, init.MechTypes)
 	require.NoError(t, err)
 
-	assert.NoError(t, verifyMechListMIC(mic, payload, key, true))
+	assert.NoError(t, verifyMechListMIC(mic, payload, key, true, false))
 }
 
 func TestAcceptorReturnsNoMechListMICWhenTheInitiatorSentNone(t *testing.T) {
@@ -257,7 +257,7 @@ func mechListMICOver(t *testing.T, mechs []asn1.ObjectIdentifier, key types.Encr
 	payload, err := mechListMICPayload(nil, mechs)
 	require.NoError(t, err)
 
-	mic, err := newMechListMIC(payload, key, fromAcceptor)
+	mic, err := newMechListMIC(payload, key, fromAcceptor, false)
 	require.NoError(t, err)
 
 	return mic
@@ -342,7 +342,7 @@ func negTokenInitWithMIC(t *testing.T) (NegTokenInit, *keytab.Keytab, types.Encr
 	payload, err := mechListMICPayload(nil, mechs)
 	require.NoError(t, err)
 
-	mic, err := newMechListMIC(payload, key, false)
+	mic, err := newMechListMIC(payload, key, false, false)
 	require.NoError(t, err)
 
 	return NegTokenInit{MechTypes: mechs, MechTokenBytes: mtb, MechListMIC: mic}, kt, key

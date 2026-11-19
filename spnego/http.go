@@ -41,6 +41,8 @@ type Client struct {
 	autoChannelBinding bool
 	legs               int
 	exchange           *SPNEGO
+	pending            *SPNEGO
+	established        *SPNEGO
 }
 
 type redirectErr struct {
@@ -170,6 +172,8 @@ func (c *Client) Do(req *http.Request) (resp *http.Response, err error) {
 					return nil, verr
 				}
 
+				c.establish()
+
 				c.reqs = append(c.reqs, e.reqTarget)
 				if len(c.reqs) >= c.maxRedirects {
 					c.reqs = c.reqs[:0]
@@ -234,7 +238,32 @@ func (c *Client) completeNegotiation(resp *http.Response, challenged bool) (*htt
 		return nil, err
 	}
 
+	c.establish()
+
 	return resp, nil
+}
+
+func (c *Client) establish() {
+	if c.pending != nil {
+		c.established, c.pending = c.pending, nil
+	}
+}
+
+// NewSecurityLayerSession returns a session that protects messages with the Kerberos context the client established
+// in the most recent exchange the target accepted, as SPNEGO.NewSecurityLayerSession describes. A protocol that
+// encrypts its messages after authenticating, such as the MS-WSMV message encryption WinRM uses, calls it once
+// after the request that authenticated and uses the one session for every message over that context; a second
+// session over the same context would start again from the same sequence numbers, which the target rejects.
+//
+// It returns an error where no exchange has been accepted. The context is replaced whenever the client
+// authenticates again, so a caller that issues requests concurrently cannot tell which context a session protects
+// messages with.
+func (c *Client) NewSecurityLayerSession(layer gssapi.SecurityLayer, maxBufferSize int, opts ...gssapi.SecurityLayerOption) (*gssapi.SecurityLayerSession, error) {
+	if c.established == nil {
+		return nil, errors.New("spnego: the client has not established a context with the target")
+	}
+
+	return c.established.NewSecurityLayerSession(layer, maxBufferSize, opts...)
 }
 
 func (c *Client) verifyAcceptor(resp *http.Response) error {
@@ -305,6 +334,7 @@ func (c *Client) endNegotiation() {
 	c.reqs = c.reqs[:0]
 	c.legs = 0
 	c.exchange = nil
+	c.pending = nil
 }
 
 // requestTokenOptions returns the token options to use for the response that challenged the client, deriving a

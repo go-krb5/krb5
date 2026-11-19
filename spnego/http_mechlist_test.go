@@ -32,7 +32,7 @@ func TestSPNEGOKRB5AuthenticateReturnsAMechListMIC(t *testing.T) {
 	payload, err := mechListMICPayload(nil, init.MechTypes)
 	require.NoError(t, err)
 
-	assert.NoError(t, verifyMechListMIC(nt.MechListMIC, payload, key, true))
+	assert.NoError(t, verifyMechListMIC(nt.MechListMIC, payload, key, true, false))
 }
 
 func TestSPNEGOKRB5AuthenticateRejectsAnIncorrectMechListMIC(t *testing.T) {
