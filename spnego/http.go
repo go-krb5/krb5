@@ -27,6 +27,12 @@ import (
 
 var lookupCNAME = net.LookupCNAME
 
+var probeServiceTicket = func(cl *client.Client, spn string) error {
+	_, _, err := cl.GetServiceTicket(spn)
+
+	return err
+}
+
 // DefaultMaxRedirects is the number of redirects the SPNEGO client will follow when no other limit is configured.
 const DefaultMaxRedirects = 10
 
@@ -411,6 +417,10 @@ func canonicalizeHostname(cl *client.Client) bool {
 	return cl.Config.LibDefaults.DNSCanonicalizeHostname
 }
 
+func canonicalizeHostnameFallback(cl *client.Client) bool {
+	return cl != nil && cl.Config != nil && cl.Config.LibDefaults.DNSCanonicalizeHostnameFallback
+}
+
 // SetSPNEGOHeader gets the service ticket and sets it as the SPNEGO authorization header on HTTP request object.
 // To auto generate the SPN from the request object pass a null string "".
 func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) error {
@@ -420,7 +430,7 @@ func SetSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB
 }
 
 func setSPNEGOHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) (*SPNEGO, error) {
-	spn, err := requestSPN(cl, r, spn)
+	spn, err := requestSPN(cl, r, spn, opts...)
 	if err != nil {
 		return nil, err
 	}

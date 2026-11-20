@@ -69,72 +69,82 @@ func (c *Config) GetKDCs(realm string, tcp bool) (int, map[int]string, error) {
 //
 // See Also: https://web.mit.edu/kerberos/krb5-latest/doc/admin/conf_files/krb5_conf.html#realms.
 func (c *Config) GetKpasswdServers(realm string, tcp bool) (int, map[int]string, error) {
-	kdcs := make(map[int]string)
+	var (
+		explicit []string
+		admin    []string
+	)
 
-	var count int
-
-	if c.LibDefaults.DNSLookupKDC {
-		proto := protoUDP
-		if tcp {
-			proto = protoTCP
+	for _, r := range c.Realms {
+		if r.Realm != realm {
+			continue
 		}
 
-		c, addrs, err := dns.OrderedSRV(svcKerberosPassword, proto, realm)
-		if err != nil {
-			return count, kdcs, err
+		if r.kpasswdFromAdmin {
+			admin = r.KPasswdServer
+		} else {
+			explicit = r.KPasswdServer
 		}
 
-		if c < 1 {
-			c, addrs, err = dns.OrderedSRV(svcKerberosAdmin, proto, realm)
-			if err != nil {
-				return count, kdcs, err
-			}
-		}
-
-		if len(addrs) < 1 {
-			return count, kdcs, fmt.Errorf("no kpasswd or kadmin SRV records found for realm %s", realm)
-		}
-
-		count = c
-
-		for k, v := range addrs {
-			kdcs[k] = strings.TrimRight(v.Target, ".") + ":" + strconv.Itoa(int(v.Port))
-		}
-	} else {
-		var (
-			ks []string
-			ka []string
-		)
-
-		for _, r := range c.Realms {
-			if r.Realm == realm {
-				ks = r.KPasswdServer
-				ka = r.AdminServer
-
-				break
-			}
-		}
-
-		if len(ks) < 1 {
-			for _, k := range ka {
-				h, _, err := net.SplitHostPort(k)
-				if err != nil {
-					continue
+		if len(admin) == 0 {
+			for _, a := range r.AdminServer {
+				if host, _, err := splitHostPort(a); err == nil && host != "" {
+					admin = append(admin, net.JoinHostPort(host, strconv.Itoa(portKpasswd)))
 				}
-
-				ks = append(ks, h+":464")
 			}
 		}
 
-		count = len(ks)
-		if count < 1 {
-			return count, kdcs, fmt.Errorf("no kpasswd or kadmin defined in configuration for realm %s", realm)
-		}
-
-		kdcs = randServOrder(ks)
+		break
 	}
 
-	return count, kdcs, nil
+	proto := protoUDP
+	if tcp {
+		proto = protoTCP
+	}
+
+	// MIT krb5 looks for kpasswd servers in the configuration and then in DNS, and only where neither lists any does
+	// it use the admin servers, again from the configuration and then from DNS, with the kpasswd port in place of
+	// theirs.
+	if len(explicit) > 0 {
+		return len(explicit), randServOrder(explicit), nil
+	}
+
+	if c.LibDefaults.DNSLookupKDC {
+		if n, servers := srvServers(svcKerberosPassword, proto, realm, 0); n > 0 {
+			return n, servers, nil
+		}
+	}
+
+	if len(admin) > 0 {
+		return len(admin), randServOrder(admin), nil
+	}
+
+	if c.LibDefaults.DNSLookupKDC {
+		if n, servers := srvServers(svcKerberosAdmin, proto, realm, portKpasswd); n > 0 {
+			return n, servers, nil
+		}
+	}
+
+	return 0, make(map[int]string), fmt.Errorf("no kpasswd or kadmin servers found for realm %s", realm)
+}
+
+func srvServers(service, proto, realm string, port int) (int, map[int]string) {
+	servers := make(map[int]string)
+
+	n, addrs, err := dns.OrderedSRV(service, proto, realm)
+	if err != nil || len(addrs) == 0 {
+		return 0, servers
+	}
+
+	for k, v := range addrs {
+		p := int(v.Port)
+		if port != 0 {
+			p = port
+		}
+
+		servers[k] = net.JoinHostPort(strings.TrimRight(v.Target, "."), strconv.Itoa(p))
+	}
+
+	return n, servers
 }
 
 // randServOrder returns the servers keyed by a randomised preference order.

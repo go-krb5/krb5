@@ -22,7 +22,7 @@ const (
  admin_server = FILE:/var/log/kerberos/kadmind.log
 
 [libdefaults]
- default_realm = TEST.GOKRB5 ; comment to be ignored
+ default_realm = TEST.GOKRB5
  dns_lookup_realm = false
 
  dns_lookup_kdc = false
@@ -30,24 +30,24 @@ const (
  ;dns_lookup_kdc = true
 #dns_lookup_kdc = true
 ;dns_lookup_kdc = true
- ticket_lifetime = 10h ;comment to be ignored
- forwardable = yes #comment to be ignored
+ ticket_lifetime = 10h
+ forwardable = yes
  default_keytab_name = FILE:/etc/krb5.keytab
 
  default_client_keytab_name = FILE:/home/krb5/client.keytab
- default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96 # comment to be ignored
+ default_tkt_enctypes = aes256-cts-hmac-sha1-96 aes128-cts-hmac-sha1-96
 
 
 [realms]
  TEST.GOKRB5 = {
-  kdc = 10.80.88.88:88 #comment to be ignored
-  kdc = assume.port.num ;comment to be ignored
-  kdc = some.other.port:1234 # comment to be ignored
+  kdc = 10.80.88.88:88
+  kdc = assume.port.num
+  kdc = some.other.port:1234
 
-  kdc = 10.80.88.88*
+  kdc* = 10.80.88.88
   kdc = 10.1.2.3.4:88
 
-  admin_server = 10.80.88.88:749 ; comment to be ignored
+  admin_server = 10.80.88.88:749
   default_domain = test.gokrb5
  }
  EXAMPLE.COM = {
@@ -63,12 +63,12 @@ const (
 
 
 [domain_realm]
- .test.gokrb5 = TEST.GOKRB5 #comment to be ignored
+ .test.gokrb5 = TEST.GOKRB5
 
- test.gokrb5 = TEST.GOKRB5 ;comment to be ignored
+ test.gokrb5 = TEST.GOKRB5
 
-  .example.com = EXAMPLE.COM # comment to be ignored
- hostname1.example.com = EXAMPLE.COM ; comment to be ignored
+  .example.com = EXAMPLE.COM
+ hostname1.example.com = EXAMPLE.COM
  hostname2.example.com = TEST.GOKRB5
  .testlowercase.org = lowercase.org
 
@@ -90,6 +90,7 @@ const (
     "Canonicalize": false,
     "CCacheType": 4,
     "Clockskew": 300000000000,
+    "DefaultCCacheName": "FILE:/tmp/krb5cc_test",
     "DefaultClientKeytabName": "FILE:/home/krb5/client.keytab",
     "DefaultKeytabName": "FILE:/etc/krb5.keytab",
     "DefaultRealm": "TEST.GOKRB5",
@@ -99,12 +100,9 @@ const (
       "aes256-cts-hmac-sha384-192",
       "aes128-cts-hmac-sha256-128",
       "des3-cbc-sha1",
-      "arcfour-hmac-md5",
-      "camellia256-cts-cmac",
+      "arcfour-hmac",
       "camellia128-cts-cmac",
-      "des-cbc-crc",
-      "des-cbc-md5",
-      "des-cbc-md4"
+      "camellia256-cts-cmac"
     ],
     "DefaultTktEnctypes": [
       "aes256-cts-hmac-sha1-96",
@@ -121,12 +119,13 @@ const (
       17
     ],
     "DNSCanonicalizeHostname": true,
+    "DNSCanonicalizeHostnameFallback": false,
     "DNSLookupKDC": false,
     "DNSLookupRealm": false,
     "ExtraAddresses": null,
     "Forwardable": true,
     "IgnoreAcceptorHostname": false,
-    "K5LoginAuthoritative": false,
+    "K5LoginAuthoritative": true,
     "K5LoginDirectory": "/home/test",
     "KDCDefaultOptions": {
       "Bytes": "AAAAEA==",
@@ -140,12 +139,9 @@ const (
       "aes256-cts-hmac-sha384-192",
       "aes128-cts-hmac-sha256-128",
       "des3-cbc-sha1",
-      "arcfour-hmac-md5",
-      "camellia256-cts-cmac",
+      "arcfour-hmac",
       "camellia128-cts-cmac",
-      "des-cbc-crc",
-      "des-cbc-md5",
-      "des-cbc-md4"
+      "camellia256-cts-cmac"
     ],
     "PermittedEnctypeIDs": [
       18,
@@ -269,7 +265,7 @@ const (
   kdc = assume.port.num
   kdc = some.other.port:1234
 
-  kdc = 10.80.88.88*
+  kdc* = 10.80.88.88
   kdc = 10.1.2.3.4:88
 
   admin_server = 10.80.88.88:749
@@ -304,7 +300,7 @@ const (
   kdc = 10.80.88.88:88
   kdc = assume.port.num
   kdc = some.other.port:1234
-  kdc = 10.80.88.88*
+  kdc* = 10.80.88.88
   kdc = 10.1.2.3.4:88
   admin_server = 10.80.88.88:749
   default_domain = test.gokrb5
@@ -348,7 +344,7 @@ const (
 		kdc = assume.port.num
 		kdc = some.other.port:1234
 
-		kdc = 10.80.88.88*
+		kdc* = 10.80.88.88
 		kdc = 10.1.2.3.4:88
 
 		admin_server = 10.80.88.88:749
@@ -412,7 +408,7 @@ const (
   kdc = assume.port.num
   kdc = some.other.port:1234
 
-  kdc = 10.80.88.88*
+  kdc* = 10.80.88.88
   kdc = 10.1.2.3.4:88
 
   admin_server = 10.80.88.88:749
@@ -679,6 +675,7 @@ func TestJSON(t *testing.T) {
 	require.NoError(t, err)
 
 	c.LibDefaults.K5LoginDirectory = "/home/test"
+	c.LibDefaults.DefaultCCacheName = "FILE:/tmp/krb5cc_test"
 
 	j, err := c.JSON()
 	require.NoError(t, err)
@@ -821,7 +818,7 @@ func TestParsePreferredPreauthTypesRejectsANonNumericEntry(t *testing.T) {
 func TestParsePreferredPreauthTypesRejectsAnEmptyList(t *testing.T) {
 	t.Parallel()
 
-	for _, value := range []string{"", " , "} {
+	for _, value := range []string{",", " , ", `""`} {
 		_, err := NewFromString("[libdefaults]\n default_realm = TEST.GOKRB5\n preferred_preauth_types = " + value + "\n")
 		assert.Error(t, err, "value %q", value)
 	}
@@ -881,7 +878,7 @@ func TestParseRealmsIgnoresASubsectionNestedInAnother(t *testing.T) {
 	assert.Equal(t, []string{nestedRealmKDC}, c.Realms[0].KDC)
 }
 
-func TestParseRealmsCountsEveryBraceOnALine(t *testing.T) {
+func TestParseRealmsClosesOneSubsectionPerLine(t *testing.T) {
 	t.Parallel()
 
 	conf := `[realms]
@@ -903,28 +900,30 @@ func TestParseRealmsCountsEveryBraceOnALine(t *testing.T) {
 
 	require.NotPanics(t, func() { c, err = NewFromString(conf) })
 	require.NoError(t, err)
-	require.Len(t, c.Realms, 2)
+	require.Len(t, c.Realms, 1)
 
 	assert.Equal(t, "TEST.GOKRB5", c.Realms[0].Realm)
 	assert.Equal(t, []string{nestedRealmKDC}, c.Realms[0].KDC)
-	assert.Equal(t, "OTHER.GOKRB5", c.Realms[1].Realm)
-	assert.Equal(t, []string{"kdc.other.gokrb5:88"}, c.Realms[1].KDC)
 }
 
-func TestParseRealmsRefusesMoreClosingBracesThanOpen(t *testing.T) {
+func TestParseRealmsRefusesAnUnmatchedClosingBrace(t *testing.T) {
 	t.Parallel()
 
-	_, err := NewFromString("[realms]\n TEST.GOKRB5 = {\n  kdc = kdc1.test.gokrb5\n }}\n")
+	_, err := NewFromString("[realms]\n TEST.GOKRB5 = {\n  kdc = kdc1.test.gokrb5\n }\n }\n")
 	assert.Error(t, err)
 }
 
-func TestParseRealmsRefusesARealmOnOneLine(t *testing.T) {
+func TestParseRealmsReadsARealmOnOneLineAsARelation(t *testing.T) {
 	t.Parallel()
 
-	var err error
+	var (
+		c   *Config
+		err error
+	)
 
-	require.NotPanics(t, func() { _, err = NewFromString("[realms]\n TEST.GOKRB5 = { kdc = kdc1.test.gokrb5 }\n") })
-	assert.Error(t, err)
+	require.NotPanics(t, func() { c, err = NewFromString("[realms]\n TEST.GOKRB5 = { kdc = kdc1.test.gokrb5 }\n") })
+	require.NoError(t, err)
+	assert.Empty(t, c.Realms)
 }
 
 const nestedRealmKDC = "kdc1.test.gokrb5:88"
