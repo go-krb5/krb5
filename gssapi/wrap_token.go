@@ -88,7 +88,7 @@ func (wt *WrapToken) Marshal() ([]byte, error) {
 
 	// RFC 4121 Section 4.2.5 rotates everything after the header right by RRC octets. Recording the count in the
 	// header without performing the rotation would describe a token this did not produce.
-	copy(bytes[HdrLen:], rotate(bytes[HdrLen:], wt.RRC))
+	copy(bytes[HdrLen:], rotate(bytes[HdrLen:], int(wt.RRC)))
 
 	return bytes, nil
 }
@@ -212,7 +212,7 @@ func (wt *WrapToken) Unmarshal(b []byte, expectFromAcceptor bool) error {
 	// RFC 4121 Section 4.2.5 rotates everything after the header right by RRC octets, and requires that a
 	// receiver "be able to interpret all possible rotation count values, including rotation counts greater than
 	// the length of the token".
-	data := unrotate(b[HdrLen:], rrc)
+	data := unrotate(b[HdrLen:], int(rrc))
 
 	// Sanity check on the checksum length.
 	if int(checksumL) > len(data) {
