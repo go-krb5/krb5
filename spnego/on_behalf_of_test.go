@@ -135,19 +135,19 @@ func TestOnBehalfOfAnswersAMechListMICWithTheImpersonatedKey(t *testing.T) {
 	payload, err := mechListMICPayload(nil, initiatorMechTypes())
 	require.NoError(t, err)
 
-	targetMIC, err := newMechListMIC(payload, imp.SessionKey, true)
+	targetMIC, err := newMechListMIC(payload, imp.SessionKey, true, false)
 	require.NoError(t, err)
 
 	r := httptest.NewRequest(http.MethodGet, "http://host.test.gokrb5/", nil)
 
-	require.NoError(t, setSPNEGOMechListMICHeader(kdclessClient(t), r, impersonationSPN, targetMIC, OnBehalfOf(imp)))
+	require.NoError(t, setSPNEGOMechListMICHeader(kdclessClient(t), r, impersonationSPN, nil, targetMIC, OnBehalfOf(imp)))
 
 	_, nt, err := UnmarshalNegToken(negotiationHeader(t, r))
 	require.NoError(t, err)
 
 	resp, isResp := nt.(NegTokenResp)
 	require.True(t, isResp, "the leg sent a %T, not a NegTokenResp", nt)
-	assert.NoError(t, verifyMechListMIC(resp.MechListMIC, payload, imp.SessionKey, false))
+	assert.NoError(t, verifyMechListMIC(resp.MechListMIC, payload, imp.SessionKey, false, false))
 }
 
 func impersonation(t *testing.T) (client.Impersonation, *SPNEGO) {

@@ -204,5 +204,9 @@ func (s *SPNEGO) VerifyMutual(b []byte) error {
 		return errors.New("spnego: the AP-REP echoes a different time than this exchange sent, so it answers another one")
 	}
 
+	// RFC 4121 Section 2 has a subkey the acceptor asserts here protect every per-message token from now on, and
+	// Section 4.2.6 seeds the sequence numbers of the acceptor's tokens from the one it sends here.
+	s.acceptorSubkey, s.acceptorSeqNum, s.acceptorReplied = enc.Subkey, enc.SequenceNumber, true
+
 	return nil
 }

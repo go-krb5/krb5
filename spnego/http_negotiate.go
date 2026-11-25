@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/types"
 )
 
 // MaxNegotiationLegs bounds the number of SPNEGO tokens the client will send in answer to one request. RFC 4178
@@ -142,15 +143,17 @@ func (c *Client) negotiate(req *http.Request, resp *http.Response, token []byte)
 
 		return true, err
 	case negotiationAnswerMIC:
-		if c.exchange != nil && len(nr.ResponseToken) > 0 {
-			if err = c.exchange.VerifyMutual(token); err != nil {
+		// The AP-REP is read whether or not mutual authentication was asked for: a subkey the acceptor asserts in
+		// it protects the mechListMIC the target sent and the one this client answers with, RFC 4121 Section 2.
+		if c.pending != nil && len(nr.ResponseToken) > 0 {
+			if err = c.pending.VerifyMutual(token); err != nil {
 				return false, err
 			}
 
 			c.exchange = nil
 		}
 
-		return true, setSPNEGOMechListMICHeader(c.krb5Client, req, c.spn, nr.MechListMIC, opts...)
+		return true, setSPNEGOMechListMICHeader(c.krb5Client, req, c.spn, c.pending, nr.MechListMIC, opts...)
 	default:
 		return false, nil
 	}
@@ -158,6 +161,7 @@ func (c *Client) negotiate(req *http.Request, resp *http.Response, token []byte)
 
 func (c *Client) expectAcceptor(s *SPNEGO, opts []KRB5TokenOption) {
 	c.exchange = nil
+	c.pending = s
 
 	if s != nil && newKRB5TokenOptions(opts...).mutual {
 		c.exchange = s
@@ -202,15 +206,24 @@ func setSPNEGOContinuationHeader(cl *client.Client, r *http.Request, spn string,
 
 // setSPNEGOMechListMICHeader answers a target's request-mic, as RFC 4178 Section 5(c)(IV) describes: "The initiator
 // MUST verify the received mechlistMIC token and generate a mechlistMIC token to send back to the target."
-func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, targetMIC []byte, opts ...KRB5TokenOption) error {
-	spn, err := requestSPN(cl, r, spn)
-	if err != nil {
-		return err
+//
+// The MIC is protected with the key of the context the exchange established, s, chosen as RFC 4121 Section 2
+// describes. Where there is no such context the session key of the service ticket is used.
+func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, s *SPNEGO, targetMIC []byte, opts ...KRB5TokenOption) error {
+	var (
+		key            types.EncryptionKey
+		acceptorSubkey bool
+		err            error
+	)
+
+	if s != nil {
+		key, acceptorSubkey, err = s.protocolKey()
+	} else {
+		key, err = mechListMICServiceKey(cl, r, spn, opts...)
 	}
 
-	_, key, err := serviceTicket(cl, spn, opts...)
 	if err != nil {
-		return fmt.Errorf("could not get the service ticket to verify the mechListMIC: %w", err)
+		return err
 	}
 
 	payload, err := mechListMICPayload(nil, initiatorMechTypes())
@@ -218,11 +231,11 @@ func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, 
 		return err
 	}
 
-	if err = verifyMechListMIC(targetMIC, payload, key, true); err != nil {
+	if err = verifyMechListMIC(targetMIC, payload, key, true, acceptorSubkey); err != nil {
 		return err
 	}
 
-	mic, err := newMechListMIC(payload, key, false)
+	mic, err := newMechListMIC(payload, key, false, acceptorSubkey)
 	if err != nil {
 		return err
 	}
@@ -231,6 +244,20 @@ func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, 
 		NegState:    asn1.Enumerated(NegStateAcceptCompleted),
 		MechListMIC: mic,
 	})
+}
+
+func mechListMICServiceKey(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) (types.EncryptionKey, error) {
+	spn, err := requestSPN(cl, r, spn)
+	if err != nil {
+		return types.EncryptionKey{}, err
+	}
+
+	_, key, err := serviceTicket(cl, spn, opts...)
+	if err != nil {
+		return types.EncryptionKey{}, fmt.Errorf("could not get the service ticket to verify the mechListMIC: %w", err)
+	}
+
+	return key, nil
 }
 
 // negotiationMechToken builds the Kerberos mech token for a leg of a negotiation.
