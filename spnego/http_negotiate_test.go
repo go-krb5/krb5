@@ -197,6 +197,38 @@ func TestNegotiationNext(t *testing.T) {
 	}
 }
 
+func TestNegotiateHeaderReadsEveryChallenge(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name      string
+		values    []string
+		token     []byte
+		challenge bool
+	}{
+		{"ShouldFindABareChallengeAmongOthers", []string{"NTLM", HTTPHeaderAuthResponseValueKey}, nil, true},
+		{"ShouldFindABareChallengeInAList", []string{"Negotiate, NTLM"}, nil, true},
+		{"ShouldPreferAChallengeWithAToken", []string{HTTPHeaderAuthResponseValueKey, "Negotiate dG9rZW4="}, []byte("token"), true},
+		{"ShouldFindATokenInAList", []string{`Basic realm="x", Negotiate dG9rZW4=`}, []byte("token"), true},
+		{"ShouldIgnoreTheSchemeCase", []string{"negotiate dG9rZW4="}, []byte("token"), true},
+		{"ShouldReportNoChallenge", []string{`Basic realm="x"`}, nil, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			resp := &http.Response{Header: http.Header{}}
+			for _, v := range tc.values {
+				resp.Header.Add(HTTPHeaderAuthResponse, v)
+			}
+
+			token, challenge, err := negotiateHeader(resp)
+			require.NoError(t, err)
+			assert.Equal(t, tc.token, token)
+			assert.Equal(t, tc.challenge, challenge)
+		})
+	}
+}
+
 func negTokenRespBytes(t *testing.T, nr NegTokenResp) []byte {
 	t.Helper()
 
