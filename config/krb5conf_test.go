@@ -128,6 +128,7 @@ const (
     "IgnoreAcceptorHostname": false,
     "K5LoginAuthoritative": false,
     "K5LoginDirectory": "/home/test",
+    "KCMSocket": "/var/run/.heim_org.h5l.kcm-socket",
     "KDCDefaultOptions": {
       "Bytes": "AAAAEA==",
       "BitLength": 32

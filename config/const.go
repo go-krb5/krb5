@@ -28,6 +28,7 @@ const (
 	ConfigKeyIgnoreAcceptorHostname  = "ignore_acceptor_hostname"
 	ConfigKeyK5LoginAuthorative      = "k5login_authoritative"
 	ConfigKeyK5LoginDirectory        = "k5login_directory"
+	ConfigKeyKCMSocket               = "kcm_socket"
 	ConfigKeyKDCDefaultOptions       = "kdc_default_options"
 	ConfigKeyKDCTimeSync             = "kdc_timesync"
 	ConfigKeyNoAddresses             = "noaddresses"

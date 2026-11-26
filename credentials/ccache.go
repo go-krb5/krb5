@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 	"unsafe"
 
 	"github.com/go-krb5/x/encoding/asn1"
 
+	"github.com/go-krb5/krb5/config"
 	"github.com/go-krb5/krb5/types"
 )
 
@@ -78,6 +80,25 @@ func LoadCCache(cpath string) (*CCache, error) {
 	err = c.Unmarshal(b)
 
 	return c, err
+}
+
+// ResolveCCache loads the cache a name refers to, as krb5_cc_resolve does:
+// FILE:path or a path is a file, KCM:name a cache of the KCM daemon on the
+// kcm_socket of cfg, and KCM: its default cache. The cfg may be nil.
+func ResolveCCache(name string, cfg *config.Config) (*CCache, error) {
+	if cfg == nil {
+		cfg = config.New()
+	}
+	switch typ, residual, ok := strings.Cut(name, ":"); {
+	case !ok || filepath.IsAbs(name):
+		return LoadCCache(name)
+	case typ == "FILE":
+		return LoadCCache(residual)
+	case typ == "KCM":
+		return loadKCMCCache(cfg.LibDefaults.KCMSocket, residual)
+	default:
+		return nil, fmt.Errorf("credential cache type %s is not supported", typ)
+	}
 }
 
 // Unmarshal a byte slice of credential cache data into CCache type.
