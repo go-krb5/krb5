@@ -11,6 +11,8 @@ import (
 
 	"github.com/go-krb5/krb5/client"
 	"github.com/go-krb5/krb5/gssapi"
+	"github.com/go-krb5/krb5/iana/errorcode"
+	"github.com/go-krb5/krb5/messages"
 )
 
 // MaxNegotiationLegs bounds the number of SPNEGO tokens the client will send in answer to one request. RFC 4178
@@ -160,7 +162,7 @@ func (c *Client) expectAcceptor(s *SPNEGO, opts []KRB5TokenOption) {
 // names the mechanism. The AP_REQ is built afresh rather than reused, since the one already sent has been seen by
 // the target and a service that keeps a replay cache would refuse it.
 func setSPNEGOContinuationHeader(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) (*SPNEGO, error) {
-	spn, err := requestSPN(cl, r, spn)
+	spn, err := requestSPN(cl, r, spn, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +193,7 @@ func setSPNEGOContinuationHeader(cl *client.Client, r *http.Request, spn string,
 // setSPNEGOMechListMICHeader answers a target's request-mic, as RFC 4178 Section 5(c)(IV) describes: "The initiator
 // MUST verify the received mechlistMIC token and generate a mechlistMIC token to send back to the target."
 func setSPNEGOMechListMICHeader(cl *client.Client, r *http.Request, spn string, targetMIC []byte, opts ...KRB5TokenOption) error {
-	spn, err := requestSPN(cl, r, spn)
+	spn, err := requestSPN(cl, r, spn, opts...)
 	if err != nil {
 		return err
 	}
@@ -250,9 +252,34 @@ func setNegotiationHeader(r *http.Request, nr NegTokenResp) error {
 
 // requestSPN resolves the service principal name for a request, deriving it from the request when none is
 // configured, exactly as SetSPNEGOHeader does.
-func requestSPN(cl *client.Client, r *http.Request, spn string) (string, error) {
+func requestSPN(cl *client.Client, r *http.Request, spn string, opts ...KRB5TokenOption) (string, error) {
 	if spn != "" {
 		return spn, nil
+	}
+
+	// Where dns_canonicalize_hostname is fallback the name is derived from the hostname as given, and is
+	// canonicalized with DNS only if the KDC does not know that principal, which is how MIT krb5's k5_canonprinc
+	// tries the two. A ticket obtained on behalf of another user names its service already, so there is nothing to
+	// ask the KDC.
+	if canonicalizeHostnameFallback(cl) && newKRB5TokenOptions(opts...).onBehalfOf == nil {
+		pn, err := setRequestSPN(r, false)
+		if err != nil {
+			return "", err
+		}
+
+		var krbErr messages.KRBError
+
+		if err = probeServiceTicket(cl, pn.PrincipalNameString()); !errors.As(err, &krbErr) || krbErr.ErrorCode != errorcode.KDC_ERR_S_PRINCIPAL_UNKNOWN {
+			return pn.PrincipalNameString(), nil
+		}
+
+		cl.Log("the KDC does not know %s, canonicalizing the hostname with DNS", pn.PrincipalNameString())
+
+		if pn, err = setRequestSPN(r, true); err != nil {
+			return "", err
+		}
+
+		return pn.PrincipalNameString(), nil
 	}
 
 	pn, err := setRequestSPN(r, canonicalizeHostname(cl))
